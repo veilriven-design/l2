@@ -1,50 +1,39 @@
-Containment Vector Interface
+# containment vector interface
 
-This document defines the interface and rules for the Containment Vector, the central abstraction of l2.
+this is the real contract underneath everything.
 
-The goal is to make the boundary explicit, minimal, and enforceable so that the implementation (in C on top of seL4 or host primitives) can be reviewed and reasoned about with high confidence.
+an l2 system (aka containment vector) is an isolated context. the core is the only thing allowed to make them or give them power.
 
-## Purpose
+## lifecycle (roughly)
 
-A Containment Vector (realized as an l2 System) provides a strongly isolated execution context. The l2 core is the only entity permitted to create, configure, or destroy vectors.
+- create: core makes a fresh isolated thing and hands out the initial capabilities according to whatever policy you asked for
+- use: it runs whatever you put in it, using only what it was given
+- revoke/destroy: core can take capabilities back or just kill the whole thing
 
-All authority that crosses the vector boundary must be explicitly granted by the core and is revocable.
+destruction has to be complete. no leftover rights hanging around.
 
-## Vector Lifecycle
+## authority rules
 
-A vector goes through these phases:
+- the core is the only source of new capabilities for a vector
+- vectors can't just hand power to each other
+- anything the core gives can be taken back
 
-1. Creation — The core allocates an isolated context (e.g. Protection Domain or equivalent) with a fresh set of resources. Initial capabilities are granted according to a declared policy.
-2. Configuration — Additional resources and channels are attached only as explicitly requested and authorized.
-3. Execution — The vector runs its workload(s) using only the capabilities it holds.
-4. Revocation / Destruction — The core can revoke specific capabilities or destroy the entire vector. All resources are reclaimed.
+## what is not allowed
 
-Destruction must be total: no residual authority may remain.
+unless the core explicitly says so, a vector cannot:
+- talk directly to other vectors
+- touch host resources
+- allocate new stuff outside what it was given
 
-## Authority Model
+if it does cross the boundary it has to go through the core and it has to be logged.
 
-- Every capability a vector holds is either granted at creation or explicitly delegated later by the core.
-- The core always retains the ability to revoke any granted capability.
-- Vectors may not create or transfer authority to other vectors without core mediation.
+## the actual api
 
-## Boundary Rules
+all the things you're allowed to do from outside are in src/core/sys.h. that's it. if it's not one of the l2_sys_* functions, it shouldn't be possible.
 
-The following are forbidden unless explicitly authorized through the core:
+## invariants the core has to maintain
 
-- Direct communication between vectors
-- Direct access to host resources
-- Creation of new resources outside the vector's allocation
-
-All authorized crossings must be logged.
-
-## Interface
-
-The external operations permitted on a vector are exactly those declared in src/core/sys.h (the l2_sys_* functions).
-
-## Core Invariants
-
-- A vector can only act through the capabilities it currently holds.
-- The core is the sole source of new authority.
-- Revocation is complete.
-- No vector can affect another vector or the host except through core-mediated, auditable paths.
-- Destruction leaves no observable residue outside the core.
+- a vector can only do what its current capabilities allow
+- only the core can give new power
+- when something is revoked it's actually gone
+- destroying a vector doesn't leave junk behind
