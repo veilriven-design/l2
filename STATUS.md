@@ -6,32 +6,35 @@
 
 - Project repository initialized under veilriven-design/l2
 - Tight README and SECURITY.md established
-- Core concepts documented (Containment Vector, Host Terminal Interface, etc.)
+- `docs/TREASURE_CHEST_MODEL.md` added — clarified dynamic "treasure chest" abstraction
 - `docs/CONTAINMENT_VECTOR_INTERFACE.md` and `docs/MEMORY_SAFETY.md` added
+- `src/core/chest_ops.h` added — the complete minimal surface for all chest operations (create, put, get, exec, destroy, etc.)
 
-## Code Skeleton (Just Started)
+## Code Skeleton Direction
 
-Initial source tree under `src/`:
+The skeleton is now oriented around the dynamic Treasure Chest model:
 
-- `src/README.md` — philosophy and structure
-- `src/common/safe.{h,c}` — foundational memory safety guards (l2_bounds_check, l2_memcpy_safe, l2_zero, etc.)
-- `src/core/core.{h,c}` — minimal l2 core Protection Domain (will become the authority root)
-- `src/vector/example_vector.c` — demonstration of code running inside a containment vector
-- `l2.system` — initial Microkit system description
+- Chests are created and destroyed on demand from the host terminal.
+- The only possible interactions with any chest are the operations declared in `chest_ops.h`.
+- The substrate enforces strict containment: actions inside a chest have no effect outside unless explicitly mediated by the listed operations.
+- Early code focuses on the host-integrated substrate rather than a full booted seL4 guest.
 
-All new C code is written from day one under the rules defined in `docs/MEMORY_SAFETY.md`.
+Current files:
+- `src/common/safe.{h,c}` — mandatory memory safety guards
+- `src/core/chest_ops.h` — the absolute minimal developer surface
+- `src/core/core.*` — early core that will implement chest lifecycle and boundary enforcement
 
-## Near Term (First Milestone)
+The previous Microkit boot-oriented files remain as reference for strong-isolation backends but are no longer the primary path for the initial skeleton.
 
-- Produce a minimal bootable seL4 + Microkit system under QEMU that:
-  - Boots the l2 core
-  - Boots the example vector
-  - Demonstrates basic separation and debug output
-- Expand the core to actually create simple static containment vectors at boot
-- Define the first version of the narrow host terminal protocol
+## Near Term Focus
+
+- Implement a minimal in-memory or host-primitive-backed version of the chest operations (create/put/get/destroy) that strictly respects the boundary.
+- Define the host terminal CLI surface that maps to `chest_ops.h`.
+- Ensure every crossing of the chest boundary is explicit and auditable.
+- Keep the TCB for chest management as small as possible.
 
 ## Principles for All Work
 
 - Every added line of code or documentation must justify itself against the mission of minimal high-assurance MCP and developer computation.
-- The containment boundary and any code that manages authority are held to the highest review standards.
-- We favor proven seL4 ecosystem components (Microkit, sel4runtime, etc.) over new inventions in the early stages.
+- The chest boundary and any code that manages authority are held to the highest review standards.
+- Absolute minimal surface: if it's not one of the operations in chest_ops.h, it should not be possible.
