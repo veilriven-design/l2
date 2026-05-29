@@ -1,8 +1,8 @@
 # The Treasure Chest Model
 
-The user-facing abstraction of l2 is the **Treasure Chest**.
+The user-facing abstraction of l2 is the **Treasure Chest** (internally referred to as an "l2 System").
 
-A Treasure Chest is a dynamic, strongly isolated environment on the host system where you can:
+A Treasure Chest / System is a dynamic, strongly isolated environment on the host system where you can:
 
 - Put things in (data, code, credentials, tools)
 - Make things happen inside (execute commands, run MCP servers, perform computation)
@@ -10,9 +10,17 @@ A Treasure Chest is a dynamic, strongly isolated environment on the host system 
 
 **Crucially**: Everything that happens inside a chest is contained. It cannot affect the host system or other chests except through explicit, mediated, and auditable operations provided by l2.
 
+## Naming
+
+- User / documentation language: "Treasure Chest" or "chest"
+- Programmatic API: `l2_sys_*` functions (`l2_sys_create`, `l2_sys_put`, `l2_sys_exec`, etc.)
+- Opaque handle type: `l2_sys_t`
+
+This keeps the friendly mental model while using a clean, consistent `l2_sys_` prefix in code.
+
 ## Mental Model
 
-- The chest itself is the Containment Vector.
+- The chest itself is the Containment Vector (the l2 System).
 - The host terminal is how you interact with chests (create, open, put, exec, get, destroy).
 - The l2 substrate enforces the boundary using seL4 where possible, combined with the smallest possible set of host mechanisms to achieve the required isolation on any given platform.
 - The surface is deliberately tiny: only the operations you explicitly invoke on a specific chest are possible.
