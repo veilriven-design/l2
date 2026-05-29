@@ -1,8 +1,8 @@
 /*
  * example_vector.c
  *
- * demo workload inside system
- * only core-granted caps
+ * simple example of code running inside an l2 system.
+ * only has capabilities explicitly granted by the core.
  */
 
 #include <microkit.h>
