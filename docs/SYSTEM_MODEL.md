@@ -1,35 +1,36 @@
 # system model
 
-an l2 system is just a dynamic isolated context that the substrate gives you.
+l2 system - dynamic isolated context -/ substrate provides it
 
-you create it from the terminal, do stuff inside it, and when you're done you tear it down. that's basically it.
+create from terminal -/ do stuff inside -/ tear down when done
 
-## the important bits
+-/ core properties
 
-- it only exists when you need it
-- nothing inside it can touch the host or other systems unless it goes through the functions in sys.h
-- the only things you can do are the l2_sys_* calls (create, put, get, exec, destroy, etc)
-- the core decides what authority a system actually gets
+- only exists on demand
+- nothing inside touches host or other systems unless via sys-h functions
+- only allowed actions are l2_sys_* calls -/ create / put / get / exec / destroy etc
+- core decides authority
 
-## how a system lives
+-/ lifecycle
 
-1. you call l2_sys_create with some policy
-2. you shove things in with l2_sys_put or tell it to run stuff with l2_sys_exec
-3. you pull results out with l2_sys_get
-4. when you're finished you l2_sys_destroy it and it goes away
+l2_sys_create -/ policy
+l2_sys_put or l2_sys_exec -/ work inside
+l2_sys_get -/ results out
+l2_sys_destroy -/ gone
 
-if you want to take authority back early you can use l2_sys_revoke.
+l2_sys_revoke -/ take power back early
 
-## how it relates to containment vectors
+-/ relation to containment vector
 
-same thing really. the containment vector doc has the lower level rules. this is just the version normal humans are supposed to think about.
+same thing -/ see containment_vector_interface-md for lower level rules
 
-## isolation
+-/ isolation
 
-inside a system should not be able to read or write the host. one system shouldn't be able to mess with another one. when you destroy it, it should actually be gone (no sneaky leftover capabilities).
+no host read/write from inside -/ no cross-system messing -/ clean destruction -/ no leftover capabilities
 
-everything that crosses the boundary has to be logged in some way.
+boundary crossings must be logged
 
-## backends
+-/ backends
 
-on some machines we might actually use sel4 for the real isolation. on your laptop we might use whatever the host gives us (namespaces, seccomp, hypervisor tricks, etc). the interface stays the same either way.
+sel4 when possible -/ host primitives otherwise -/ namespaces / seccomp / hypervisor etc
+interface stays same
