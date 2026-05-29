@@ -1,24 +1,21 @@
 # status
 
-early skeleton
+early skeleton phase
 
--/ done
+done
+- core docs (system_model, containment_vector_interface, memory_safety)
+- sys.h with l2_sys_* interface
+- basic memory safety helpers
+- core implementation started
 
-- docs -/ system_model - containment_vector - memory_safety
-- sys-h - l2_sys_* interface
-- safe-* guards
-- core started
+current direction
+- keep public surface minimal (only l2_sys_*)
+- dynamic on-demand systems (create/use/kill)
+- no persistent background components
 
--/ direction
+next
+- implement the l2_sys_* functions
+- build terminal cli on top
+- keep trusted computing base small
 
-tiny surface -/ only l2_sys_*
-
-no always-on -/ on demand create/use/kill
-
--/ next
-
-- implement l2_sys_*
-- cli
-- minimal tcb
-
-rough - keep going
+still rough - work in progress
