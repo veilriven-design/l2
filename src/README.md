@@ -1,25 +1,23 @@
 # src
 
-c here
+c code lives here
 
--/ model
+model
 
-l2 systems - make/use/kill
+l2 systems: create / use / kill on demand
 
-only via l2_sys_* in sys-h
+all interaction through l2_sys_* functions in sys.h
 
--/ rules
+rules
 
-- tiny interface
-- no cross boundary leaks
-- minimal core
-- guards required -/ memory_safety-md
+- keep the public interface tiny
+- no leaks across boundaries
+- minimal core tcb
+- use guards from memory_safety.md
 
--/ layout
+current layout
 
-core/sys-h - api
-common/safe-* - guards
+core/sys.h     - public api
+common/safe.*   - memory safety helpers
 
--/ note
-
-early - rough
+note: still early and rough
