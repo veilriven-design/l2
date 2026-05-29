@@ -1,0 +1,26 @@
+# Build artifacts
+build/
+target/
+*.o
+*.a
+*.so
+*.d
+
+# seL4 / Microkit generated
+*.cdl
+*.camkes
+
+# QEMU images and logs
+*.img
+*.bin
+qemu-*.log
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
