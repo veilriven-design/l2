@@ -3,7 +3,7 @@
 early skeleton phase
 
 done
-- core docs (system_model, containment_vector_interface, memory_safety)
+- core docs (system_model, containment_vector_interface, memory_safety, sel4_coupling)
 - sys.h with l2_sys_* interface
 - basic memory safety helpers
 - core implementation started
