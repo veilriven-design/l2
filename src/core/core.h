@@ -1,8 +1,8 @@
 /*
  * core.h
  *
- * core services - future
- * all via capability interfaces
+ * declarations for core services (future expansion).
+ * all operations go through explicit capability-controlled interfaces.
  */
 
 #pragma once
