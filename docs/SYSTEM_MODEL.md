@@ -27,3 +27,5 @@ on suitable hardware we use sel4 for strong isolation.
 on normal developer machines we use the best available host mechanisms (namespaces, virtualization, etc).
 
 the external interface remains the same regardless of backend.
+
+see sel4_coupling.md for details on how l2 couples to sel4 primitives.
