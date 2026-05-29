@@ -1,34 +1,29 @@
 # l2
 
-l2 - minimal high-assurance substrate -/ sel4
+l2 - minimal high-assurance sel4 substrate
 
-isolated execution contexts called l2 systems -/ spin up from terminal -/ put stuff in -/ run inside -/ pull results out
+l2 systems - isolated contexts -/ terminal driven
 
-nothing leaks unless through narrow interface in src/core/sys-h
+put in - run - pull out -/ only via l2_sys_*
 
-systems dynamic -/ create when needed - destroy when done -/ no big background daemon
+no leaks -/ no background daemon
 
--/ what it is
+-/ properties
 
-- dynamic isolated systems
-- tiny interface -/ only l2_sys_* calls
-- c with serious guards -/ see memory_safety-md
-- operated from normal terminal on host
+- dynamic
+- tiny surface -/ l2_sys_* only
+- c + guards
 
--/ what its not
+-/ not
 
-- not full os
-- not fancy container stuff with all features
-- not persistent background thing
-- not polished writing
+- full os
+- rich runtime
+- always-on
 
--/ current state
+-/ state
 
-early skeleton -/ core ideas in docs/system_model-md -/ docs/containment_vector_interface-md
-code starting in src/
-
-see status-md for actual progress
+early skeleton -/ see docs/system_model-md + status-md
 
 -/ license
 
-bsd-2-clause -/ see license
+bsd-2-clause
