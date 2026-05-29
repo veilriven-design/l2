@@ -1,31 +1,25 @@
 # src
 
-actual c lives here
+c here
 
 -/ model
 
-l2 systems -/ make them - use them - kill them
+l2 systems - make/use/kill
 
-everything goes through functions in sys-h -/ the l2_sys_* ones
+only via l2_sys_* in sys-h
 
-see docs/system_model-md for more formal take
+-/ rules
 
--/ how we think about it
+- tiny interface
+- no cross boundary leaks
+- minimal core
+- guards required -/ memory_safety-md
 
-- interface must stay tiny
-- stuff inside must not reach outside unless explicitly allowed
-- core that manages systems must stay as small as possible
-- memory safety matters -/ see memory_safety-md
+-/ layout
 
--/ rough layout
+core/sys-h - api
+common/safe-* - guards
 
-```
-src/
-├── core/
-│   └── sys.h     # actual api - l2_sys_create etc
-├── common/
-│   └── safe-*    # guards
-└── ...
-```
+-/ note
 
-still early -/ dont expect clean structure yet
+early - rough
