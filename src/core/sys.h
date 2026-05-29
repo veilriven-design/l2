@@ -1,8 +1,8 @@
 /*
  * sys.h
  *
- * this is basically the entire public interface for talking to an l2 system.
- * if it's not one of these calls, you shouldn't be able to do it.
+ * full public interface for l2 system
+ * only these calls allowed
  */
 
 #pragma once
@@ -10,10 +10,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* handle to a system */
 typedef struct l2_sys *l2_sys_t;
 
-/* boring result codes */
 typedef enum {
     L2_OK = 0,
     L2_ERR_INVALID,
@@ -23,7 +21,6 @@ typedef enum {
     L2_ERR_INTERNAL,
 } l2_result_t;
 
-/* what kind of thing you're stuffing into a system */
 typedef enum {
     L2_OBJ_DATA,
     L2_OBJ_CREDENTIAL,
@@ -31,27 +28,10 @@ typedef enum {
     L2_OBJ_MCP_SERVER,
 } l2_object_type_t;
 
-/* create a new system with some policy string the core understands */
 l2_result_t l2_sys_create(const char *name, const char *policy, l2_sys_t *out);
-
-/* nuke it completely */
 l2_result_t l2_sys_destroy(l2_sys_t sys);
-
-/* put something inside */
-l2_result_t l2_sys_put(l2_sys_t sys, const char *name, l2_object_type_t type,
-                       const void *data, size_t size);
-
-/* pull something out */
-l2_result_t l2_sys_get(l2_sys_t sys, const char *name, void *buf,
-                       size_t buf_size, size_t *out_size);
-
-/* run something inside the system */
-l2_result_t l2_sys_exec(l2_sys_t sys, const char *what,
-                        const void *input, size_t input_size,
-                        void *output, size_t output_size, size_t *out_size);
-
-/* list what's in there (subject to policy) */
+l2_result_t l2_sys_put(l2_sys_t sys, const char *name, l2_object_type_t type, const void *data, size_t size);
+l2_result_t l2_sys_get(l2_sys_t sys, const char *name, void *buf, size_t buf_size, size_t *out_size);
+l2_result_t l2_sys_exec(l2_sys_t sys, const char *what, const void *input, size_t input_size, void *output, size_t output_size, size_t *out_size);
 l2_result_t l2_sys_list(l2_sys_t sys, char *buf, size_t buf_size, size_t *out_count);
-
-/* take back some previously granted thing */
 l2_result_t l2_sys_revoke(l2_sys_t sys, const char *grant_id);
