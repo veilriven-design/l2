@@ -1,35 +1,29 @@
-# l2 Source Tree
+# src
 
-This directory contains the C implementation of the l2 substrate.
+this is where the actual c lives.
 
-## Model
+## model
 
-l2 provides dynamic isolated execution contexts called l2 Systems. Each system is created and destroyed on demand. All interaction with a system occurs exclusively through the narrow interface in sys.h (the l2_sys_* functions).
+l2 systems are the thing. you make them, you use them, you kill them. everything you can do to one goes through the functions in sys.h (the l2_sys_* ones).
 
-See docs/SYSTEM_MODEL.md for the technical definition.
+see docs/system_model.md if you want the more formal version.
 
-## Design Principles
+## how we're thinking about it
 
-- Absolute minimal interface: only l2_sys_* operations are exposed.
-- Dynamic lifecycle with no requirement for persistent background components.
-- Strong containment enforced by the substrate.
-- TCB minimization for all code that can create or affect systems.
-- Host integration with seL4 used for strongest isolation where feasible.
+- the interface has to stay tiny
+- stuff inside a system shouldn't be able to reach outside unless we explicitly let it
+- the core that creates and manages systems should be as small as we can make it
+- memory safety matters a lot here (see memory_safety.md)
 
-## Current Layout
+## rough layout right now
 
 ```
 src/
-├── README.md
 ├── core/
-│   ├── sys.h            # Public interface (l2_sys_create, l2_sys_put, l2_sys_exec, ...)
-│   └── core.*           # Core implementation of system management and enforcement
+│   └── sys.h          # the actual api (l2_sys_create etc)
 ├── common/
-│   └── safe.*           # Mandatory memory safety utilities
-└── vector/
-    └── ...              # Support for code executing inside systems
+│   └── safe.*         # the guards we actually use
+└── ...
 ```
 
-## Status
-
-Early code skeleton focused on the l2 System abstraction and its minimal interface.
+this is still early. don't expect nice structure yet.
