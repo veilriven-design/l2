@@ -1,7 +1,7 @@
 /*
  * safe.c
  *
- * guard impls
+ * implementations of the memory safety guards.
  */
 
 #include "safe.h"
@@ -12,6 +12,7 @@ bool l2_memcpy_safe(void *restrict dst, l2_size_t dst_size, const void *restrict
     if (!dst || !src) return false;
     if (!l2_bounds_check(0, copy_len, dst_size)) return false;
     if (!l2_bounds_check(0, copy_len, src_size)) return false;
+
     memcpy(dst, src, copy_len);
     return true;
 }
