@@ -1,8 +1,8 @@
 /*
  * sys.h
  *
- * full public interface for l2 system
- * only these calls allowed
+ * this is the complete public interface for interacting with l2 systems.
+ * nothing outside these functions is permitted.
  */
 
 #pragma once
