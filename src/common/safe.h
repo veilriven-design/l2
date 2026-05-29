@@ -1,7 +1,7 @@
 /*
  * safe.h
  *
- * guards for c
+ * basic memory safety guards used throughout the core.
  */
 
 #pragma once
