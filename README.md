@@ -1,42 +1,31 @@
 # l2
 
-**l2** is a minimal high-assurance system substrate anchored on the seL4 microkernel.
+l2 is a minimal high-assurance substrate on top of sel4.
 
-It provides dynamic, isolated execution contexts (l2 Systems) on a host system. Each l2 System is a strongly contained environment in which code and data can be placed and executed, with the guarantee that effects are confined to that system unless explicitly mediated through the narrow interface defined in src/core/sys.h.
+it gives you isolated execution contexts called l2 systems. you spin one up from the terminal, put stuff in it, run things inside it, and pull results out. nothing inside leaks out unless it goes through the narrow interface in src/core/sys.h.
 
-The substrate is operated through the host terminal. l2 Systems are created and destroyed on demand.
+systems are dynamic — you create them when you need them and destroy them when you're done. no big background thing running all the time.
 
-## Mission
+## what it is
 
-Provide the smallest practical substrate for high-assurance, dynamic, isolated computation (including MCP workloads) on developer host systems.
+- dynamic isolated systems
+- tiny interface (just the l2_sys_* calls)
+- written in c but with serious guards (see memory_safety.md)
+- meant to be operated from a normal terminal on your machine
 
-## Core Properties
+## what it's not
 
-- Dynamic l2 Systems with on-demand creation and destruction
-- Absolute minimal interface: only the l2_sys_* operations in src/core/sys.h
-- Rigorous memory safety discipline and guards in C
-- Explicit authority and effect control
-- Terminal-driven operation on any host that can run a terminal
+- not a full os
+- not trying to be a fancy container runtime with all the features
+- not a thing that stays running in the background
+- not polished academic writing
 
-## Non-Goals (Current Scope)
+## current state
 
-- General-purpose host OS replacement
-- Rich language runtimes or application frameworks in the TCB
-- Broad device support or POSIX compatibility layer
-- Long-lived persistent virtual machines
+early skeleton. the core ideas are in docs/system_model.md and docs/containment_vector_interface.md. code is starting in src/.
 
-## Status
+see status.md for what's actually done.
 
-Early skeleton. The l2 System model and minimal interface (sys.h) are the focus. See STATUS.md, docs/SYSTEM_MODEL.md, docs/CONTAINMENT_VECTOR_INTERFACE.md, and src/.
+## license
 
-## Getting Started
-
-The repository contains the architectural definitions and initial code skeleton for the l2 substrate.
-
-## Contributing
-
-See CONTRIBUTING.md and SECURITY.md.
-
-## License
-
-BSD-2-Clause (see LICENSE).
+bsd-2-clause (see license)
