@@ -1,0 +1,35 @@
+# l2.system - Initial Microkit system description for l2
+#
+# This is a minimal skeleton system.
+# It defines:
+#   - l2_core     : The privileged core that will manage containment vectors
+#   - serial      : Standard Microkit serial server (for early debug output)
+#   - example_vector : A demonstration containment vector
+#
+# Future versions will add more vectors, host communication channels,
+# and capability distribution logic.
+
+# The core is the root of authority in userland.
+protection domain l2_core {
+    program "build/core.elf"
+    # The core will receive the root capabilities at boot
+}
+
+# Standard serial server for debug output during early development
+protection domain serial {
+    program "build/serial.elf"
+    # Provided by the Microkit SDK
+}
+
+# Example of a workload running inside a containment vector.
+# In reality this would be a real MCP server or developer task
+# with very narrow capabilities granted only by the core.
+protection domain example_vector {
+    program "build/example_vector.elf"
+}
+
+# Connect core to serial for debug output
+channel l2_core serial
+
+# In later iterations the core will also have channels to
+# the host terminal shim and to dynamically created vectors.
