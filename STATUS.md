@@ -7,6 +7,7 @@
 - Project repository initialized under veilriven-design/l2
 - Tight README and SECURITY.md established
 - Core concepts (containment vector, terminal host interface, MCP focus) captured
+- `docs/CONTAINMENT_VECTOR_INTERFACE.md` added — initial precise definition of the vector lifecycle, authority model, boundary rules, and core invariants
 
 ## Near Term (First Milestone)
 
