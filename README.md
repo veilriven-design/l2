@@ -2,43 +2,40 @@
 
 **l2** is a minimal high-assurance system substrate anchored on the seL4 microkernel.
 
-It supplies a **containment vector** — presented to the developer as a **Treasure Chest** (internally called a "system") — a strongly isolated environment on the host system in which you can put things, make things happen, and pull results out, with the guarantee that nothing inside can affect anything outside except through narrow, explicit, auditable operations.
+It provides dynamic, isolated execution contexts (l2 Systems) on a host system. Each l2 System is a strongly contained environment in which code and data can be placed and executed, with the guarantee that effects are confined to that system unless explicitly mediated through the narrow interface defined in src/core/sys.h.
 
-Developers interact with systems through the ordinary terminal using the `l2_sys_*` interface. The substrate enforces the boundary using the strongest available mechanisms (seL4 where possible, combined with minimal host primitives).
+The substrate is operated through the host terminal. l2 Systems are created and destroyed on demand.
 
 ## Mission
 
-Provide the smallest practical substrate that lets developers safely manage and execute MCP workloads and other sensitive computation using dynamic, on-demand systems.
+Provide the smallest practical substrate for high-assurance, dynamic, isolated computation (including MCP workloads) on developer host systems.
 
 ## Core Properties
 
-- Dynamic systems (created and destroyed on demand, no always-on background system)
-- Absolute minimal surface: only the operations declared in `src/core/sys.h` (all prefixed `l2_sys_`)
+- Dynamic l2 Systems with on-demand creation and destruction
+- Absolute minimal interface: only the l2_sys_* operations in src/core/sys.h
 - Rigorous memory safety discipline and guards in C
-- Capability-based containment and authority management
-- Explicit contracts and effect discipline for all boundary crossings
-- Terminal-first interface usable from any host OS
+- Explicit authority and effect control
+- Terminal-driven operation on any host that can run a terminal
 
 ## Non-Goals (Current Scope)
 
-- Replacing a general-purpose host OS
-- Large language runtimes or rich application frameworks inside the TCB
-- Broad device driver support or full POSIX surface
-- Persistent always-running virtual machines
+- General-purpose host OS replacement
+- Rich language runtimes or application frameworks in the TCB
+- Broad device support or POSIX compatibility layer
+- Long-lived persistent virtual machines
 
 ## Status
 
-Early skeleton. The Treasure Chest / System model and minimal operation surface (`sys.h` with `l2_sys_*` functions) are now the center of the design. See `STATUS.md`, `docs/TREASURE_CHEST_MODEL.md`, and `src/` for current direction.
+Early skeleton. The l2 System model and minimal interface (sys.h) are the focus. See STATUS.md, docs/SYSTEM_MODEL.md, docs/CONTAINMENT_VECTOR_INTERFACE.md, and src/.
 
 ## Getting Started
 
-The repository contains architecture, security rules, and the initial code skeleton for the system abstraction.
+The repository contains the architectural definitions and initial code skeleton for the l2 substrate.
 
 ## Contributing
 
-See `CONTRIBUTING.md` and `SECURITY.md`.
-
-High-assurance work demands precision. Changes that affect the system boundary or authority model receive extra scrutiny.
+See CONTRIBUTING.md and SECURITY.md.
 
 ## License
 
