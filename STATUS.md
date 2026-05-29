@@ -1,36 +1,24 @@
-# l2 Status
+# status
 
-**Current phase**: Skeleton and architectural definition + initial code skeleton.
+right now we're in the very early skeleton phase.
 
-## Recent Work
+## what we've done
 
-- Project repository initialized under veilriven-design/l2
-- Tight README and SECURITY.md established
-- docs/SYSTEM_MODEL.md added (technical definition of l2 Systems)
-- docs/CONTAINMENT_VECTOR_INTERFACE.md and docs/MEMORY_SAFETY.md added
-- src/core/sys.h added (l2_sys_* minimal interface)
+- basic docs (system_model, containment_vector_interface, memory_safety)
+- the main interface lives in src/core/sys.h (all the l2_sys_* functions)
+- some memory safety helpers in common/safe.*
+- started the core bits
 
-## Code Skeleton
+## current direction
 
-The skeleton implements the dynamic l2 System model:
+we're trying to keep the exposed surface as small as possible. right now the only way to touch a system from the outside is through the functions in sys.h.
 
-- Systems are created and destroyed on demand.
-- All interaction is restricted to the operations in sys.h.
-- Strict containment is enforced between systems and the host.
+no big always-running thing. you make a system when you want one, use it, then kill it.
 
-Current key files:
-- src/common/safe.{h,c} — memory safety primitives
-- src/core/sys.h — public l2_sys_* interface
-- src/core/core.* — core implementation
+## next stuff
 
-## Near Term
+- actually implement the l2_sys_* calls at least in a basic way
+- figure out the cli that sits on top of them
+- keep the trusted bits tiny
 
-- Minimal implementation of the l2_sys_* operations backed by host primitives.
-- Host terminal interface (CLI) that maps directly to sys.h.
-- Continued refinement of boundary enforcement and audit requirements.
-
-## Principles
-
-- Every addition must be justified by the requirement for a minimal, high-assurance, dynamic isolated execution substrate.
-- The interface in sys.h defines the complete permitted surface.
-- TCB for system creation and authority management must remain minimal.
+this is still rough. don't expect nice structure or complete docs yet.
