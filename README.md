@@ -27,18 +27,20 @@ Provide the smallest practical substrate that lets developers safely manage and 
 
 ## Status
 
-Early skeleton. See `STATUS.md` and `docs/` for current direction.
+Early skeleton phase. Documentation of architecture and rules is substantially complete. Initial C code skeleton under `src/` has begun (core + safe guards + example vector + Microkit system description).
+
+See `STATUS.md` and `docs/` for current direction and invariants.
 
 ## Getting Started
 
-This repository currently contains the project skeleton and architectural definitions. The first concrete implementation milestone will target a reproducible seL4 + Microkit environment running under QEMU with a basic host terminal shim.
+This repository currently contains the project skeleton and architectural definitions. The first concrete implementation milestone will target a reproducible seL4 + Microkit environment running under QEMU.
 
 ## Contributing
 
-See `CONTRIBUTING.md` (to be added) and `SECURITY.md`.
+See `CONTRIBUTING.md` and `SECURITY.md`.
 
 High-assurance work demands precision. Changes that affect the containment boundary, authority model, or any code that could run with elevated rights receive extra scrutiny.
 
 ## License
 
-To be determined. Likely a permissive license compatible with the seL4 ecosystem (BSD-2-Clause or similar).
+BSD-2-Clause (see LICENSE).
