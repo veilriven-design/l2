@@ -1,58 +1,62 @@
 # memory safety
 
-we're writing the important parts in c. c is not memory safe. we're not pretending it is.
+important parts in c -/ c is not memory safe -/ we are not pretending
 
-this file is the rules we actually follow so we don't shoot ourselves in the foot too badly.
+this file -/ rules we follow so we dont fuck up too bad
 
-## basic strategy
+-/ basic approach
 
-1. sel4 does the heavy isolation lifting
-2. we keep the trusted bits tiny
-3. we have strict rules about what c we're allowed to write
-4. static analysis + review on anything that touches authority or boundaries
-5. someday we want cheri or something similar to make this actually safe in hardware
+sel4 -/ heavy isolation
+keep trusted bits tiny
+strict rules on allowed c
+static analysis + review on authority/boundary code
+future -/ cheri or similar for real hardware safety
 
-we're not claiming this is as good as rust. we're claiming it's better than the usual "just write some c and hope" approach.
+not claiming rust level -/ claiming better than normal c and hope
 
-## what has to follow the rules
+-/ must follow rules
 
-- anything in the core that creates or manages systems
-- anything that deals with capabilities or crosses system boundaries
-- anything that runs with more power than a normal workload
+core -/ creates/manages systems
+capability and boundary crossing code
+elevated authority code
 
-normal workload code can be sloppier, but it should still be marked.
+normal workloads can be sloppier -/ should still be marked
 
-## things that are mostly banned in the core
+-/ mostly banned in core
 
-- raw pointer arithmetic without checks
-- memcpy/memmove on sizes that came from outside
-- strcpy, sprintf, gets, etc.
-- vlas in hot paths
-- alloca with untrusted sizes
-- void* with no size info attached
+raw pointer arithmetic without checks
+memcpy on untrusted sizes
+strcpy / sprintf / gets etc
+vlas in hot paths
+alloca with attacker sizes
+void* with no size attached
 
-## things we actually require
+-/ required
 
-- sizes travel with buffers
-- bounds checks before using untrusted lengths
-- explicit zeroing when we need to clear stuff
-- const and restrict where they make sense
-- clear ownership and cleanup paths
+sizes travel with buffers
+bounds checks before untrusted lengths
+explicit zeroing
+const/restrict where sensible
+clear ownership + cleanup
 
-## analysis
+-/ analysis
 
-every change that touches the core or boundaries has to pass static analysis. warnings are errors. we want something like infer or codeql or frama-c in the loop.
+every boundary/core change -/ must pass static analysis
+warnings as errors -/ infer/codeql/frama-c etc wanted
 
-## review
+-/ review
 
-core and boundary code needs two sets of eyes. at least one person should actually care about the memory safety rules when they look at it.
+core/boundary code -/ two person review
+at least one must care about these memory rules
 
-## undefined behavior
+-/ undefined behavior
 
-we try really hard not to rely on it in the important code. if we have to do something sketchy, it needs to be tiny, commented, and extra reviewed.
+try hard not to rely on it in important code
+if must -/ tiny + heavily commented + extra review
 
-## future
+-/ future
 
-cheri is the real long term plan for making c not suck at this. until then we do the best we can with process and tooling.
+cheri -/ real long term fix for c
+until then -/ process + tooling
 
-this doc will change as we learn what actually hurts.
+this doc changes as we learn what actually hurts
