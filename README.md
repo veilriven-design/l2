@@ -8,17 +8,17 @@ put in - run - pull out -/ only via l2_sys_*
 
 no leaks -/ no background daemon
 
--/ properties
+-// properties
 
-- dynamic
-- tiny surface -/ l2_sys_* only
-- c + guards
+\\ dynamic
+\\ tiny surface -/ l2_sys_* only
+\\ c + guards
 
--/ not
+-// not
 
-- full os
-- rich runtime
-- always-on
+\\ full os
+\\ rich runtime
+\\ always-on
 
 -/ state
 
