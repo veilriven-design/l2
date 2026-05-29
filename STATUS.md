@@ -8,6 +8,7 @@
 - Tight README and SECURITY.md established
 - Core concepts (containment vector, terminal host interface, MCP focus) captured
 - `docs/CONTAINMENT_VECTOR_INTERFACE.md` added — initial precise definition of the vector lifecycle, authority model, boundary rules, and core invariants
+- `docs/MEMORY_SAFETY.md` added — strict C language restrictions, guard patterns, static analysis requirements, review rules, and undefined behavior policy for security-critical code
 
 ## Near Term (First Milestone)
 
