@@ -1,12 +1,12 @@
-# Containment Vector Interface
+Containment Vector Interface
 
-This document defines the interface and rules for the **Containment Vector**, the central abstraction of l2.
+This document defines the interface and rules for the Containment Vector, the central abstraction of l2.
 
-The goal is to make the boundary explicit, minimal, and enforceable so that the implementation (initially in C on seL4 Microkit) can be reviewed and reasoned about with high confidence.
+The goal is to make the boundary explicit, minimal, and enforceable so that the implementation (in C on top of seL4 or host primitives) can be reviewed and reasoned about with high confidence.
 
 ## Purpose
 
-A Containment Vector provides a strongly isolated execution context in which workloads (MCP servers, developer tasks, etc.) run under strictly limited authority. The l2 core is the only entity permitted to create, configure, or destroy vectors.
+A Containment Vector (realized as an l2 System) provides a strongly isolated execution context. The l2 core is the only entity permitted to create, configure, or destroy vectors.
 
 All authority that crosses the vector boundary must be explicitly granted by the core and is revocable.
 
@@ -14,68 +14,37 @@ All authority that crosses the vector boundary must be explicitly granted by the
 
 A vector goes through these phases:
 
-1. **Creation** — The core allocates a Protection Domain (PD) with a fresh CSpace and VSpace. Initial capabilities are granted according to a declared policy for that vector.
-2. **Configuration** — Additional capabilities, channels, and shared memory regions are attached as requested by the operator (via the host terminal) and approved by policy.
-3. **Execution** — The vector runs its workload(s). Only the capabilities it holds are usable.
-4. **Revocation / Destruction** — The core can revoke specific capabilities or destroy the entire vector. All resources are reclaimed.
+1. Creation — The core allocates an isolated context (e.g. Protection Domain or equivalent) with a fresh set of resources. Initial capabilities are granted according to a declared policy.
+2. Configuration — Additional resources and channels are attached only as explicitly requested and authorized.
+3. Execution — The vector runs its workload(s) using only the capabilities it holds.
+4. Revocation / Destruction — The core can revoke specific capabilities or destroy the entire vector. All resources are reclaimed.
 
-Destruction must be total: no residual authority or communication channels may remain.
+Destruction must be total: no residual authority may remain.
 
 ## Authority Model
 
-- Every capability a vector holds is either:
-  - Granted at creation time (minimal baseline), or
-  - Explicitly delegated later by the core.
-- The core always retains the ability to revoke any capability it has granted.
-- Vectors may not mint or transfer capabilities to other vectors without core mediation.
-- Workloads inside a vector see only the capabilities exposed to them through the vector's CSpace.
-
-MCP servers should typically receive extremely narrow authority (e.g., specific IPC endpoints, limited shared memory regions, and mediated access to host services).
+- Every capability a vector holds is either granted at creation or explicitly delegated later by the core.
+- The core always retains the ability to revoke any granted capability.
+- Vectors may not create or transfer authority to other vectors without core mediation.
 
 ## Boundary Rules
 
 The following are forbidden unless explicitly authorized through the core:
 
-- Direct IPC or shared memory between vectors
-- Access to host resources (filesystem, network, devices)
-- Creation of new threads or address spaces outside the vector's allocation
-- Sending data or signals to the host except through approved channels
+- Direct communication between vectors
+- Direct access to host resources
+- Creation of new resources outside the vector's allocation
 
-All authorized crossings must be logged at the core level with sufficient context for audit.
+All authorized crossings must be logged.
 
-## Workload Instantiation
+## Interface
 
-When starting a workload inside a vector:
-
-- The core creates (or reuses) a vector with a policy matching the workload type.
-- The workload binary/image is loaded into the vector's address space.
-- Only the declared minimal capabilities are present at start.
-- For MCP servers, the MCP protocol surface is provided only through a mediated interface defined by the granted capabilities.
-
-A compromised workload must not be able to expand its authority beyond what was granted at instantiation.
-
-## Host Terminal Interface Obligations
-
-The host shim may only request the following operations on vectors:
-
-- Create vector with a declared policy
-- Start a specific workload inside a vector
-- Revoke specific capabilities from a vector
-- Destroy a vector
-- Query limited, non-sensitive status information
-
-The core is responsible for enforcing policy and auditing. The host shim must not be able to bypass the core.
+The external operations permitted on a vector are exactly those declared in src/core/sys.h (the l2_sys_* functions).
 
 ## Core Invariants
 
-These must hold for any correct implementation:
-
 - A vector can only act through the capabilities it currently holds.
-- The core is the sole source of new authority into any vector.
-- Revocation is complete and timely.
+- The core is the sole source of new authority.
+- Revocation is complete.
 - No vector can affect another vector or the host except through core-mediated, auditable paths.
-- Destruction of a vector leaves no observable residue outside the core.
-
-## Status
-
-This is an initial definition. It will be refined as the implementation and threat model analysis proceed. Changes that affect the invariants or the set of allowed boundary crossings require careful review.
+- Destruction leaves no observable residue outside the core.
