@@ -2,21 +2,21 @@
 
 **l2** is a minimal high-assurance system substrate anchored on the seL4 microkernel.
 
-It supplies a **containment vector** — a strongly isolated execution environment — in which MCP servers and general developer computations run under explicit authority, auditable effects, and the formal guarantees of seL4.
+It supplies a **containment vector** — presented to the developer as a **Treasure Chest** — a strongly isolated environment on the host system in which you can put things, make things happen, and pull results out, with the guarantee that nothing inside can affect anything outside except through narrow, explicit, auditable operations.
 
-Developers interact with l2 through a narrow, high-assurance interface exposed via the ordinary terminal on the host operating system. The substrate itself runs inside seL4 (typically in a locked-down virtual machine on the host).
+Developers interact with chests through the ordinary terminal. The substrate enforces the boundary using the strongest available mechanisms (seL4 where possible, combined with minimal host primitives).
 
 ## Mission
 
-Provide the smallest practical substrate that lets developers safely manage and execute MCP workloads and other sensitive computation on machines they already use, while meeting the spirit of modern high-assurance guidance.
+Provide the smallest practical substrate that lets developers safely manage and execute MCP workloads and other sensitive computation using dynamic, on-demand treasure chests.
 
 ## Core Properties
 
-- seL4 as the verified kernel foundation
-- Minimal trusted computing base in userland (C + Microkit-style protection domains)
+- Dynamic chests (created and destroyed on demand, no always-on background system)
+- Absolute minimal surface: only the operations declared in `src/core/chest_ops.h`
 - Rigorous memory safety discipline and guards in C
 - Capability-based containment and authority management
-- Explicit contracts and effect discipline for all operations that cross containment boundaries
+- Explicit contracts and effect discipline for all boundary crossings
 - Terminal-first interface usable from any host OS
 
 ## Non-Goals (Current Scope)
@@ -24,22 +24,21 @@ Provide the smallest practical substrate that lets developers safely manage and 
 - Replacing a general-purpose host OS
 - Large language runtimes or rich application frameworks inside the TCB
 - Broad device driver support or full POSIX surface
+- Persistent always-running virtual machines
 
 ## Status
 
-Early skeleton phase. Documentation of architecture and rules is substantially complete. Initial C code skeleton under `src/` has begun (core + safe guards + example vector + Microkit system description).
-
-See `STATUS.md` and `docs/` for current direction and invariants.
+Early skeleton. The Treasure Chest model and minimal operation surface (`chest_ops.h`) are now the center of the design. See `STATUS.md`, `docs/TREASURE_CHEST_MODEL.md`, and `src/` for current direction.
 
 ## Getting Started
 
-This repository currently contains the project skeleton and architectural definitions. The first concrete implementation milestone will target a reproducible seL4 + Microkit environment running under QEMU.
+The repository contains architecture, security rules, and the initial code skeleton for the treasure chest abstraction.
 
 ## Contributing
 
 See `CONTRIBUTING.md` and `SECURITY.md`.
 
-High-assurance work demands precision. Changes that affect the containment boundary, authority model, or any code that could run with elevated rights receive extra scrutiny.
+High-assurance work demands precision. Changes that affect the chest boundary or authority model receive extra scrutiny.
 
 ## License
 
