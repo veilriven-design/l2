@@ -2,31 +2,36 @@
 
 This directory contains the C implementation of the l2 substrate.
 
+## The Treasure Chest Model
+
+From the outside, l2 presents **Treasure Chests** — dynamic, strongly isolated environments you interact with from the host terminal.
+
+You create a chest, put things in it, make things happen inside it, and pull results out. Nothing inside can affect the host or other chests except through the narrow, explicit operations defined in `chest_ops.h`.
+
+See `docs/TREASURE_CHEST_MODEL.md` for the full mental model.
+
 ## Design Principles for the Skeleton
 
-- **Minimize the TCB**: Only the absolute minimum code required to create, manage, and enforce containment vectors lives in privileged protection domains.
-- **Enforce the rules**: Every file must follow the restrictions and patterns defined in `docs/MEMORY_SAFETY.md`.
-- **Clear boundaries**: Code that can create or affect vectors is separated from code that runs inside vectors.
-- **No unnecessary abstraction**: We use seL4 Microkit primitives directly where possible.
-- **Auditability**: All authority changes and boundary crossings must be traceable.
+- **Absolute minimal surface**: The only way anything enters, leaves, or acts inside a chest is through the operations in `chest_ops.h`.
+- **Dynamic creation**: Chests are created and destroyed on demand. No persistent background system is required.
+- **Secure by design**: The substrate must make it impossible (or extremely difficult) for anything inside a chest to violate the boundary.
+- **TCB minimization**: Only the code that implements the chest operations and enforces boundaries is privileged.
+- **Host integration**: The substrate runs as part of the host environment, using the best available isolation mechanisms (with seL4 providing the strongest guarantees where deployable).
 
 ## Current Layout (Early Skeleton)
 
 ```
 src/
-├── README.md          # This file
-├── core/              # The l2 core - creates and manages containment vectors
-│   └── ...
-├── common/            # Shared safe utilities and guards (must be extremely small)
-│   └── ...
-└── vector/            # Support code that can run inside or help define vectors
-    └── ...
+├── README.md
+├── core/
+│   ├── chest_ops.h     # The complete public surface for any chest
+│   └── core.*          # Implementation of chest creation and boundary enforcement
+├── common/
+│   └── safe.*          # Required memory safety guards (mandatory everywhere in critical paths)
+└── vector/
+    └── ...             # Code that implements or runs inside chests
 ```
 
-Workloads (MCP servers, etc.) will eventually live in their own protection domains and only receive capabilities explicitly granted by the core.
+## Status
 
-## Build Status
-
-This is currently a skeleton. The first goal is to produce a minimal bootable seL4 + Microkit system under QEMU that demonstrates the core protection domain running and able to create a simple containment vector.
-
-See `docs/BUILD.md` and the top-level STATUS.md for current progress.
+We are building the thinnest possible substrate that can faithfully implement the treasure chest model while remaining amenable to high-assurance reasoning and future seL4 backing.
