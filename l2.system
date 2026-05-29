@@ -1,12 +1,13 @@
 # l2.system
 
-minimal skeleton
+minimal initial microkit system description.
 
-- l2_core : authority root
-- serial : debug
-- example_vector : demo workload
+components
+- l2_core: privileged core that manages systems
+- serial: debug output
+- example_vector: demonstration workload inside a system
 
-future: more vectors + host channels
+future versions will add more systems and host communication channels.
 
 protection domain l2_core {
     program "build/core.elf"
