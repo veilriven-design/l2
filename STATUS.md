@@ -1,24 +1,24 @@
 # status
 
-early skeleton phase
+early skeleton
 
--/ what we have so far
+-/ done
 
-- basic docs -/ system_model - containment_vector_interface - memory_safety
-- main interface in src/core/sys-h -/ all l2_sys_* functions
-- memory safety helpers in common/safe-*
-- core bits started
+- docs -/ system_model - containment_vector - memory_safety
+- sys-h - l2_sys_* interface
+- safe-* guards
+- core started
 
--/ current direction
+-/ direction
 
-keep exposed surface tiny -/ only way to touch system from outside is via functions in sys-h
+tiny surface -/ only l2_sys_*
 
-no persistent background -/ make system when needed - use it - kill it
+no always-on -/ on demand create/use/kill
 
 -/ next
 
-- implement l2_sys_* calls basically
-- cli on top of the interface
-- keep trusted core minimal
+- implement l2_sys_*
+- cli
+- minimal tcb
 
-still rough -/ dont expect clean structure yet
+rough - keep going
