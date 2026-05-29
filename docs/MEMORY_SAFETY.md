@@ -1,44 +1,42 @@
 # memory safety
 
-core in c -/ not safe -/ rules to limit damage
+we write the core in c knowing that c is not memory safe.
 
--/ approach
+this document defines the restrictions and processes we use to reduce risk in security-critical code.
 
-sel4 isolation
-minimal tcb
-strict c rules
-analysis + review on boundaries
-cheri long term
+strategy
+- rely on sel4 for the main isolation boundary
+- keep the trusted computing base as small as possible
+- enforce strict rules on the c we write in privileged paths
+- require static analysis and review for anything touching authority or boundaries
+- plan for hardware assistance (cheri) in the long term
 
--/ scope
+we do not claim equivalence to memory-safe languages. we claim a disciplined process that meaningfully lowers the chance and impact of memory safety issues.
 
-core + boundary + elevated code
+scope
+strict rules apply to code in the core, capability handling, and anything that crosses system boundaries.
 
--/ banned in core
+banned in core paths (unless explicitly waived)
+- unchecked pointer arithmetic
+- memory/string operations on untrusted sizes
+- strcpy, sprintf, gets and similar
+- variable length arrays and alloca in hot paths
+- void* without attached size information
 
-unchecked ptr arith
-memcpy on external sizes
-strcpy/sprintf/gets
-vlas/alloca untrusted
-void* no size
+required practices
+- buffer sizes must travel with the data
+- bounds checks before any access using external lengths
+- explicit zeroing of sensitive memory
+- clear ownership and deallocation paths
 
--/ required
+enforcement
+changes to core or boundary code must pass static analysis (warnings treated as errors).
+core and boundary code requires two-person review.
 
-sizes with buffers
-bounds checks
-zeroing
-clear cleanup
+undefined behavior
+we avoid relying on undefined behavior in security-critical code. any exceptions must be isolated, justified, and extra reviewed.
 
--/ enforcement
+future
+cheri (or equivalent) is the intended path to make memory safety a hardware property for c code.
 
-static analysis required
-warnings=errors
-2-person review on core
-
-no ub in critical paths unless tiny+reviewed
-
--/ future
-
-cheri
-
-changes as we learn
+this document will be updated as we gain experience.
