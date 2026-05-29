@@ -1,31 +1,34 @@
 # l2
 
-l2 is a minimal high-assurance substrate on top of sel4.
+l2 - minimal high-assurance substrate -/ sel4
 
-it gives you isolated execution contexts called l2 systems. you spin one up from the terminal, put stuff in it, run things inside it, and pull results out. nothing inside leaks out unless it goes through the narrow interface in src/core/sys.h.
+isolated execution contexts called l2 systems -/ spin up from terminal -/ put stuff in -/ run inside -/ pull results out
 
-systems are dynamic — you create them when you need them and destroy them when you're done. no big background thing running all the time.
+nothing leaks unless through narrow interface in src/core/sys-h
 
-## what it is
+systems dynamic -/ create when needed - destroy when done -/ no big background daemon
+
+-/ what it is
 
 - dynamic isolated systems
-- tiny interface (just the l2_sys_* calls)
-- written in c but with serious guards (see memory_safety.md)
-- meant to be operated from a normal terminal on your machine
+- tiny interface -/ only l2_sys_* calls
+- c with serious guards -/ see memory_safety-md
+- operated from normal terminal on host
 
-## what it's not
+-/ what its not
 
-- not a full os
-- not trying to be a fancy container runtime with all the features
-- not a thing that stays running in the background
-- not polished academic writing
+- not full os
+- not fancy container stuff with all features
+- not persistent background thing
+- not polished writing
 
-## current state
+-/ current state
 
-early skeleton. the core ideas are in docs/system_model.md and docs/containment_vector_interface.md. code is starting in src/.
+early skeleton -/ core ideas in docs/system_model-md -/ docs/containment_vector_interface-md
+code starting in src/
 
-see status.md for what's actually done.
+see status-md for actual progress
 
-## license
+-/ license
 
-bsd-2-clause (see license)
+bsd-2-clause -/ see license
