@@ -1,7 +1,7 @@
 /*
  * core.c
  *
- * l2 core pd - authority root
+ * l2 core protection domain. root of authority for systems.
  */
 
 #include <microkit.h>
