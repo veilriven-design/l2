@@ -9,7 +9,7 @@ use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::process::{Command, Stdio};
-use std::sync::Mutex;
+use std::sync::{LazyLock, Mutex};
 
 /// l2 - minimal high-assurance substrate for dynamic isolated systems.
 ///
@@ -81,10 +81,10 @@ struct Object {
     size: usize,
 }
 
-static SUBSTRATE: Mutex<Substrate> = Mutex::new(Substrate {
+static SUBSTRATE: LazyLock<Mutex<Substrate>> = LazyLock::new(|| Mutex::new(Substrate {
     systems: HashMap::new(),
     next_id: 1,
-});
+}));
 
 struct Substrate {
     systems: HashMap<String, System>,
