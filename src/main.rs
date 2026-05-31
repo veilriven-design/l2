@@ -30,25 +30,41 @@ enum Commands {
         #[arg(long, default_value = "default")]
         policy: String,
     },
-    Destroy { name: String },
-    List { name: Option<String> },
+    Destroy {
+        name: String,
+    },
+    List {
+        name: Option<String>,
+    },
     Put {
         sys: String,
         name: String,
-        #[arg(long, default_value = "data", help = "Type: data, code, credential, mcp_server")]
+        #[arg(
+            long,
+            default_value = "data",
+            help = "Type: data, code, credential, mcp_server"
+        )]
         r#type: String,
         #[arg(long, help = "Inline content")]
         content: Option<String>,
     },
-    Get { sys: String, name: String },
+    Get {
+        sys: String,
+        name: String,
+    },
     Exec {
         sys: String,
         what: String,
         #[arg(long)]
         input: Option<String>,
     },
-    Revoke { sys: String, grant: String },
-    Status { name: Option<String> },
+    Revoke {
+        sys: String,
+        grant: String,
+    },
+    Status {
+        name: Option<String>,
+    },
     Sel4Setup,
 }
 
@@ -139,7 +155,10 @@ fn object_relative_path(name: &str) -> Result<PathBuf> {
         match component {
             Component::Normal(part) => relative.push(part),
             Component::CurDir => {}
-            _ => anyhow::bail!("object name '{}' must stay inside the system workspace", name),
+            _ => anyhow::bail!(
+                "object name '{}' must stay inside the system workspace",
+                name
+            ),
         }
     }
 
@@ -155,7 +174,12 @@ fn object_workspace_path(workspace: &Path, name: &str) -> Result<PathBuf> {
 }
 
 fn workspace_dir(sys: &System) -> Result<PathBuf> {
-    if sys.id.is_empty() || !sys.id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+    if sys.id.is_empty()
+        || !sys
+            .id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-')
+    {
         anyhow::bail!("system '{}' has an invalid stored id", sys.name);
     }
 
@@ -241,11 +265,20 @@ impl Substrate {
                 return Ok(id.clone());
             }
         }
-        anyhow::bail!("system '{}' not found (data dir: {})", name, data_dir().display());
+        anyhow::bail!(
+            "system '{}' not found (data dir: {})",
+            name,
+            data_dir().display()
+        );
     }
 }
 
-fn exec_isolated(what: &str, _input: Option<&str>, sys_name: &str, workspace: Option<PathBuf>) -> Result<String> {
+fn exec_isolated(
+    what: &str,
+    _input: Option<&str>,
+    sys_name: &str,
+    workspace: Option<PathBuf>,
+) -> Result<String> {
     let mut cmd = Command::new("unshare");
     cmd.args(["--fork", "--pid", "--mount-proc", "--net", "sh", "-c", what]);
 
@@ -253,8 +286,7 @@ fn exec_isolated(what: &str, _input: Option<&str>, sys_name: &str, workspace: Op
         cmd.current_dir(ws);
     }
 
-    cmd.stdout(Stdio::piped())
-       .stderr(Stdio::piped());
+    cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
 
     let output = cmd.output()?;
 
@@ -264,10 +296,15 @@ fn exec_isolated(what: &str, _input: Option<&str>, sys_name: &str, workspace: Op
     if !output.status.success() {
         let mut msg = format!(
             "[isolated exec in '{}'] failed (code {:?})\n",
-            sys_name, output.status.code()
+            sys_name,
+            output.status.code()
         );
-        if !stdout.trim().is_empty() { msg.push_str(&format!("stdout:\n{}\n", stdout)); }
-        if !stderr.trim().is_empty() { msg.push_str(&format!("stderr:\n{}\n", stderr)); }
+        if !stdout.trim().is_empty() {
+            msg.push_str(&format!("stdout:\n{}\n", stdout));
+        }
+        if !stderr.trim().is_empty() {
+            msg.push_str(&format!("stderr:\n{}\n", stderr));
+        }
 
         if stderr.contains("Operation not permitted") || stderr.contains("unshare failed") {
             msg.push_str("\nHint: Full namespace isolation usually requires root on this system.\nTry: sudo ./target/release/l2 exec ...\n");
@@ -275,11 +312,17 @@ fn exec_isolated(what: &str, _input: Option<&str>, sys_name: &str, workspace: Op
         return Ok(msg);
     }
 
-    Ok(format!("[isolated via unshare in '{}']\n{}", sys_name, stdout))
+    Ok(format!(
+        "[isolated via unshare in '{}']\n{}",
+        sys_name, stdout
+    ))
 }
 
 fn print_json<T: Serialize>(value: &T) {
-    println!("{}", serde_json::to_string_pretty(value).expect("serializing CLI JSON output"));
+    println!(
+        "{}",
+        serde_json::to_string_pretty(value).expect("serializing CLI JSON output")
+    );
 }
 
 fn json_line<T: Serialize>(value: &T) -> String {
@@ -311,7 +354,6 @@ fn error(msg: &str, json: bool) -> ! {
     std::process::exit(1);
 }
 
-
 fn sel4_setup() -> Result<()> {
     println!("🔧 Running seL4 setup...");
     // Resolve script relative to current working dir or CARGO_MANIFEST_DIR for dev
@@ -331,23 +373,30 @@ fn main() -> Result<()> {
     let mut sub = load_state();
 
     match cli.command {
-        Commands::Create { name, policy } => {
-            match sub.create(&name, &policy) {
-                Ok(id) => {
-                    save_state(&sub)?;
-                    if cli.json {
-                        print_json(&serde_json::json!({"ok":true,"sys":id,"name":name,"policy":policy}));
-                    } else {
-                        println!("{} created system '{}' (id={})", "✓".green(), name.bold(), id);
-                        println!("   policy: {}", policy);
-                        println!("   state:  {}", state_path().display());
-                    }
+        Commands::Create { name, policy } => match sub.create(&name, &policy) {
+            Ok(id) => {
+                save_state(&sub)?;
+                if cli.json {
+                    print_json(
+                        &serde_json::json!({"ok":true,"sys":id,"name":name,"policy":policy}),
+                    );
+                } else {
+                    println!(
+                        "{} created system '{}' (id={})",
+                        "✓".green(),
+                        name.bold(),
+                        id
+                    );
+                    println!("   policy: {}", policy);
+                    println!("   state:  {}", state_path().display());
                 }
-                Err(e) => error(&e.to_string(), cli.json),
             }
-        }
+            Err(e) => error(&e.to_string(), cli.json),
+        },
         Commands::Destroy { name } => {
-            if let Err(e) = sub.destroy(&name) { error(&e.to_string(), cli.json); }
+            if let Err(e) = sub.destroy(&name) {
+                error(&e.to_string(), cli.json);
+            }
             let _ = save_state(&sub);
             success(&format!("destroyed '{}'", name), cli.json);
         }
@@ -355,13 +404,15 @@ fn main() -> Result<()> {
             if let Some(sys_name) = name {
                 match sub.get_system(&sys_name) {
                     Ok(sys) => {
-                        if cli.json { print_json(sys); }
-                        else {
+                        if cli.json {
+                            print_json(sys);
+                        } else {
                             println!("System: {} ({})", sys.name.bold(), sys.id);
                             println!("  policy:   {}", sys.policy);
                             println!("  objects:");
-                            if sys.objects.is_empty() { println!("    (none)"); }
-                            else {
+                            if sys.objects.is_empty() {
+                                println!("    (none)");
+                            } else {
                                 for (k, v) in &sys.objects {
                                     println!("    {} [{}] ({} bytes)", k, v.r#type, v.size);
                                 }
@@ -372,39 +423,51 @@ fn main() -> Result<()> {
                 }
             } else {
                 let systems = sub.list_systems();
-                if cli.json { print_json(&systems); }
-                else if systems.is_empty() {
+                if cli.json {
+                    print_json(&systems);
+                } else if systems.is_empty() {
                     println!("No active systems.");
                     println!("Data dir: {}", data_dir().display());
                 } else {
                     println!("Active systems:");
                     for s in systems {
-                        println!("  {}  {}  ({} objects)", s.id, s.name.bold(), s.objects.len());
+                        println!(
+                            "  {}  {}  ({} objects)",
+                            s.id,
+                            s.name.bold(),
+                            s.objects.len()
+                        );
                     }
                 }
             }
         }
-        Commands::Put { sys, name, r#type, content } => {
+        Commands::Put {
+            sys,
+            name,
+            r#type,
+            content,
+        } => {
             let data = content.unwrap_or_default();
-            if let Err(e) = sub.put(&sys, &name, &r#type, &data) { error(&e.to_string(), cli.json); }
+            if let Err(e) = sub.put(&sys, &name, &r#type, &data) {
+                error(&e.to_string(), cli.json);
+            }
             let _ = save_state(&sub);
             success(&format!("put '{}' into '{}'", name, sys), cli.json);
         }
-        Commands::Get { sys, name } => {
-            match sub.get(&sys, &name) {
-                Ok(obj) => {
-                    if cli.json { print_json(&obj); }
-                    else {
-                        println!("Object: {}", obj.name.bold());
-                        println!("Type:   {}", obj.r#type);
-                        println!("Size:   {} bytes", obj.size);
-                        println!("---");
-                        println!("{}", obj.content);
-                    }
+        Commands::Get { sys, name } => match sub.get(&sys, &name) {
+            Ok(obj) => {
+                if cli.json {
+                    print_json(&obj);
+                } else {
+                    println!("Object: {}", obj.name.bold());
+                    println!("Type:   {}", obj.r#type);
+                    println!("Size:   {} bytes", obj.size);
+                    println!("---");
+                    println!("{}", obj.content);
                 }
-                Err(e) => error(&e.to_string(), cli.json),
             }
-        }
+            Err(e) => error(&e.to_string(), cli.json),
+        },
         Commands::Exec { sys, what, input } => {
             let system = sub.get_system(&sys)?;
             let workspace = match prepare_workspace(system) {
@@ -430,17 +493,27 @@ fn main() -> Result<()> {
                 Err(e) => error(&e.to_string(), cli.json),
             }
         }
-        Commands::Revoke { sys, grant } => success(&format!("revoked '{}' from '{}' (prototype)", grant, sys), cli.json),
+        Commands::Revoke { sys, grant } => success(
+            &format!("revoked '{}' from '{}' (prototype)", grant, sys),
+            cli.json,
+        ),
         Commands::Status { name } => {
             if let Some(n) = name {
                 match sub.get_system(&n) {
-                    Ok(sys) => { if cli.json { print_json(sys); } else { println!("System {} policy={}", sys.name, sys.policy); } }
+                    Ok(sys) => {
+                        if cli.json {
+                            print_json(sys);
+                        } else {
+                            println!("System {} policy={}", sys.name, sys.policy);
+                        }
+                    }
                     Err(e) => error(&e.to_string(), cli.json),
                 }
             } else {
                 let count = sub.systems.len();
-                if cli.json { print_json(&serde_json::json!({"systems": count})); }
-                else {
+                if cli.json {
+                    print_json(&serde_json::json!({"systems": count}));
+                } else {
                     println!("l2 host prototype (persistent)");
                     println!("  active systems: {}", count);
                     println!("  data dir:       {}", data_dir().display());
@@ -500,5 +573,16 @@ mod tests {
 
         assert!(sub.put("sys", "../escape", "data", "nope").is_err());
         assert!(sub.get_system("sys").unwrap().objects.is_empty());
+    }
+
+    #[test]
+    fn strict_sandbox_applies_without_error() {
+        // Exercises the new v0.2.0 Landlock + no_new_privs path.
+        // Must succeed (even if kernel only partially enforces Landlock in the test env).
+        let tmp = std::env::temp_dir().join(format!("l2-smoke-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&tmp);
+        let res = sandbox::apply_strict_sandbox(Some(&tmp));
+        assert!(res.is_ok(), "sandbox apply failed: {:?}", res.err());
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 }
