@@ -107,7 +107,12 @@ See `STATUS.md` for the full current state.
 
 See `CONTRIBUTING.md`, `SECURITY.md`, and `docs/`.
 
-MIT + Apache-2.0 (dual).
+This project is dual-licensed under **MIT OR Apache-2.0** (at your option).
+
+- `LICENSE-MIT`
+- `LICENSE-APACHE`
+
+The SPDX identifier is `MIT OR Apache-2.0`.
 
 ---
 
