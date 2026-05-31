@@ -14,3 +14,9 @@ colored = "2.1"
 [[bin]]
 name = "l2"
 path = "src/main.rs"
+
+# Future out-of-process core (L2P server). Currently a stub in host/core.rs.
+# Will become a separate binary that the l2 client can spawn or connect to.
+[[bin]]
+name = "l2-core"
+path = "host/core.rs"
