@@ -10,6 +10,73 @@ set -euo pipefail
 WORKSPACE="$HOME/l2-sel4-workspace"
 L2_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# -----------------------------------------------------------------------------
+# Spinner + live status for long-running commands (especially container setup)
+# -----------------------------------------------------------------------------
+run_with_spinner() {
+    local description="$1"
+    shift
+    local cmd=("$@")
+
+    local log_file
+    log_file=$(mktemp /tmp/l2-setup-XXXXXX.log)
+
+    # Run the real command in background, capturing all output
+    "${cmd[@]}" >"$log_file" 2>&1 &
+    local pid=$!
+
+    local spin='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    local i=0
+    local start
+    start=$(date +%s)
+
+    echo
+    echo "$description"
+    echo "  (This can take a long time on first run — pulling large container images)"
+    echo
+
+    while kill -0 "$pid" 2>/dev/null; do
+        local now
+        now=$(date +%s)
+        local elapsed=$(( now - start ))
+        local mins=$(( elapsed / 60 ))
+        local secs=$(( elapsed % 60 ))
+
+        # Grab the most recent non-empty line from the log for "live status"
+        local status
+        status=$(tail -n 30 "$log_file" | grep -v '^[[:space:]]*$' | tail -n 1 | cut -c1-85 || true)
+        [ -z "$status" ] && status="starting up..."
+
+        # Two-line updating status
+        printf "\r\033[K  %s  Elapsed: %02dm %02ds\n" "${spin:i%10:1}" "$mins" "$secs"
+        printf "\r\033[K  → %s" "$status"
+        printf "\033[1A"   # cursor up so next iteration overwrites both lines
+
+        sleep 0.15
+        i=$(( i + 1 ))
+    done
+
+    wait "$pid"
+    local exit_code=$?
+
+    # Clear the two status lines cleanly
+    printf "\r\033[K\n\r\033[K"
+    printf "\033[1A\r\033[K"
+
+    if [ $exit_code -eq 0 ]; then
+        echo "  ✓ $description completed successfully."
+    else
+        echo "  ✗ $description failed (exit code $exit_code)."
+        echo "    Last log lines:"
+        tail -n 15 "$log_file" | sed 's/^/    /'
+        echo
+        echo "    Full log is at: $log_file"
+    fi
+
+    rm -f "$log_file"
+    return $exit_code
+}
+
 echo "=== l2 sel4-setup ==="
 echo "One-command seL4/Microkit + l2 development environment"
 echo "Workspace: $WORKSPACE"
@@ -144,16 +211,19 @@ if [[ "${ID:-}" =~ ^(fedora|rhel|centos|rocky|almalinux|ol)$ ]] && [ "$CONTAINER
         fi
 
         if [ -d "$DOCKERFILES_DIR" ]; then
+            echo "    Command that will be run:"
+            echo "      cd $DOCKERFILES_DIR && DOCKER=podman make user"
             echo
-            echo "    Running container setup (this will pull a large image and can take several minutes)..."
-            echo "    Command: cd $DOCKERFILES_DIR && DOCKER=podman make user"
-            echo
-            ( cd "$DOCKERFILES_DIR" && DOCKER=podman make user ) || {
+
+            if run_with_spinner "Setting up official seL4 development container" \
+                    bash -c "cd '$DOCKERFILES_DIR' && DOCKER=podman make user"; then
+                echo "    ✓ Container is ready. You can enter it later with:"
+                echo "      cd $DOCKERFILES_DIR && DOCKER=podman make exec"
+            else
                 echo
-                echo "    Container setup encountered an issue (common on first run)."
-                echo "    You can retry later with:"
+                echo "    You can retry manually with:"
                 echo "      cd $DOCKERFILES_DIR && DOCKER=podman make user"
-            }
+            fi
         fi
     else
         echo "    Skipped. You can set it up anytime with:"
@@ -216,7 +286,11 @@ https://docs.sel4.systems/projects/microkit/tutorial/part0.html
 On RHEL-family systems the cross-compiler packages are often missing or
 difficult. The **strongly recommended** path is the official seL4 container.
 
-Run this (or just re-run `l2 sel4-setup` after pulling the latest version — it will offer to do it for you):
+When you run `l2 sel4-setup` on these systems it will offer to set everything
+up for you automatically, with a live spinner + status line so you can see
+that it is still working (the first run can easily take 10–20 minutes).
+
+You can also do it manually:
 
 ```bash
 git clone https://github.com/seL4/seL4-CAmkES-L4v-dockerfiles.git
@@ -279,7 +353,7 @@ echo "  ✓ Wrote $WORKSPACE/README-l2-sel4.md"
 
 echo
 
-echo "=== ✅ l2 sel4-setup complete ==="
+echo "=== ✓ l2 sel4-setup complete ==="
 echo
 echo "Workspace ready: $WORKSPACE"
 echo "Quickstart guide: cat $WORKSPACE/README-l2-sel4.md"
