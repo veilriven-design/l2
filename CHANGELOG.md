@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.2.1] - 2026-06-01
+
+### Fixed
+- **Privilege escalation for `l2 exec`**: Automatically re-invokes the current `l2` binary under `sudo` (using `std::env::current_exe()`) when namespace isolation (`unshare`) requires root. This fixes the broken workflow for users who installed via `cargo install` (binary in `~/.cargo/bin`, not in root's `PATH`):
+  - `sudo l2 ...` now works (no more "command not found").
+  - No more needing to type awkward `sudo ./target/release/l2 ...` after source builds.
+  - The original user's `~/.l2` state is still used thanks to existing `SUDO_USER` handling.
+- Updated the outdated error hint that suggested `./target/release/l2` paths.
+- **Much better diagnostics for bad exec targets** + major UX improvements for code execution:
+  - `l2 exec my-agent ./nonexistent` ... (previous improvements)
+  - New convenient forms: bare-name auto-dispatch inside systems (`l2 exec mysys hello.py` → `python3 hello.py`) and full **one-shot mode** (`l2 exec hello.py` from local file creates a temporary isolated system, runs it under the requested policy, then destroys it completely).
+  - Shebang (`#!`) is now the primary extensibility mechanism for "any language on the host".
+  - Expanded dispatch table (Python, shell, Ruby, Perl, Node, Lua, PHP, Go single-file).
+  - Nicer colored output for dispatch, oneshot lifecycle, and policy-related interpreter errors.
+  - `--policy` supported on `exec` (especially useful for oneshot / MCP workloads).
+- **Documentation**: Fixed Quick Start example (previously put `task.rs` then exec'd non-existent `./task`; now uses `task.sh` invoked via `sh task.sh`, which actually works inside the materialized workspace under Landlock).
+- Bumped crate version to 0.2.1.
+
+### Changed
+- `l2 exec` now proactively escalates for isolation guarantees (consistent with the documented requirement for full namespaces on typical Linux kernels). The inner invocation under sudo produces the same output and side-effects.
+
 ## [0.2.0] - 2026-05-31
 
 ### Added / Hardening
