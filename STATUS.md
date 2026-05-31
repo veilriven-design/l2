@@ -1,6 +1,6 @@
 # Status
 
-**Refocused narrow substrate phase** — now actually usable
+**v0.2.0 released** — main is now the current version. v0.1.0 tag preserved for history and integrity checks.
 
 ## Charter
 
@@ -36,22 +36,19 @@ l2 is the minimal high-assurance Latticra substrate:
 
 ## How to Use Right Now
 
+See the full install + usage instructions in `README.md` (covers both `cargo build --release` and `cargo install --path . --force`).
+
+Quick reference:
 ```bash
-cargo build --release
-
-# Basic usage (works across separate shells)
-l2 create my-agent
-l2 put my-agent code foo.rs --content 'fn main(){}'
-l2 exec my-agent 'echo hello from inside'
-l2 list my-agent
-l2 destroy my-agent
-
-# seL4 development environment (recommended path)
+cargo build --release          # or cargo install --path . --force
+l2 create demo --policy strict
+l2 put demo note.txt --content 'hello'
+l2 exec demo 'cat note.txt'
+l2 destroy demo
 l2 sel4-setup
-cat ~/l2-sel4-workspace/README-l2-sel4.md
 ```
 
-Override data location with `L2_DATA_DIR=/some/path l2 ...`
+Override state with `L2_DATA_DIR=/path l2 ...`.
 
 ## Out of Scope
 Effect systems, lattices, packaging, physics work, scope creep.
