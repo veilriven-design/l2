@@ -2,6 +2,8 @@
 
 l2 is designed for a **very high** threat model. The substrate must protect developer workflows and MCP operations against sophisticated adversaries, including supply-chain attacks, compromised host environments, and attempts to escape containment.
 
+The terminal operator working through the narrow `l2` CLI/TUI is the only source of new authority. This is a core security property.
+
 ## Threat Model
 
 - Adversaries may have code execution on the host operating system.
@@ -13,10 +15,10 @@ l2 is designed for a **very high** threat model. The substrate must protect deve
 ## Design Principles
 
 1. **seL4 as the root of trust** — We rely on seL4's machine-checked isolation, capability, and integrity properties rather than attempting to re-verify a new kernel.
-2. **Minimal userland TCB** — The code that runs with authority to create or manage containment vectors must be as small as possible and written in a disciplined subset of C.
+2. **Minimal userland TCB** — The code that runs with authority to create or manage systems must be as small as possible and written in a disciplined subset of C.
 3. **Explicit authority and contracts** — No operation that can affect another domain or the host is permitted without an explicit, logged authorization decision.
-4. **Least privilege by default** — Every protection domain (workload) receives only the exact capabilities required for its declared purpose.
-5. **Narrow host interface** — The only way in or out of the containment vector from the host terminal is through a small, carefully reviewed shim and protocol.
+4. **Least privilege by default** — Every system receives only the exact capabilities required for its declared purpose.
+5. **Narrow terminal interface** — The only way in or out from the host terminal is through a small, carefully reviewed `l2` CLI/TUI and protocol. The client itself holds no raw authority.
 6. **Evidence and audit** — All boundary crossings and authority grants are recorded in a form that supports later forensic analysis.
 
 ## Memory Safety in C
@@ -42,6 +44,4 @@ We make no claim to have achieved any specific certification or formal "complian
 
 ## Reporting Security Issues
 
-See the process in the repository security policy (to be added) or contact the maintainers through the channels listed in the repository.
-
-Vulnerabilities that affect the containment boundary or allow escape between domains or to the host are treated as critical.
+Vulnerabilities that affect the containment boundary or allow escape between systems or to the host are treated as critical. See the repository security policy or contact the maintainers.
