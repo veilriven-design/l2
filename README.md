@@ -2,6 +2,8 @@
 
 A minimal high-assurance system for creating, using, and destroying strongly isolated execution contexts on demand — driven from the terminal.
 
+**Status**: Working Rust host prototype CLI. Real Linux namespace isolation for execution. Narrow L2P protocol specified. Clear path to disciplined C core + seL4 backend.
+
 ## The Core Idea
 
 From an ordinary terminal on any host, you create isolated "systems" (containment contexts), put only what you intend into them, run work inside them, retrieve results, and destroy them cleanly.
@@ -38,7 +40,7 @@ The terminal is the universal interface. GUIs, IDEs, and higher tools are built 
 
 - A high-assurance containment primitive for MCP servers, agentic tools, build tasks, and developer workflows.
 - C with rigorous memory safety guards in the core (future).
-- Works from a normal terminal on ordinary developer machines today (host mechanisms), with a clear path to seL4-backed strong isolation.
+- Works from a normal terminal on ordinary developer machines today (host mechanisms with real isolation), with a clear path to seL4-backed strong isolation.
 
 ## What l2 Is Not
 
@@ -49,7 +51,7 @@ The terminal is the universal interface. GUIs, IDEs, and higher tools are built 
 
 ## Try It Now (Host Prototype)
 
-The first working pieces are implemented as a Rust CLI that simulates the substrate locally. This lets you immediately experience the terminal interface.
+The first working pieces are implemented as a Rust CLI. Real namespace isolation is active for `exec`.
 
 ```bash
 # Build
@@ -57,23 +59,15 @@ cargo build --release
 
 # Create and use a system
 ./target/release/l2 create review-agent --policy strict
-./target/release/l2 put review-agent code ./src --content "fn main() { ... }"
+./target/release/l2 put review-agent code main.rs --content "fn main() { ... }"
 ./target/release/l2 list review-agent
-./target/release/l2 exec review-agent "./build.sh"
+./target/release/l2 exec review-agent "echo hello from inside"
 ./target/release/l2 get review-agent result
 ./target/release/l2 destroy review-agent
 
 # JSON mode for scripts
 l2 --json list
 ```
-
-The current implementation uses an in-memory simulation. Real isolation (Linux namespaces + later seL4) and the out-of-process L2P protocol are the next pieces.
-
-## Current State
-
-Host prototype CLI is runnable and matches the terminal interface design.
-Narrow L2P protocol is specified.
-Real core implementation (C + host isolation primitives) is in progress.
 
 See `STATUS.md` for the live checklist and `docs/PROTOCOL.md` + `docs/TERMINAL_INTERFACE.md` for the foundations.
 
