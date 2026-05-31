@@ -40,9 +40,9 @@ enum Commands {
     Put {
         sys: String,
         name: String,
-        #[arg(long, default_value = "data")]
+        #[arg(long, default_value = "data", help = "Type of object (data, code, credential, mcp_server)")]
         r#type: String,
-        #[arg(long)]
+        #[arg(long, help = "Inline content for the object")]
         content: Option<String>,
     },
     /// Retrieve an object from a system
@@ -246,7 +246,7 @@ fn main() -> Result<()> {
         Commands::Create { name, policy } => {
             match sub.create(&name, &policy) {
                 Ok(id) => {
-                    let _ = save_state(&sub);
+                    save_state(&sub)?;   // Now errors loudly if we can't persist
                     if cli.json {
                         print_json(&serde_json::json!({
                             "ok": true,
@@ -352,7 +352,6 @@ fn main() -> Result<()> {
         }
 
         Commands::Revoke { sys, grant } => {
-            // For now just acknowledge (real revocation lives in core)
             success(&format!("revoked grant '{}' from '{}' (no-op in prototype)", grant, sys), cli.json);
         }
 
