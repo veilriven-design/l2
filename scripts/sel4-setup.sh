@@ -98,6 +98,69 @@ echo "    # Or with real docker:"
 echo "    make user"
 echo "  Then inside the container you can add the Microkit SDK above."
 
+# 5b. Print distro-aware package hints (official tutorial is very Ubuntu-centric)
+echo
+
+echo "  Host packages needed to actually build/run examples from the tutorial:"
+
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+fi
+
+case "${ID:-unknown}" in
+    fedora|rhel|centos|rocky|almalinux|ol )
+        echo "    RHEL/Fedora-family (your system appears to be one):"
+        echo "      sudo dnf install -y qemu-kvm qemu-system-aarch64"
+        echo "    Note: The aarch64 cross-compiler is often painful or missing"
+        echo "    on RHEL 8-family systems."
+        echo "    → Container is the recommended path on your distro."
+        ;;
+    ubuntu|debian|pop )
+        echo "    Debian/Ubuntu:"
+        echo "      sudo apt update"
+        echo "      sudo apt install -y make qemu-system-aarch64 gcc-aarch64-linux-gnu"
+        ;;
+    * )
+        echo "    See the official 'Setting up your machine' section:"
+        echo "      https://docs.sel4.systems/projects/microkit/tutorial/part0.html"
+        ;;
+esac
+
+# 5c. On RHEL-family systems with podman, actively offer to set up the official container
+if [[ "${ID:-}" =~ ^(fedora|rhel|centos|rocky|almalinux|ol)$ ]] && [ "$CONTAINER_CMD" = "podman" ]; then
+    echo
+    echo ">>> RHEL-family system + podman detected."
+    echo "    The easiest way to get a working seL4/Microkit environment (with"
+    echo "    proper cross-compiler) is the official container."
+    echo
+    read -r -p "    Set it up now with 'DOCKER=podman make user'? [Y/n] " reply || true
+    if [[ -z "$reply" || "$reply" =~ ^[Yy] ]]; then
+        DOCKERFILES_DIR="$WORKSPACE/seL4-CAmkES-L4v-dockerfiles"
+        if [ ! -d "$DOCKERFILES_DIR" ]; then
+            echo "    Cloning official seL4 dockerfiles repo..."
+            git clone --depth 1 https://github.com/seL4/seL4-CAmkES-L4v-dockerfiles.git "$DOCKERFILES_DIR" || {
+                echo "    Clone failed. You can do it manually later."
+            }
+        fi
+
+        if [ -d "$DOCKERFILES_DIR" ]; then
+            echo
+            echo "    Running container setup (this will pull a large image and can take several minutes)..."
+            echo "    Command: cd $DOCKERFILES_DIR && DOCKER=podman make user"
+            echo
+            ( cd "$DOCKERFILES_DIR" && DOCKER=podman make user ) || {
+                echo
+                echo "    Container setup encountered an issue (common on first run)."
+                echo "    You can retry later with:"
+                echo "      cd $DOCKERFILES_DIR && DOCKER=podman make user"
+            }
+        fi
+    else
+        echo "    Skipped. You can set it up anytime with:"
+        echo "      cd $WORKSPACE/seL4-CAmkES-L4v-dockerfiles && DOCKER=podman make user"
+    fi
+fi
+
 # 6. Emit a ready-to-use README in the workspace
 echo "[6/6] Writing quickstart guide..."
 cat > "$WORKSPACE/README-l2-sel4.md" << 'EOF'
@@ -124,16 +187,57 @@ export MICROKIT_SDK=$(pwd)/microkit-sdk-2.2.0
 
 The SDK is a self-contained tarball with everything you need (tool, libs, monitor, examples).
 
-## Optional: Full seL4 development container
+**Important:** After extracting the SDK you will still need a few host packages
+to build and run the examples in the official tutorial.
 
-If you want the complete seL4 + CAmkES + L4v environment (heavier), use the
-official Dockerfiles repo (works with both Docker and Podman):
+### Host packages (common cases)
+
+**RHEL / Fedora / Rocky / AlmaLinux / CentOS Stream (your system looks like one of these):**
+
+```bash
+sudo dnf install -y qemu-kvm qemu-system-aarch64
+```
+
+The aarch64 cross-compiler is frequently painful on RHEL 8-family systems.
+If the above is not enough, use the container method below instead of fighting packages.
+
+**Debian / Ubuntu / Pop!_OS:**
+
+```bash
+sudo apt update
+sudo apt install -y make qemu-system-aarch64 gcc-aarch64-linux-gnu
+```
+
+For other distributions, see the official guide:
+https://docs.sel4.systems/projects/microkit/tutorial/part0.html
+
+## Recommended for RHEL / Fedora / Rocky / AlmaLinux users
+
+On RHEL-family systems the cross-compiler packages are often missing or
+difficult. The **strongly recommended** path is the official seL4 container.
+
+Run this (or just re-run `l2 sel4-setup` after pulling the latest version — it will offer to do it for you):
+
+```bash
+git clone https://github.com/seL4/seL4-CAmkES-L4v-dockerfiles.git
+cd seL4-CAmkES-L4v-dockerfiles
+DOCKER=podman make user     # ← important on your system
+```
+
+This gives you a full working environment with the correct aarch64 toolchain.
+
+You can then use your downloaded Microkit SDK inside the container.
+
+## Optional: Full seL4 development container (other distros)
+
+If you are not on RHEL-family and want the complete seL4 + CAmkES + L4v
+environment, use the official Dockerfiles repo:
 
 ```bash
 git clone https://github.com/seL4/seL4-CAmkES-L4v-dockerfiles.git
 cd seL4-CAmkES-L4v-dockerfiles
 
-# Podman (very common on Fedora/RHEL systems that show "Emulate Docker CLI")
+# Podman
 DOCKER=podman make user
 
 # Real Docker
@@ -164,19 +268,36 @@ See also the Rust-focused demo containers:
 (cd l2-source && cargo build --release && ./target/release/l2 status)
 ```
 
+---
+
+**RHEL / Fedora users:** Re-run `l2 sel4-setup` (after `git pull && cargo install --path . --force`)
+and it will offer to automatically set up the recommended seL4 container for you.
+
 Happy high-assurance hacking.
 EOF
 echo "  ✓ Wrote $WORKSPACE/README-l2-sel4.md"
 
 echo
+
 echo "=== ✅ l2 sel4-setup complete ==="
 echo
 echo "Workspace ready: $WORKSPACE"
 echo "Quickstart guide: cat $WORKSPACE/README-l2-sel4.md"
 echo
-echo "Most people should now just:"
-echo "  tar xzf microkit-sdk-*.tar.gz"
-echo "  and follow https://docs.sel4.systems/projects/microkit/tutorial/"
+
+if [[ "${ID:-}" =~ ^(fedora|rhel|centos|rocky|almalinux|ol)$ ]]; then
+    echo "On your RHEL-family system:"
+    echo "  Re-run 'l2 sel4-setup' after a 'git pull' — it will offer to set up"
+    echo "  the official seL4 container for you (the easiest path)."
+    echo
+    echo "  Or do it manually:"
+    echo "    cd $WORKSPACE/seL4-CAmkES-L4v-dockerfiles && DOCKER=podman make user"
+else
+    echo "Most people should now just:"
+    echo "  tar xzf microkit-sdk-*.tar.gz"
+    echo "  and follow https://docs.sel4.systems/projects/microkit/tutorial/"
+fi
+
 echo
 echo "Run the host prototype from anywhere:"
 echo "  cargo install --path $L2_DIR --force"
