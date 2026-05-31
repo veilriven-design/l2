@@ -61,7 +61,11 @@ enum Commands {
         /// Flexible arguments.
         /// - 1 arg that is a local file with code extension/shebang → oneshot execution
         /// - 2+ args → first is system name, rest forms the command (or bare name for dispatch)
-        #[arg(trailing_var_arg = true, allow_hyphen_values = true, help = "System and command, or just a local code file for oneshot (e.g. hello.py, mysys hello.py, 'cat file.txt')")]
+        #[arg(
+            trailing_var_arg = true,
+            allow_hyphen_values = true,
+            help = "System and command, or just a local code file for oneshot (e.g. hello.py, mysys hello.py, 'cat file.txt')"
+        )]
         args: Vec<String>,
 
         #[arg(long)]
@@ -193,7 +197,10 @@ fn validate_exec_target_references_real_object(
     }
 
     for (i, tok) in tokens.iter().enumerate() {
-        let candidate = tok.trim_start_matches("./").trim_start_matches(".\\").to_string();
+        let candidate = tok
+            .trim_start_matches("./")
+            .trim_start_matches(".\\")
+            .to_string();
 
         if candidate.is_empty() || candidate.starts_with('/') || candidate.contains("..") {
             continue;
@@ -202,7 +209,17 @@ fn validate_exec_target_references_real_object(
         // Common interpreters / tools: the *next* token is often the file we care about
         let is_interpreter = matches!(
             *tok,
-            "sh" | "bash" | "dash" | "zsh" | "python" | "python3" | "node" | "cat" | "less" | "head" | "tail" | "more"
+            "sh" | "bash"
+                | "dash"
+                | "zsh"
+                | "python"
+                | "python3"
+                | "node"
+                | "cat"
+                | "less"
+                | "head"
+                | "tail"
+                | "more"
         );
 
         let target_to_check = if is_interpreter {
@@ -244,10 +261,7 @@ fn validate_exec_target_references_real_object(
             }
 
             if let Some(cmd) = suggest_working_command(system) {
-                msg.push_str(&format!(
-                    "\n  Try: l2 exec {} '{}'",
-                    sys_name, cmd
-                ));
+                msg.push_str(&format!("\n  Try: l2 exec {} '{}'", sys_name, cmd));
             }
 
             error(&msg, json);
@@ -257,8 +271,7 @@ fn validate_exec_target_references_real_object(
         // object (e.g. `./task` or `task.rs` after `put --type code`). Give a clear
         // conceptual explanation instead of letting the shell fail later.
         if let Some(obj) = system.objects.get(&target_to_check) {
-            let is_direct_exec = !is_interpreter
-                && (tok.starts_with("./") || !tok.contains('/'));
+            let is_direct_exec = !is_interpreter && (tok.starts_with("./") || !tok.contains('/'));
 
             if is_direct_exec && obj.r#type == "code" {
                 let mut msg = format!(
@@ -268,8 +281,14 @@ fn validate_exec_target_references_real_object(
                      The file is present. You can inspect or process it with normal commands:",
                     target_to_check
                 );
-                msg.push_str(&format!("\n  l2 exec {} 'cat {}'", sys_name, target_to_check));
-                msg.push_str(&format!("\n  l2 exec {} 'head -20 {}'", sys_name, target_to_check));
+                msg.push_str(&format!(
+                    "\n  l2 exec {} 'cat {}'",
+                    sys_name, target_to_check
+                ));
+                msg.push_str(&format!(
+                    "\n  l2 exec {} 'head -20 {}'",
+                    sys_name, target_to_check
+                ));
 
                 if target_to_check.ends_with(".rs") {
                     msg.push_str(
@@ -368,12 +387,10 @@ fn oneshot_prefix() -> String {
 // intentional during the foundation phase.
 // -----------------------------------------------------------------------------
 #[allow(dead_code)]
-
 /// Returns true if the name looks like it has a common source/script extension.
 /// This is deliberately broad ("all the way" on the host) but still conservative.
 /// Shebang detection (see `has_shebang`) is the ultimate escape hatch for
 /// anything not listed here.
-#[allow(dead_code)]
 fn has_code_extension(name: &str) -> bool {
     let lower = name.to_ascii_lowercase();
     lower.ends_with(".sh")
@@ -399,16 +416,20 @@ fn has_code_extension(name: &str) -> bool {
 
 /// Returns true if the first line of the content is a shebang (`#!`).
 /// Used both for +x permission in the workspace and for dispatch decisions.
-#[allow(dead_code)]
 fn has_shebang(content: &str) -> bool {
-    content.lines().next().map_or(false, |first| first.starts_with("#!"))
+    content
+        .lines()
+        .next()
+        .is_some_and(|first| first.starts_with("#!"))
 }
 
 /// Very lightweight content-based heuristic for smarter dispatch / error messages.
 /// Used especially in oneshot mode for compiled languages.
 #[allow(dead_code)]
 fn looks_like_rust(content: &str) -> bool {
-    content.contains("fn main(") || content.contains("#[tokio::main]") || content.contains("use std::")
+    content.contains("fn main(")
+        || content.contains("#[tokio::main]")
+        || content.contains("use std::")
 }
 
 #[allow(dead_code)]
@@ -427,7 +448,6 @@ fn looks_like_c_or_cpp(content: &str) -> bool {
 ///   This makes `l2 exec hello.rs` and `l2 exec hello.c` "just work" in oneshot.
 ///
 /// All commands are designed to be safe to pass to `sh -c` inside the sandbox.
-#[allow(dead_code)]
 fn compute_dispatch_command(name: &str, content: &str) -> Option<String> {
     if has_shebang(content) {
         return Some(format!("./{}", name));
@@ -514,12 +534,14 @@ fn normalize_exec_args(args: &[String]) -> (Option<String>, String, bool, Option
         // (We don't have state here easily, so we do a best-effort later in the handler.
         // For now we treat 1-arg as potential oneshot if it looks like a local code file.)
         let path = std::path::Path::new(candidate);
-        if path.exists() && (has_code_extension(candidate) || {
-            // Peek the file for shebang without loading everything
-            std::fs::read_to_string(candidate)
-                .map(|c| has_shebang(&c))
-                .unwrap_or(false)
-        }) {
+        if path.exists()
+            && (has_code_extension(candidate) || {
+                // Peek the file for shebang without loading everything
+                std::fs::read_to_string(candidate)
+                    .map(|c| has_shebang(&c))
+                    .unwrap_or(false)
+            })
+        {
             return (None, candidate.clone(), true, None);
         }
 
@@ -736,8 +758,12 @@ fn exec_isolated(
         }
 
         if stderr.contains("Operation not permitted") || stderr.contains("unshare failed") {
-            msg.push_str("\nHint: unshare(1) requires privileges or kernel support for user namespaces.\n");
-            msg.push_str("      (l2 auto-escalates via sudo for exec; ensure sudo works for your user.)\n");
+            msg.push_str(
+                "\nHint: unshare(1) requires privileges or kernel support for user namespaces.\n",
+            );
+            msg.push_str(
+                "      (l2 auto-escalates via sudo for exec; ensure sudo works for your user.)\n",
+            );
         }
         return Ok(msg);
     }
@@ -898,7 +924,11 @@ fn main() -> Result<()> {
             }
             Err(e) => error(&e.to_string(), cli.json),
         },
-        Commands::Exec { policy, args, input } => {
+        Commands::Exec {
+            policy,
+            args,
+            input,
+        } => {
             let (opt_sys, what, is_oneshot, pol_override) = normalize_exec_args(&args);
 
             if is_oneshot {
@@ -928,7 +958,10 @@ fn main() -> Result<()> {
                 // Safe to read the local file and mutate state.
                 let content = match std::fs::read_to_string(local_path) {
                     Ok(c) => c,
-                    Err(e) => error(&format!("failed to read oneshot file '{}': {}", local_path, e), cli.json),
+                    Err(e) => error(
+                        &format!("failed to read oneshot file '{}': {}", local_path, e),
+                        cli.json,
+                    ),
                 };
 
                 if content.trim().is_empty() {
@@ -956,7 +989,10 @@ fn main() -> Result<()> {
                     Err(e) => {
                         let _ = sub.destroy(&oneshot_id);
                         let _ = save_state(&sub);
-                        error(&format!("failed to prepare oneshot system: {}", e), cli.json);
+                        error(
+                            &format!("failed to prepare oneshot system: {}", e),
+                            cli.json,
+                        );
                     }
                 };
 
@@ -989,7 +1025,12 @@ fn main() -> Result<()> {
                     let _ = sandbox::apply_strict_sandbox(workspace.as_deref());
                 }
 
-                let out = match exec_isolated(&effective_what, input.as_deref(), &oneshot_id, workspace) {
+                let out = match exec_isolated(
+                    &effective_what,
+                    input.as_deref(),
+                    &oneshot_id,
+                    workspace,
+                ) {
                     Ok(o) => o,
                     Err(e) => {
                         let _ = sub.destroy(&oneshot_id);
@@ -1038,7 +1079,9 @@ fn main() -> Result<()> {
                 let _ = sub.destroy(&oneshot_id);
                 let _ = save_state(&sub);
                 // Best-effort workspace cleanup
-                let _ = std::fs::remove_dir_all(std::env::temp_dir().join(format!("l2-ws-{}", ws_id_for_cleanup)));
+                let _ = std::fs::remove_dir_all(
+                    std::env::temp_dir().join(format!("l2-ws-{}", ws_id_for_cleanup)),
+                );
 
                 if !cli.json {
                     println!(
@@ -1066,7 +1109,10 @@ fn main() -> Result<()> {
             // =====================================================
             let sys = match opt_sys {
                 Some(s) => s,
-                None => error("system name required (or use one-shot mode with a local code file)", cli.json),
+                None => error(
+                    "system name required (or use one-shot mode with a local code file)",
+                    cli.json,
+                ),
             };
 
             let mut effective_what = what.clone();
@@ -1089,7 +1135,12 @@ fn main() -> Result<()> {
                 }
 
                 // Existing friendly validation (now using the possibly-dispatched what)
-                validate_exec_target_references_real_object(&effective_what, system, &sys, cli.json);
+                validate_exec_target_references_real_object(
+                    &effective_what,
+                    system,
+                    &sys,
+                    cli.json,
+                );
             }
 
             // Privilege escalation (unchanged behavior for named systems)
@@ -1130,10 +1181,7 @@ fn main() -> Result<()> {
                             list_available_objects(system)
                         ));
                         if let Some(cmd) = suggest_working_command(system) {
-                            to_print.push_str(&format!(
-                                " Try: l2 exec {} '{}'\n",
-                                sys, cmd
-                            ));
+                            to_print.push_str(&format!(" Try: l2 exec {} '{}'\n", sys, cmd));
                         }
                     }
 
@@ -1263,14 +1311,26 @@ mod tests {
     #[test]
     fn compute_dispatch_prefers_shebang() {
         let content = "#!/usr/bin/env python3\nprint('hello')";
-        assert_eq!(compute_dispatch_command("task.py", content), Some("./task.py".to_string()));
+        assert_eq!(
+            compute_dispatch_command("task.py", content),
+            Some("./task.py".to_string())
+        );
     }
 
     #[test]
     fn compute_dispatch_falls_back_to_curated_table() {
-        assert_eq!(compute_dispatch_command("foo.py", "print(1)"), Some("python3 foo.py".to_string()));
-        assert_eq!(compute_dispatch_command("bar.sh", "echo hi"), Some("sh bar.sh".to_string()));
-        assert_eq!(compute_dispatch_command("app.js", "console.log(1)"), Some("node app.js".to_string()));
+        assert_eq!(
+            compute_dispatch_command("foo.py", "print(1)"),
+            Some("python3 foo.py".to_string())
+        );
+        assert_eq!(
+            compute_dispatch_command("bar.sh", "echo hi"),
+            Some("sh bar.sh".to_string())
+        );
+        assert_eq!(
+            compute_dispatch_command("app.js", "console.log(1)"),
+            Some("node app.js".to_string())
+        );
         assert_eq!(compute_dispatch_command("weird.xyz", "data"), None);
     }
 }
