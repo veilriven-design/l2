@@ -71,6 +71,8 @@ Places an object into a system.
 {"v":1, "op":"put", "id":"p1", "sys":"sys-9f3a2b", "name":"main.c", "type":"code", "data":"...base64 or reference..."}
 ```
 
+`name` is a relative path inside the system workspace. Absolute paths, empty names, NUL bytes, and parent traversal (`..`) are invalid.
+
 `type` is one of: `data`, `code`, `credential`, `mcp_server` (initial set).
 
 ### get

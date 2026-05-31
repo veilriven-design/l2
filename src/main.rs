@@ -10,7 +10,7 @@ use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 
 #[derive(Parser, Debug)]
@@ -127,13 +127,46 @@ fn save_state(sub: &Substrate) -> Result<()> {
     Ok(())
 }
 
+fn object_relative_path(name: &str) -> Result<PathBuf> {
+    if name.is_empty() || name.contains('\0') {
+        anyhow::bail!("object name must be a non-empty relative path");
+    }
+
+    let mut relative = PathBuf::new();
+    for component in Path::new(name).components() {
+        match component {
+            Component::Normal(part) => relative.push(part),
+            Component::CurDir => {}
+            _ => anyhow::bail!("object name '{}' must stay inside the system workspace", name),
+        }
+    }
+
+    if relative.as_os_str().is_empty() {
+        anyhow::bail!("object name must name a file inside the system workspace");
+    }
+
+    Ok(relative)
+}
+
+fn object_workspace_path(workspace: &Path, name: &str) -> Result<PathBuf> {
+    Ok(workspace.join(object_relative_path(name)?))
+}
+
+fn workspace_dir(sys: &System) -> Result<PathBuf> {
+    if sys.id.is_empty() || !sys.id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+        anyhow::bail!("system '{}' has an invalid stored id", sys.name);
+    }
+
+    Ok(std::env::temp_dir().join(format!("l2-ws-{}", sys.id)))
+}
+
 fn prepare_workspace(sys: &System) -> Result<PathBuf> {
-    let ws = std::env::temp_dir().join(format!("l2-ws-{}", sys.name));
+    let ws = workspace_dir(sys)?;
     let _ = fs::remove_dir_all(&ws);
     fs::create_dir_all(&ws)?;
 
     for (name, obj) in &sys.objects {
-        let path = ws.join(name);
+        let path = object_workspace_path(&ws, name)?;
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
@@ -178,6 +211,7 @@ impl Substrate {
     }
 
     fn put(&mut self, sys_name: &str, obj_name: &str, typ: &str, content: &str) -> Result<()> {
+        object_relative_path(obj_name)?;
         let id = self.resolve_name(sys_name)?;
         let sys = self.systems.get_mut(&id).unwrap();
         let obj = Object {
@@ -211,14 +245,11 @@ impl Substrate {
 
 fn exec_isolated(what: &str, _input: Option<&str>, sys_name: &str, workspace: Option<PathBuf>) -> Result<String> {
     let mut cmd = Command::new("unshare");
+    cmd.args(["--fork", "--pid", "--mount-proc", "--net", "sh", "-c", what]);
 
-    let full_command = if let Some(ws) = &workspace {
-        format!("cd {} && {}", ws.display(), what)
-    } else {
-        what.to_string()
-    };
-
-    cmd.args(["--fork", "--pid", "--mount-proc", "--net", "sh", "-c", &full_command]);
+    if let Some(ws) = &workspace {
+        cmd.current_dir(ws);
+    }
 
     cmd.stdout(Stdio::piped())
        .stderr(Stdio::piped());
@@ -422,5 +453,28 @@ mod tests {
 
         assert_eq!(parsed["ok"], false);
         assert_eq!(parsed["err"], msg);
+    }
+
+    #[test]
+    fn object_paths_allow_nested_relative_names() {
+        let path = object_workspace_path(Path::new("/tmp/l2-workspace"), "./src/main.rs").unwrap();
+
+        assert_eq!(path, PathBuf::from("/tmp/l2-workspace/src/main.rs"));
+    }
+
+    #[test]
+    fn object_paths_reject_workspace_escape_names() {
+        assert!(object_workspace_path(Path::new("/tmp/l2-workspace"), "../escape").is_err());
+        assert!(object_workspace_path(Path::new("/tmp/l2-workspace"), "/tmp/escape").is_err());
+        assert!(object_workspace_path(Path::new("/tmp/l2-workspace"), ".").is_err());
+    }
+
+    #[test]
+    fn put_rejects_unsafe_object_names_before_state_changes() {
+        let mut sub = Substrate::default();
+        sub.create("sys", "strict").unwrap();
+
+        assert!(sub.put("sys", "../escape", "data", "nope").is_err());
+        assert!(sub.get_system("sys").unwrap().objects.is_empty());
     }
 }
