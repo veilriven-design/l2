@@ -37,7 +37,7 @@ jobs:
         # Strict policy lifecycle + real Landlock enforcement (writes inside workspace must succeed)
         ./target/release/l2 create smoke-sys --policy strict
         ./target/release/l2 list smoke-sys
-        ./target/release/l2 put smoke-sys data hello.txt --content 'hello from v0.2.0 strict Landlock'
+        ./target/release/l2 put smoke-sys hello.txt --content 'hello from v0.2.0 strict Landlock'
         ./target/release/l2 get smoke-sys hello.txt | grep -q 'hello from v0.2.0 strict Landlock'
 
         # Exec under strict — command writes a file inside the workspace dir (allowed by Landlock rules)
