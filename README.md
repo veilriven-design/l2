@@ -17,7 +17,7 @@ All interaction happens through the `l2` command-line tool and the narrow `l2_sy
 Primary operations:
 
 - `l2 create <name> [--policy ...]` — create a new isolated system
-- `l2 put <name> <object> ...` — place code, data, or credentials inside
+- `l2 put <sys> <name> [--type <type>] [--content <text>]` — place something inside a system
 - `l2 exec <name> <what> [args]` — run work inside the system
 - `l2 get <name> <object>` — retrieve results or artifacts
 - `l2 list <name>` — inspect what the system currently holds
@@ -55,19 +55,19 @@ The prototype now persists state to disk, so you can use it like a normal tool a
 ```bash
 cargo build --release
 
-# These can now be run in separate shells
+# These commands can be run in separate shells / terminals
 ./target/release/l2 create review-agent --policy strict
-./target/release/l2 put review-agent code main.rs --content 'fn main() { println!("hello from inside"); }'
+./target/release/l2 put review-agent main.rs --type code --content 'fn main() { println!("hello from inside"); }'
 ./target/release/l2 list review-agent
 ./target/release/l2 exec review-agent 'echo hello from inside the substrate'
 ./target/release/l2 get review-agent main.rs
 ./target/release/l2 destroy review-agent
 
-# JSON for scripting / MCP use
+# JSON for scripting / tools
 l2 --json list
 ```
 
-State lives in `~/.l2/state.json` (override with `L2_DATA_DIR`).
+State is stored in `~/.l2/state.json`. You can override it with `L2_DATA_DIR=/path l2 ...`
 
 See `STATUS.md`, `docs/PROTOCOL.md`, and `docs/TERMINAL_INTERFACE.md`.
 
