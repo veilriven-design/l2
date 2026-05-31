@@ -1,5 +1,15 @@
 **l2** is the focused Latticra substrate.
 
+**⚠️ Experimental Prototype — Not Yet High Assurance**
+
+This is an early-stage experimental prototype. **It is not a true high-assurance substrate.**
+
+The current implementation runs on ordinary Linux using namespaces for isolation. While it demonstrates some of the intended shape and developer experience, it does **not** provide strong security guarantees. Do not use this for anything security-critical, production workloads, or sensitive workloads.
+
+The long-term intent is to build a minimal, high-assurance system with a much stronger foundation (targeting seL4). That work has not been done yet.
+
+---
+
 A minimal high-assurance system for creating, using, and destroying strongly isolated execution contexts on demand — driven from the terminal.
 
 **Status**: Working persistent host prototype. Real Linux namespace isolation for `exec`. State survives across separate terminal commands. Narrow L2P protocol specified.
@@ -38,7 +48,7 @@ The terminal is the universal interface. GUIs, IDEs, and higher tools are built 
 
 ## What l2 Is
 
-- A high-assurance containment primitive for MCP servers, agentic tools, build tasks, and developer workflows.
+- An early experimental prototype exploring the shape of a high-assurance containment primitive.
 - Works from a normal terminal on ordinary developer machines today (host mechanisms with real isolation), with a clear path to seL4-backed strong isolation.
 
 ## What l2 Is Not
@@ -47,6 +57,7 @@ The terminal is the universal interface. GUIs, IDEs, and higher tools are built 
 - An always-running service or daemon
 - A full effect system, lattice framework, or modeling environment
 - A packaging, distribution, or installer system
+- A secure or high-assurance system suitable for production or sensitive use
 
 ## Try It Now (Persistent Host Prototype)
 
