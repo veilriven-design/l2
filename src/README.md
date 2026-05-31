@@ -1,23 +1,27 @@
 # src
 
-c code lives here
+C implementation of the l2 substrate core.
 
-model
+## Model
 
-l2 systems: create / use / kill on demand
+Systems are created, populated, executed inside, queried, and destroyed on demand from the terminal.
 
-all interaction through l2_sys_* functions in sys.h
+All authority and boundary crossings go through the narrow `l2_sys_*` interface (see `core/sys.h`).
 
-rules
+## Rules
 
-- keep the public interface tiny
-- no leaks across boundaries
-- minimal core tcb
-- use guards from memory_safety.md
+- Public interface must stay tiny and stable.
+- No leaks across system or host boundaries.
+- Minimal core TCB at every layer.
+- Rigorous memory safety discipline in security-critical paths (see CONTRIBUTING.md).
+- Terminal CLI/TUI is the primary driver; keep the protocol narrow and auditable.
 
-current layout
+## Current Layout (minimal)
 
-core/sys.h     - public api
-common/safe.*   - memory safety helpers
+- `core/sys.h` — the complete public interface
+- `core/` — core implementation
+- `common/safe.*` — basic memory safety helpers
 
-note: still early and rough
+Everything else is either deprecated or will be removed as the narrow implementation stabilizes.
+
+This is the focused Latticra substrate. Restraint applies here more than anywhere.
