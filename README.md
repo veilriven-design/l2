@@ -62,7 +62,7 @@ The terminal is the universal interface. GUIs, IDEs, and higher tools are built 
 
 ## Try It Now (Persistent Host Prototype)
 
-The prototype now persists state to disk, so you can use it like a normal tool across multiple terminal commands.
+The prototype persists state to disk (`~/.l2/state.json`), so you can use it like a normal tool across multiple terminal commands or shells.
 
 ```bash
 cargo build --release
@@ -77,7 +77,7 @@ l2 destroy review-agent
 
 # Strict policy + sandbox (shows isolation hardening)
 l2 create secure-agent --policy strict
-l2 put secure-agent secret.txt --content "This data should only be visible inside the strict system"
+l2 put secure-agent secret.txt --content "only visible inside"
 l2 exec secure-agent 'cat secret.txt'
 l2 destroy secure-agent
 
@@ -86,7 +86,7 @@ l2 --json status
 l2 --json list
 ```
 
-State is stored in `~/.l2/state.json`. You can override it with `L2_DATA_DIR=/path l2 ...`
+Override the data directory with `L2_DATA_DIR=/some/path l2 ...`
 
 See `STATUS.md`, `docs/PROTOCOL.md`, and `docs/TERMINAL_INTERFACE.md`.
 
@@ -107,25 +107,24 @@ All commands support `--json` for machine-readable output.
 
 ## seL4 / Microkit Development Setup
 
-`l2` ships with a full-featured setup command for the seL4 track:
+`l2` includes a polished, first-class command for the seL4 track:
 
 ```bash
 l2 sel4-setup
 ```
 
-This creates `~/l2-sel4-workspace` and:
+What it does:
+- Creates `~/l2-sel4-workspace`
+- Downloads the official prebuilt Microkit SDK
+- On RHEL/Fedora-family systems (very common with podman), it detects your environment and offers to automatically set up the official seL4 development container using `DOCKER=podman make user`, with a live spinner + status line so you can see progress.
 
-- Downloads the official prebuilt Microkit SDK (no container required for basic use)
-- Clones the Microkit source for reference
-- On RHEL/Fedora/Rocky/AlmaLinux systems (where native cross-compilers are painful), it automatically detects podman and offers to set up the official seL4 development container (`DOCKER=podman make user`) with a live spinner + status line so you can see it's still working.
-
-After running it, read the generated guide in the workspace:
+After running it:
 
 ```bash
 cat ~/l2-sel4-workspace/README-l2-sel4.md
 ```
 
-This gives you the cleanest current path into real seL4/Microkit development while the host prototype remains usable for day-to-day work.
+This is currently the best one-command on-ramp to real seL4/Microkit development.
 
 ## Repository
 
