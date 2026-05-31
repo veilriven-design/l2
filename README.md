@@ -2,7 +2,7 @@
 
 A minimal high-assurance system for creating, using, and destroying strongly isolated execution contexts on demand — driven from the terminal.
 
-**Status**: Working Rust host prototype CLI. Real Linux namespace isolation for execution. Narrow L2P protocol specified. Clear path to disciplined C core + seL4 backend.
+**Status**: Working persistent host prototype. Real Linux namespace isolation for `exec`. State survives across separate terminal commands. Narrow L2P protocol specified.
 
 ## The Core Idea
 
@@ -39,7 +39,6 @@ The terminal is the universal interface. GUIs, IDEs, and higher tools are built 
 ## What l2 Is
 
 - A high-assurance containment primitive for MCP servers, agentic tools, build tasks, and developer workflows.
-- C with rigorous memory safety guards in the core (future).
 - Works from a normal terminal on ordinary developer machines today (host mechanisms with real isolation), with a clear path to seL4-backed strong isolation.
 
 ## What l2 Is Not
@@ -49,27 +48,28 @@ The terminal is the universal interface. GUIs, IDEs, and higher tools are built 
 - A full effect system, lattice framework, or modeling environment
 - A packaging, distribution, or installer system
 
-## Try It Now (Host Prototype)
+## Try It Now (Persistent Host Prototype)
 
-The first working pieces are implemented as a Rust CLI. Real namespace isolation is active for `exec`.
+The prototype now persists state to disk, so you can use it like a normal tool across multiple terminal commands.
 
 ```bash
-# Build
 cargo build --release
 
-# Create and use a system
+# These can now be run in separate shells
 ./target/release/l2 create review-agent --policy strict
-./target/release/l2 put review-agent code main.rs --content "fn main() { ... }"
+./target/release/l2 put review-agent code main.rs --content 'fn main() { println!("hello from inside"); }'
 ./target/release/l2 list review-agent
-./target/release/l2 exec review-agent "echo hello from inside"
-./target/release/l2 get review-agent result
+./target/release/l2 exec review-agent 'echo hello from inside the substrate'
+./target/release/l2 get review-agent main.rs
 ./target/release/l2 destroy review-agent
 
-# JSON mode for scripts
+# JSON for scripting / MCP use
 l2 --json list
 ```
 
-See `STATUS.md` for the live checklist and `docs/PROTOCOL.md` + `docs/TERMINAL_INTERFACE.md` for the foundations.
+State lives in `~/.l2/state.json` (override with `L2_DATA_DIR`).
+
+See `STATUS.md`, `docs/PROTOCOL.md`, and `docs/TERMINAL_INTERFACE.md`.
 
 ## Repository
 
@@ -77,4 +77,4 @@ See `STATUS.md` for the live checklist and `docs/PROTOCOL.md` + `docs/TERMINAL_I
 - High-assurance posture: see `SECURITY.md`
 - Contribution rules: see `CONTRIBUTING.md`
 
-This is the narrow, terminal-native realization of the Latticra substrate idea. Everything else was left behind.
+This is the narrow, terminal-native realization of the Latticra substrate idea.
