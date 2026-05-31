@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased / v0.2.0] - 2026-06
+
+### Added / Hardening
+- Real Landlock FS sandbox for `--policy strict`: full R/W/X confined to the system workspace, RO+EXEC on curated system paths (e.g. /bin, /proc, /dev). Writes outside the workspace are now denied by the kernel LSM.
+- Clear high-assurance TODOs in sandbox.rs aligned with PROTOTYPE_HARDENING_AND_SEL4_PLAN.md (seccomp, cap drop, user ns, etc. remain future work).
+- CI (GitHub Actions) on push to main + v0.2.0-development: build, test, clippy -D warnings, fmt --check.
+
+### Changed
+- Bumped crate version to 0.2.0 (v0.1.0 remains the tagged base for integrity/eval history).
+- Removed hallucinated duplicate `l2/` subdirectory that had crept into working trees.
+- Formatting cleanup across src/ (cargo fmt enforced in CI).
+- sandbox.rs now actually implements the previously stubbed "Landlock hooks".
+
 ## [0.1.0] - 2026-05-31
 
 ### Added

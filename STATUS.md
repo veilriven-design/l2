@@ -17,7 +17,7 @@ l2 is the minimal high-assurance Latticra substrate:
 - Working Rust CLI with **full command surface** (create/put/get/exec/list/destroy/status/revoke + `--json`)
 - **Real persistence**: systems + objects survive across separate `l2` invocations (stored in `~/.l2/state.json`)
 - Real Linux namespace isolation for `exec` (`unshare`)
-- Basic sandboxing for `--policy strict` (no_new_privs + Landlock hooks)
+- **Real Landlock + no_new_privs sandboxing for `--policy strict`**: workspace-confined writes, RO+EXEC on system essentials (v0.2.0)
 - **Full `l2 sel4-setup` command**: one-command seL4/Microkit bootstrap with:
   - Official Microkit SDK 2.2.0 tarball download
   - Distro-aware behavior (especially strong support for RHEL/Fedora + podman)
@@ -29,7 +29,7 @@ l2 is the minimal high-assurance Latticra substrate:
 
 ## Current Focus
 
-1. Better host isolation (more namespaces, seccomp, user namespaces, Landlock, etc.)
+1. Better host isolation (seccomp-bpf, capability dropping, tighter Landlock policies, user+mount ns) — Landlock baseline landed in v0.2.0
 2. Out-of-process `l2-core` speaking the real L2P protocol over stdio/socket
 3. Start the disciplined C implementation of the core
 4. seL4/Microkit backend (parallel track) — `l2 sel4-setup` is the current on-ramp
