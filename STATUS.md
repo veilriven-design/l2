@@ -1,6 +1,6 @@
 # Status
 
-**Refocused narrow substrate phase** — host prototype active
+**Refocused narrow substrate phase** — host prototype with real isolation
 
 ## Charter
 
@@ -13,37 +13,26 @@ l2 is the minimal high-assurance Latticra substrate:
 
 ## Done
 
-- Refocus PR merged (narrow charter, terminal-first docs, aggressive pruning)
-- `docs/TERMINAL_INTERFACE.md` — primary UX specification
-- `docs/PROTOCOL.md` — L2P v1 narrow protocol defined
-- First **runnable host prototype** (`cargo build && ./target/release/l2`)
-  - Full command surface from the terminal design (create/put/exec/get/list/destroy/status)
-  - In-memory substrate simulation with colored, scriptable output + `--json`
-  - Matches the "Grok Build TUI spirit" of direct, precise terminal interaction
+- Refocus PR merged + narrow docs (TERMINAL_INTERFACE, PROTOCOL, SYSTEM_MODEL)
+- Working Rust CLI with full surface + `--json`
+- **Real host isolation**: `exec` now runs under `unshare --fork --pid --mount-proc --net` (actual Linux namespaces)
 
-## Current Focus (Next Pieces)
+## Current Focus
 
-1. Real host isolation backend (Linux namespaces / unshare / seccomp / pivot_root) behind the same CLI and protocol
-2. Out-of-process core that speaks L2P over stdio or unix socket
-3. Start disciplined C implementation of the core (memory safety guards first)
-4. seL4/Microkit path as the strong target (parallel track)
+1. Out-of-process core speaking L2P v1 over stdio/unix socket (split client/core)
+2. Disciplined C core implementation (sys.h surface + memory safety + host backend)
+3. seL4/Microkit integration track (parallel)
 
-## Immediate Developer Workflow
+## Developer Workflow (now with real isolation)
 
 ```bash
-cargo run -- create demo --policy default
-cargo run -- put demo code main.rs --content "fn main(){}"
-cargo run -- exec demo "echo hello"
-cargo run -- --json list
+cargo build --release
+l2 create demo
+l2 exec demo "id"          # runs in isolated namespaces
+l2 --json status
 ```
 
-## Explicitly Out of Scope
-
-- Effect systems, lattices, multi-model frameworks
-- Packaging, installers, distribution contracts
-- Physics/proof/simulation work
-- Anything that increases the conceptual surface area
+## Out of Scope
+Effect systems, lattices, packaging, physics work, scope creep.
 
 Keep it small. Keep it terminal. Keep it high-assurance.
-
-Moving deliberately with working code.
