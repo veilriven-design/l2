@@ -246,17 +246,35 @@ fn exec_isolated(what: &str, _input: Option<&str>, sys_name: &str, workspace: Op
 }
 
 fn print_json<T: Serialize>(value: &T) {
-    println!("{}", serde_json::to_string_pretty(value).unwrap());
+    println!("{}", serde_json::to_string_pretty(value).expect("serializing CLI JSON output"));
+}
+
+fn json_line<T: Serialize>(value: &T) -> String {
+    serde_json::to_string(value).expect("serializing CLI JSON line")
+}
+
+fn success_json(msg: &str) -> serde_json::Value {
+    serde_json::json!({"ok": true, "msg": msg})
+}
+
+fn error_json(msg: &str) -> serde_json::Value {
+    serde_json::json!({"ok": false, "err": msg})
 }
 
 fn success(msg: &str, json: bool) {
-    if json { println!("{{\"ok\":true,\"msg\":\"{}\"}}", msg); }
-    else { println!("{} {}", "✓".green(), msg); }
+    if json {
+        println!("{}", json_line(&success_json(msg)));
+    } else {
+        println!("{} {}", "✓".green(), msg);
+    }
 }
 
 fn error(msg: &str, json: bool) -> ! {
-    if json { eprintln!("{{\"ok\":false,\"err\":\"{}\"}}", msg); }
-    else { eprintln!("{} {}", "✗".red(), msg); }
+    if json {
+        eprintln!("{}", json_line(&error_json(msg)));
+    } else {
+        eprintln!("{} {}", "✗".red(), msg);
+    }
     std::process::exit(1);
 }
 
@@ -369,7 +387,7 @@ fn main() -> Result<()> {
                 }
             } else {
                 let count = sub.systems.len();
-                if cli.json { println!("{{\"systems\":{}}}", count); }
+                if cli.json { print_json(&serde_json::json!({"systems": count})); }
                 else {
                     println!("l2 host prototype (persistent)");
                     println!("  active systems: {}", count);
@@ -380,4 +398,29 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn success_json_escapes_message_text() {
+        let msg = "put 'name\"with\\chars\nline' into 'sys'";
+        let line = json_line(&success_json(msg));
+        let parsed: serde_json::Value = serde_json::from_str(&line).unwrap();
+
+        assert_eq!(parsed["ok"], true);
+        assert_eq!(parsed["msg"], msg);
+    }
+
+    #[test]
+    fn error_json_escapes_error_text() {
+        let msg = "system 'bad\"name' not found: path C:\\tmp";
+        let line = json_line(&error_json(msg));
+        let parsed: serde_json::Value = serde_json::from_str(&line).unwrap();
+
+        assert_eq!(parsed["ok"], false);
+        assert_eq!(parsed["err"], msg);
+    }
 }
