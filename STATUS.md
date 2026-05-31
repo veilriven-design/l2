@@ -14,29 +14,40 @@ l2 is the minimal high-assurance Latticra substrate:
 ## Done (Current Prototype)
 
 - Refocus + narrow docs (TERMINAL_INTERFACE, PROTOCOL, etc.)
-- Working Rust CLI with full command surface
+- Working Rust CLI with **full command surface** (create/put/get/exec/list/destroy/status/revoke + `--json`)
 - **Real persistence**: systems + objects survive across separate `l2` invocations (stored in `~/.l2/state.json`)
 - Real Linux namespace isolation for `exec` (`unshare`)
+- Basic sandboxing for `--policy strict` (no_new_privs + Landlock hooks)
+- **Full `l2 sel4-setup` command**: one-command seL4/Microkit bootstrap with:
+  - Official Microkit SDK download
+  - Distro-aware behavior (especially strong support for RHEL/Fedora + podman)
+  - Automatic offer to set up the official seL4 container
+  - Live animated spinner + status line during long-running setup
 - Dramatically improved `list` output and overall UX
+- `demo.sh` removed (commands documented directly in README instead)
 
 ## Current Focus
 
-1. Better host isolation (more namespaces, seccomp, user namespaces, etc.)
+1. Better host isolation (more namespaces, seccomp, user namespaces, Landlock, etc.)
 2. Out-of-process `l2-core` speaking the real L2P protocol over stdio/socket
 3. Start the disciplined C implementation of the core
-4. seL4/Microkit backend (parallel track)
+4. seL4/Microkit backend (parallel track) — `l2 sel4-setup` is the current on-ramp
 
 ## How to Use Right Now
 
 ```bash
 cargo build --release
 
-# Works across separate shell sessions
+# Basic usage (works across separate shells)
 l2 create my-agent
 l2 put my-agent code foo.rs --content 'fn main(){}'
 l2 exec my-agent 'echo hello from inside'
 l2 list my-agent
 l2 destroy my-agent
+
+# seL4 development environment (recommended path)
+l2 sel4-setup
+cat ~/l2-sel4-workspace/README-l2-sel4.md
 ```
 
 Override data location with `L2_DATA_DIR=/some/path l2 ...`

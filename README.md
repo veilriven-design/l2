@@ -67,21 +67,43 @@ The prototype now persists state to disk, so you can use it like a normal tool a
 ```bash
 cargo build --release
 
-# These commands can be run in separate shells / terminals
-./target/release/l2 create review-agent --policy strict
-./target/release/l2 put review-agent main.rs --type code --content 'fn main() { println!("hello from inside"); }'
-./target/release/l2 list review-agent
-./target/release/l2 exec review-agent 'echo hello from inside the substrate'
-./target/release/l2 get review-agent main.rs
-./target/release/l2 destroy review-agent
+# Basic workflow (works across separate terminals)
+l2 create review-agent
+l2 put review-agent main.rs --type code --content 'fn main() { println!("hello from inside"); }'
+l2 list review-agent
+l2 exec review-agent 'echo hello from inside the substrate'
+l2 get review-agent main.rs
+l2 destroy review-agent
 
-# JSON for scripting / tools
+# Strict policy + sandbox (shows isolation hardening)
+l2 create secure-agent --policy strict
+l2 put secure-agent secret.txt --content "This data should only be visible inside the strict system"
+l2 exec secure-agent 'cat secret.txt'
+l2 destroy secure-agent
+
+# JSON output for scripting / tools
+l2 --json status
 l2 --json list
 ```
 
 State is stored in `~/.l2/state.json`. You can override it with `L2_DATA_DIR=/path l2 ...`
 
 See `STATUS.md`, `docs/PROTOCOL.md`, and `docs/TERMINAL_INTERFACE.md`.
+
+## Command Reference
+
+| Command                  | Description                                      |
+|--------------------------|--------------------------------------------------|
+| `l2 status [name]`       | Show overall status or details for one system    |
+| `l2 create <name> [--policy strict\|default]` | Create a new isolated system          |
+| `l2 put <sys> <name> [--type <type>] [--content <text>]` | Store data/code inside a system |
+| `l2 get <sys> <name>`    | Retrieve an object from a system                 |
+| `l2 list [name]`         | List systems or contents of one system           |
+| `l2 exec <sys> <command>`| Run a command inside the isolated system         |
+| `l2 destroy <name>`      | Completely remove a system and all its state     |
+| `l2 sel4-setup`          | Bootstrap a seL4/Microkit development environment (see below) |
+
+All commands support `--json` for machine-readable output.
 
 ## seL4 / Microkit Development Setup
 
