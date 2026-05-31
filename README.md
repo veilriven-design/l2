@@ -115,8 +115,8 @@ l2 sel4-setup
 
 What it does:
 - Creates `~/l2-sel4-workspace`
-- Downloads the official prebuilt Microkit SDK
-- On RHEL/Fedora-family systems (very common with podman), it detects your environment and offers to automatically set up the official seL4 development container using `DOCKER=podman make user`, with a live spinner + status line so you can see progress.
+- Downloads the official prebuilt Microkit SDK 2.2.0 tarball
+- On RHEL/Fedora-family systems (very common with Podman), it detects your environment, pre-pulls the required base images using fully-qualified `docker.io/trustworthysystems/...` names (avoiding the common "short-name resolution" TTY error), and offers to automatically set up the official seL4/CAmkES development container using `DOCKER=podman make user`, with a live animated spinner + status line.
 
 After running it:
 
@@ -124,7 +124,7 @@ After running it:
 cat ~/l2-sel4-workspace/README-l2-sel4.md
 ```
 
-This is currently the best one-command on-ramp to real seL4/Microkit development.
+This is currently the best one-command on-ramp to real seL4/Microkit development, with special attention to the RHEL + Podman experience.
 
 ## Repository
 

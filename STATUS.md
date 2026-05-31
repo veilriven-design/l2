@@ -19,10 +19,11 @@ l2 is the minimal high-assurance Latticra substrate:
 - Real Linux namespace isolation for `exec` (`unshare`)
 - Basic sandboxing for `--policy strict` (no_new_privs + Landlock hooks)
 - **Full `l2 sel4-setup` command**: one-command seL4/Microkit bootstrap with:
-  - Official Microkit SDK download
+  - Official Microkit SDK 2.2.0 tarball download
   - Distro-aware behavior (especially strong support for RHEL/Fedora + podman)
-  - Automatic offer to set up the official seL4 container
-  - Live animated spinner + status line during long-running setup
+  - Automatic pre-pull of base images using `docker.io/trustworthysystems/...` fully-qualified names (bakes in the fix for Podman's "short-name resolution enforced but cannot prompt without a TTY" error on RHEL)
+  - Automatic offer + live spinner to set up the official seL4/CAmkES development container on RHEL+podman
+  - High-quality generated `README-l2-sel4.md` with the RHEL/Podman one-time fix permanently documented
 - Dramatically improved `list` output and overall UX
 - `demo.sh` removed (commands documented directly in README instead)
 

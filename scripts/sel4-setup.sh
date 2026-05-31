@@ -177,10 +177,11 @@ fi
 case "${ID:-unknown}" in
     fedora|rhel|centos|rocky|almalinux|ol )
         echo "    RHEL/Fedora-family (your system appears to be one):"
-        echo "      sudo dnf install -y qemu-kvm qemu-system-aarch64"
+        echo "      sudo dnf install -y qemu-kvm qemu-img \\"
+        echo "                          gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu make"
+        echo "      sudo dnf group install -y \"Virtualization Host\"   # optional but helpful"
         echo "    Note: The aarch64 cross-compiler is often painful or missing"
-        echo "    on RHEL 8-family systems."
-        echo "    → Container is the recommended path on your distro."
+        echo "    on RHEL 8-family systems. Container is the recommended path."
         ;;
     ubuntu|debian|pop )
         echo "    Debian/Ubuntu:"
@@ -211,6 +212,12 @@ if [[ "${ID:-}" =~ ^(fedora|rhel|centos|rocky|almalinux|ol)$ ]] && [ "$CONTAINER
         fi
 
         if [ -d "$DOCKERFILES_DIR" ]; then
+            echo "    Pre-pulling base images with fully-qualified names (prevents"
+            echo "    'short-name resolution' TTY prompt from Podman on RHEL):"
+            podman pull docker.io/trustworthysystems/camkes 2>&1 | tail -3 || true
+            podman pull docker.io/trustworthysystems/sel4 2>&1 | tail -3 || true
+            podman pull docker.io/trustworthysystems/l4v 2>&1 | tail -3 || true
+
             echo "    Command that will be run:"
             echo "      cd $DOCKERFILES_DIR && DOCKER=podman make user"
             echo
@@ -218,15 +225,15 @@ if [[ "${ID:-}" =~ ^(fedora|rhel|centos|rocky|almalinux|ol)$ ]] && [ "$CONTAINER
             if run_with_spinner "Setting up official seL4 development container" \
                     bash -c "cd '$DOCKERFILES_DIR' && DOCKER=podman make user"; then
                 echo "    ✓ Container is ready. You can enter it later with:"
-                echo "      cd $DOCKERFILES_DIR && DOCKER=podman make exec"
+                echo "      cd $DOCKERFILES_DIR && DOCKER=podman make bash"
             else
                 echo
-                echo "    You can retry manually with:"
+                echo "    You can retry manually with (after the pre-pulls above):"
                 echo "      cd $DOCKERFILES_DIR && DOCKER=podman make user"
             fi
         fi
     else
-        echo "    Skipped. You can set it up anytime with:"
+        echo "    Skipped. You can set it up anytime with the pre-pulls + make user:"
         echo "      cd $WORKSPACE/seL4-CAmkES-L4v-dockerfiles && DOCKER=podman make user"
     fi
 fi
@@ -234,120 +241,133 @@ fi
 # 6. Emit a ready-to-use README in the workspace
 echo "[6/6] Writing quickstart guide..."
 cat > "$WORKSPACE/README-l2-sel4.md" << 'EOF'
-# l2 + seL4 Workspace
+# l2 on seL4 / Microkit Quickstart
 
-This directory was created by `l2 sel4-setup`.
+This workspace was created by `l2 sel4-setup`.
 
 ## What you have here
-- `./l2-source`          → symlink to your l2 checkout (the CLI + core you are developing)
-- `./microkit`           → (if present) shallow clone of https://github.com/seL4/microkit
-- `microkit-sdk-*.tar.gz` → (if downloaded) official prebuilt Microkit SDK
 
-## Recommended: Just use the official Microkit SDK (no Docker needed)
+- `./l2-source` → symlink to your current l2 checkout (live — edits are immediate)
+- `./microkit` → shallow clone of the official Microkit repository (examples + build system)
+- `microkit-sdk-2.2.0.tar.gz` → official prebuilt Microkit SDK 2.2.0 (recommended starting point)
+- `seL4-CAmkES-L4v-dockerfiles/` → (RHEL + Podman auto-setup) official seL4 development container sources
 
-This is the simplest and most reliable path for Microkit development:
+## One-time RHEL / Podman Fix (IMPORTANT)
+
+On RHEL, CentOS, Rocky, AlmaLinux, Fedora etc. with Podman, short-name resolution is
+enforced. When `make user` (or the Makefile) runs non-interactively it fails with:
+
+```
+short-name resolution enforced but cannot prompt without a TTY
+```
+
+**Run these two commands once** (from the dockerfiles dir):
 
 ```bash
-# From inside this workspace (or anywhere)
-tar xzf microkit-sdk-2.2.0.tar.gz          # or the latest from the releases page
+cd ~/l2-sel4-workspace/seL4-CAmkES-L4v-dockerfiles
+
+# Pre-pull using fully-qualified names
+podman pull docker.io/trustworthysystems/camkes
+podman pull docker.io/trustworthysystems/sel4
+podman pull docker.io/trustworthysystems/l4v
+
+# Then build the user container (l2 sel4-setup does the pre-pulls for you
+# automatically during the interactive offer on RHEL+podman)
+DOCKER=podman make user
+```
+
+After this the container is ready and you can enter it with:
+
+```bash
+DOCKER=podman make bash
+```
+
+## Host Packages (RHEL / Fedora family)
+
+```bash
+sudo dnf install -y qemu-kvm qemu-img \
+                    gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu make
+sudo dnf group install -y "Virtualization Host"   # optional but helpful
+```
+
+## Primary Path: Use the Microkit SDK directly (no container required)
+
+```bash
+cd ~/l2-sel4-workspace
+tar xzf microkit-sdk-2.2.0.tar.gz
 export MICROKIT_SDK=$(pwd)/microkit-sdk-2.2.0
-# Now follow the official tutorial
+
+# Follow the official tutorial (excellent and self-contained)
 # https://docs.sel4.systems/projects/microkit/tutorial/part0.html
 ```
 
-The SDK is a self-contained tarball with everything you need (tool, libs, monitor, examples).
+The SDK contains the Microkit tool, libraries, monitor, and examples. It is the
+simplest reliable way to start doing real seL4/Microkit development today.
 
-**Important:** After extracting the SDK you will still need a few host packages
-to build and run the examples in the official tutorial.
+## Full seL4 + CAmkES Environment (RHEL + Podman recommended)
 
-### Host packages (common cases)
-
-**RHEL / Fedora / Rocky / AlmaLinux / CentOS Stream (your system looks like one of these):**
+If you need the complete verified toolchain (CAmkES, L4v, Isabelle, etc.) or a
+reliable aarch64 cross-compiler on RHEL-family systems, use the container:
 
 ```bash
-sudo dnf install -y qemu-kvm qemu-system-aarch64
+cd ~/l2-sel4-workspace/seL4-CAmkES-L4v-dockerfiles
+DOCKER=podman make bash     # drops you inside the container with everything
 ```
 
-The aarch64 cross-compiler is frequently painful on RHEL 8-family systems.
-If the above is not enough, use the container method below instead of fighting packages.
+Inside the container your l2 tree is available at `/host` (and via the `l2-source`
+symlink in the workspace root).
 
-**Debian / Ubuntu / Pop!_OS:**
+## Current l2 + seL4 Status
 
-```bash
-sudo apt update
-sudo apt install -y make qemu-system-aarch64 gcc-aarch64-linux-gnu
-```
+- The `l2` CLI and host prototype (Linux namespaces + Landlock) work today.
+- `l2 sel4-setup` gives you a first-class, maintained on-ramp to a real seL4
+  development environment (SDK + optional container).
+- The actual port of l2-core to run as a Microkit protection domain is in
+  progress. See the skeleton at `l2-source/l2.system` and the plans in
+  `l2-source/docs/SEL4_INTEGRATION.md` and
+  `l2-source/docs/PROTOTYPE_HARDENING_AND_SEL4_PLAN.md`.
 
-For other distributions, see the official guide:
-https://docs.sel4.systems/projects/microkit/tutorial/part0.html
+Once the port advances you will build l2 systems using the Microkit SDK (or inside
+the container) against the `l2.system` description and the l2_core ELF.
 
-## Recommended for RHEL / Fedora / Rocky / AlmaLinux users
-
-On RHEL-family systems the cross-compiler packages are often missing or
-difficult. The **strongly recommended** path is the official seL4 container.
-
-When you run `l2 sel4-setup` on these systems it will offer to set everything
-up for you automatically, with a live spinner + status line so you can see
-that it is still working (the first run can easily take 10–20 minutes).
-
-You can also do it manually:
+## Common Commands (from host)
 
 ```bash
-git clone https://github.com/seL4/seL4-CAmkES-L4v-dockerfiles.git
-cd seL4-CAmkES-L4v-dockerfiles
-DOCKER=podman make user     # ← important on your system
-```
+# Re-run setup after pulling latest l2 changes (idempotent)
+cargo install --path ~/l2 --force
+l2 sel4-setup
 
-This gives you a full working environment with the correct aarch64 toolchain.
+# Enter the development container
+cd ~/l2-sel4-workspace/seL4-CAmkES-L4v-dockerfiles
+DOCKER=podman make bash
 
-You can then use your downloaded Microkit SDK inside the container.
-
-## Optional: Full seL4 development container (other distros)
-
-If you are not on RHEL-family and want the complete seL4 + CAmkES + L4v
-environment, use the official Dockerfiles repo:
-
-```bash
-git clone https://github.com/seL4/seL4-CAmkES-L4v-dockerfiles.git
-cd seL4-CAmkES-L4v-dockerfiles
-
-# Podman
+# Rebuild the container image from scratch
+cd ~/l2-sel4-workspace/seL4-CAmkES-L4v-dockerfiles
+DOCKER=podman make clean
 DOCKER=podman make user
-
-# Real Docker
-make user
 ```
 
-This pulls the well-maintained `trustworthysystems/sel4` images from Docker Hub.
+## Troubleshooting
 
-You can then drop the Microkit SDK tarball into a mounted directory and build
-systems that will (in the future) be able to embed `l2-core`.
+**Podman short-name error**  
+→ Run the three `podman pull docker.io/trustworthysystems/...` commands shown
+in the "One-time RHEL / Podman Fix" section above.
 
-See also the Rust-focused demo containers:
-  https://github.com/seL4/rust-microkit-demo (look in its `docker/` directory)
+**QEMU aarch64 or cross tools missing on host (SDK path)**  
+→ Install the packages from the "Host Packages (RHEL / Fedora family)" section.
 
-## Integration with l2 (current status)
-
-- The `l2` CLI (`l2 sel4-setup`, `create`/`put`/`exec` etc.) works **today** on
-  ordinary Linux using namespaces + basic Landlock (strict policy).
-- The long-term goal is a true high-assurance backend where `l2-core` runs as
-  a seL4/Microkit protection domain.
-- See the plans:
-    less l2-source/docs/PROTOTYPE_HARDENING_AND_SEL4_PLAN.md
-    less l2-source/docs/SEL4_INTEGRATION.md
-
-## Quick sanity check that your host l2 still works
-
+**Container rebuild needed**  
 ```bash
-(cd l2-source && cargo build --release && ./target/release/l2 status)
+DOCKER=podman make clean && DOCKER=podman make user
 ```
+
+**Want the latest l2 changes inside the container?**  
+Just edit files in `~/l2` — the symlink and volume mount are live.
 
 ---
 
-**RHEL / Fedora users:** Re-run `l2 sel4-setup` (after `git pull && cargo install --path . --force`)
-and it will offer to automatically set up the recommended seL4 container for you.
-
-Happy high-assurance hacking.
+Generated by `l2 sel4-setup`  
+For project status see: `~/l2/STATUS.md` and the docs/ directory in l2-source.
 EOF
 echo "  ✓ Wrote $WORKSPACE/README-l2-sel4.md"
 
@@ -362,9 +382,9 @@ echo
 if [[ "${ID:-}" =~ ^(fedora|rhel|centos|rocky|almalinux|ol)$ ]]; then
     echo "On your RHEL-family system:"
     echo "  Re-run 'l2 sel4-setup' after a 'git pull' — it will offer to set up"
-    echo "  the official seL4 container for you (the easiest path)."
+    echo "  the official seL4 container (with pre-pulls to avoid Podman short-name errors)."
     echo
-    echo "  Or do it manually:"
+    echo "  Or do the container step manually:"
     echo "    cd $WORKSPACE/seL4-CAmkES-L4v-dockerfiles && DOCKER=podman make user"
 else
     echo "Most people should now just:"
@@ -376,4 +396,4 @@ echo
 echo "Run the host prototype from anywhere:"
 echo "  cargo install --path $L2_DIR --force"
 echo "  l2 --help"
-echo "  l2 sel4-setup   # (idempotent)"
+echo "  l2 sel4-setup   # (idempotent, safe to re-run)"
