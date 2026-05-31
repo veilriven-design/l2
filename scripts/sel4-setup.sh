@@ -17,18 +17,23 @@ echo
 
 # 1. Basic host tools check (non-fatal hints)
 echo "[1/6] Checking host prerequisites..."
-MISSING=""
-for tool in git docker; do
-    if ! command -v "$tool" >/dev/null 2>&1; then
-        MISSING="$MISSING $tool"
-    fi
-done
-if [ -n "$MISSING" ]; then
-    echo "  Warning: missing recommended tools:$MISSING"
-    echo "  - Install docker for containerized seL4 builds (https://docs.docker.com/engine/install/)"
-    echo "  - git is required to clone examples"
+CONTAINER_CMD=""
+if command -v podman >/dev/null 2>&1; then
+    CONTAINER_CMD="podman"
+elif command -v docker >/dev/null 2>&1; then
+    CONTAINER_CMD="docker"
+fi
+
+if command -v git >/dev/null 2>&1; then
+    echo "  ✓ git present"
 else
-    echo "  ✓ git + docker present"
+    echo "  ! git not found (you can still download the Microkit SDK manually)"
+fi
+
+if [ -n "$CONTAINER_CMD" ]; then
+    echo "  ✓ container tool present: $CONTAINER_CMD (optional for seL4 work)"
+else
+    echo "  ! No podman/docker found (perfectly fine — the official Microkit SDK needs none)"
 fi
 
 # 2. Create isolated workspace
@@ -61,21 +66,37 @@ else
     echo "    git not found - skipping example clone"
 fi
 
-# 5. Docker seL4 environment (the real toolchain lives in container)
-echo "[5/6] Preparing containerized seL4 dev environment..."
-if command -v docker >/dev/null 2>&1; then
-    echo "  Pulling seL4 Microkit development image (may take time on first run)..."
-    if docker pull ghcr.io/sel4/microkit:latest 2>/dev/null; then
-        echo "  ✓ Docker image ready: ghcr.io/sel4/microkit:latest"
-        # Quick smoke: show the image has the expected entrypoint/tools
-        docker run --rm ghcr.io/sel4/microkit:latest sh -c 'echo "  image contains: $(ls / 2>/dev/null | tr "\n" " "...)...; which make gcc 2>/dev/null || true"' || true
+# 5. Microkit SDK + optional containerized seL4 environment
+echo "[5/6] Getting Microkit toolchain (SDK first - recommended)..."
+if command -v curl >/dev/null 2>&1; then
+    SDK_URL="https://github.com/seL4/microkit/releases/download/2.2.0/microkit-sdk-2.2.0-linux-x86-64.tar.gz"
+    if [ ! -f microkit-sdk-2.2.0.tar.gz ]; then
+        echo "  Downloading official prebuilt Microkit SDK 2.2.0 (no container required)..."
+        if curl -L -o microkit-sdk-2.2.0.tar.gz "$SDK_URL" 2>/dev/null; then
+            echo "  ✓ Downloaded microkit-sdk-2.2.0.tar.gz"
+            echo "    Extract with:  tar xzf microkit-sdk-2.2.0.tar.gz"
+            echo "    Then follow:   https://docs.sel4.systems/projects/microkit/tutorial/part0.html"
+        else
+            echo "    (Download failed or offline - you can grab it manually later)"
+        fi
     else
-        echo "  (Could not pull public image - you may need to build your own or use a corporate registry)"
-        echo "  See docs/SEL4_INTEGRATION.md for custom image instructions."
+        echo "    SDK tarball already present"
     fi
 else
-    echo "  Docker not available - you will need it (or a native seL4 SDK) for actual kernel builds."
+    echo "    curl not found - skipping SDK download. Get it from:"
+    echo "    https://github.com/seL4/microkit/releases"
 fi
+
+echo
+
+echo "  (Optional) Full seL4 dev container (if you need CAmkES, L4v, etc.):"
+echo "    git clone https://github.com/seL4/seL4-CAmkES-L4v-dockerfiles.git"
+echo "    cd seL4-CAmkES-L4v-dockerfiles"
+echo "    # With podman (common on Fedora/RHEL):"
+echo "    DOCKER=podman make user"
+echo "    # Or with real docker:"
+echo "    make user"
+echo "  Then inside the container you can add the Microkit SDK above."
 
 # 6. Emit a ready-to-use README in the workspace
 echo "[6/6] Writing quickstart guide..."
@@ -84,35 +105,64 @@ cat > "$WORKSPACE/README-l2-sel4.md" << 'EOF'
 
 This directory was created by `l2 sel4-setup`.
 
-## What you have
-- ./l2-source  -> symlink to your l2 checkout (the CLI + core you are developing)
-- ./microkit   -> (if cloned) the seL4 Microkit SDK + examples
+## What you have here
+- `./l2-source`          → symlink to your l2 checkout (the CLI + core you are developing)
+- `./microkit`           → (if present) shallow clone of https://github.com/seL4/microkit
+- `microkit-sdk-*.tar.gz` → (if downloaded) official prebuilt Microkit SDK
 
-## Next steps (prototype)
-1. Read the integration plan:
-   less l2-source/docs/PROTOTYPE_HARDENING_AND_SEL4_PLAN.md
-   less l2-source/docs/SEL4_INTEGRATION.md
+## Recommended: Just use the official Microkit SDK (no Docker needed)
 
-2. Typical flow with Docker + Microkit (example):
-   docker run -it --rm \
-     -v "$PWD:/work" \
-     -w /work \
-     ghcr.io/sel4/microkit:latest \
-     bash
+This is the simplest and most reliable path for Microkit development:
 
-   Inside the container you can now build Microkit systems that will eventually
-   embed l2-core (see core/ and host/ in l2-source).
+```bash
+# From inside this workspace (or anywhere)
+tar xzf microkit-sdk-2.2.0.tar.gz          # or the latest from the releases page
+export MICROKIT_SDK=$(pwd)/microkit-sdk-2.2.0
+# Now follow the official tutorial
+# https://docs.sel4.systems/projects/microkit/tutorial/part0.html
+```
 
-3. Current status
-   - l2 CLI (`l2 sel4-setup`, create/put/exec etc) works on Linux host today
-     using namespaces + Landlock (strict policy).
-   - The seL4 backend is the *target* for true high-assurance isolation.
-   - l2-core (the narrow L2P protocol server) will become a Microkit PD.
+The SDK is a self-contained tarball with everything you need (tool, libs, monitor, examples).
 
-4. Quick test that your host l2 is alive:
-   (cd l2-source && cargo build --release && ./target/release/l2 status)
+## Optional: Full seL4 development container
 
-For the full vision see the docs in l2-source/docs/.
+If you want the complete seL4 + CAmkES + L4v environment (heavier), use the
+official Dockerfiles repo (works with both Docker and Podman):
+
+```bash
+git clone https://github.com/seL4/seL4-CAmkES-L4v-dockerfiles.git
+cd seL4-CAmkES-L4v-dockerfiles
+
+# Podman (very common on Fedora/RHEL systems that show "Emulate Docker CLI")
+DOCKER=podman make user
+
+# Real Docker
+make user
+```
+
+This pulls the well-maintained `trustworthysystems/sel4` images from Docker Hub.
+
+You can then drop the Microkit SDK tarball into a mounted directory and build
+systems that will (in the future) be able to embed `l2-core`.
+
+See also the Rust-focused demo containers:
+  https://github.com/seL4/rust-microkit-demo (look in its `docker/` directory)
+
+## Integration with l2 (current status)
+
+- The `l2` CLI (`l2 sel4-setup`, `create`/`put`/`exec` etc.) works **today** on
+  ordinary Linux using namespaces + basic Landlock (strict policy).
+- The long-term goal is a true high-assurance backend where `l2-core` runs as
+  a seL4/Microkit protection domain.
+- See the plans:
+    less l2-source/docs/PROTOTYPE_HARDENING_AND_SEL4_PLAN.md
+    less l2-source/docs/SEL4_INTEGRATION.md
+
+## Quick sanity check that your host l2 still works
+
+```bash
+(cd l2-source && cargo build --release && ./target/release/l2 status)
+```
 
 Happy high-assurance hacking.
 EOF
@@ -122,11 +172,13 @@ echo
 echo "=== ✅ l2 sel4-setup complete ==="
 echo
 echo "Workspace ready: $WORKSPACE"
-echo "Quickstart:      cat $WORKSPACE/README-l2-sel4.md"
+echo "Quickstart guide: cat $WORKSPACE/README-l2-sel4.md"
+echo
+echo "Most people should now just:"
+echo "  tar xzf microkit-sdk-*.tar.gz"
+echo "  and follow https://docs.sel4.systems/projects/microkit/tutorial/"
 echo
 echo "Run the host prototype from anywhere:"
 echo "  cargo install --path $L2_DIR --force"
 echo "  l2 --help"
 echo "  l2 sel4-setup   # (idempotent)"
-echo
-echo "Next (real seL4 work): follow the plan in l2-source/docs/*"
