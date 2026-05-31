@@ -1,24 +1,22 @@
 # l2.system
 
-minimal initial microkit system description.
+Minimal seL4/Microkit system description for the focused Latticra substrate (l2).
 
-components
-- l2_core: privileged core that manages systems
-- serial: debug output
-- example_vector: demonstration workload inside a system
+Core principle: extremely small TCB. The only persistent component is l2_core,
+which implements the narrow L2P protocol and the l2_sys_* surface.
 
-future versions will add more systems and host communication channels.
+All actual workloads run in dynamically created, short-lived protection domains
+(systems) that are created/destroyed on demand from the terminal.
+
+Components:
+- l2_core: the privileged substrate core (implements sys.h + L2P)
 
 protection domain l2_core {
-    program "build/core.elf"
+    program "build/l2_core.elf"
 }
 
-protection domain serial {
-    program "build/serial.elf"
-}
-
-protection domain example_vector {
-    program "build/example_vector.elf"
-}
-
-channel l2_core serial
+/*
+ * Note: Workloads (MCP servers, build tasks, etc.) are not declared here.
+ * They are created at runtime via the terminal interface and the core.
+ * This is the key difference from traditional static system descriptions.
+ */
