@@ -33,6 +33,7 @@ Primary operations:
 - `l2 list <name>` — inspect what the system currently holds
 - `l2 revoke <name> <grant>` — remove specific authority
 - `l2 destroy <name>` — tear down the system with no residual state
+- `l2 sel4-setup` — one-command bootstrap of a seL4/Microkit development environment (SDK + optional container)
 
 The terminal is the universal interface. GUIs, IDEs, and higher tools are built on top of this (later, if at all).
 
@@ -81,6 +82,28 @@ l2 --json list
 State is stored in `~/.l2/state.json`. You can override it with `L2_DATA_DIR=/path l2 ...`
 
 See `STATUS.md`, `docs/PROTOCOL.md`, and `docs/TERMINAL_INTERFACE.md`.
+
+## seL4 / Microkit Development Setup
+
+`l2` ships with a full-featured setup command for the seL4 track:
+
+```bash
+l2 sel4-setup
+```
+
+This creates `~/l2-sel4-workspace` and:
+
+- Downloads the official prebuilt Microkit SDK (no container required for basic use)
+- Clones the Microkit source for reference
+- On RHEL/Fedora/Rocky/AlmaLinux systems (where native cross-compilers are painful), it automatically detects podman and offers to set up the official seL4 development container (`DOCKER=podman make user`) with a live spinner + status line so you can see it's still working.
+
+After running it, read the generated guide in the workspace:
+
+```bash
+cat ~/l2-sel4-workspace/README-l2-sel4.md
+```
+
+This gives you the cleanest current path into real seL4/Microkit development while the host prototype remains usable for day-to-day work.
 
 ## Repository
 
