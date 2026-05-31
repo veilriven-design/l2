@@ -37,7 +37,7 @@ The terminal is the universal interface. GUIs, IDEs, and higher tools are built 
 ## What l2 Is
 
 - A high-assurance containment primitive for MCP servers, agentic tools, build tasks, and developer workflows.
-- C with rigorous memory safety guards in the core.
+- C with rigorous memory safety guards in the core (future).
 - Works from a normal terminal on ordinary developer machines today (host mechanisms), with a clear path to seL4-backed strong isolation.
 
 ## What l2 Is Not
@@ -47,11 +47,35 @@ The terminal is the universal interface. GUIs, IDEs, and higher tools are built 
 - A full effect system, lattice framework, or modeling environment
 - A packaging, distribution, or installer system
 
+## Try It Now (Host Prototype)
+
+The first working pieces are implemented as a Rust CLI that simulates the substrate locally. This lets you immediately experience the terminal interface.
+
+```bash
+# Build
+cargo build --release
+
+# Create and use a system
+./target/release/l2 create review-agent --policy strict
+./target/release/l2 put review-agent code ./src --content "fn main() { ... }"
+./target/release/l2 list review-agent
+./target/release/l2 exec review-agent "./build.sh"
+./target/release/l2 get review-agent result
+./target/release/l2 destroy review-agent
+
+# JSON mode for scripts
+l2 --json list
+```
+
+The current implementation uses an in-memory simulation. Real isolation (Linux namespaces + later seL4) and the out-of-process L2P protocol are the next pieces.
+
 ## Current State
 
-Early skeleton. The interface shape and core invariants are stabilizing. Implementation of the `l2_sys_*` surface and the terminal driver is in progress.
+Host prototype CLI is runnable and matches the terminal interface design.
+Narrow L2P protocol is specified.
+Real core implementation (C + host isolation primitives) is in progress.
 
-See `STATUS.md` for the live checklist.
+See `STATUS.md` for the live checklist and `docs/PROTOCOL.md` + `docs/TERMINAL_INTERFACE.md` for the foundations.
 
 ## Repository
 
