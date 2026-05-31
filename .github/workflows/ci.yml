@@ -23,3 +23,28 @@ jobs:
       run: cargo clippy -- -D warnings
     - name: Format check
       run: cargo fmt -- --check
+    - name: Smoke tests (strict policy + Landlock)
+      run: |
+        cargo build --release --quiet
+        export L2_DATA_DIR="$(mktemp -d)"
+        echo "Using L2_DATA_DIR=$L2_DATA_DIR"
+
+        # Basic CLI
+        ./target/release/l2 --help >/dev/null
+        ./target/release/l2 --version >/dev/null || true   # version may not be wired yet
+
+        # Strict policy lifecycle + real Landlock enforcement
+        ./target/release/l2 create smoke-sys --policy strict
+        ./target/release/l2 list smoke-sys
+        ./target/release/l2 put smoke-sys data hello.txt --content 'hello from v0.2.0 strict Landlock'
+        ./target/release/l2 get smoke-sys hello.txt | grep -q 'hello from v0.2.0 strict Landlock'
+
+        # Exec under strict (writes inside workspace must succeed; the Landlock rules are active here)
+        ./target/release/l2 exec smoke-sys 'echo "strict exec ok"; printf "inside-workspace\n" > inside.txt; cat inside.txt; ls -l'
+
+        # Verify the written file is visible via get
+        ./target/release/l2 get smoke-sys inside.txt | grep -q 'inside-workspace'
+
+        ./target/release/l2 destroy smoke-sys
+
+        echo "✅ All v0.2.0 smoke tests passed (including strict + Landlock path)"

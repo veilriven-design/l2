@@ -574,4 +574,15 @@ mod tests {
         assert!(sub.put("sys", "../escape", "data", "nope").is_err());
         assert!(sub.get_system("sys").unwrap().objects.is_empty());
     }
+
+    #[test]
+    fn strict_sandbox_applies_without_error() {
+        // Exercises the new v0.2.0 Landlock + no_new_privs path.
+        // Must succeed (even if kernel only partially enforces Landlock in the test env).
+        let tmp = std::env::temp_dir().join(format!("l2-smoke-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&tmp);
+        let res = sandbox::apply_strict_sandbox(Some(&tmp));
+        assert!(res.is_ok(), "sandbox apply failed: {:?}", res.err());
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
 }
