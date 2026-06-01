@@ -136,10 +136,13 @@ fn escalate_to_root_for_exec() -> ! {
     eprintln!("→ requesting root for isolated exec (namespaces + strict policy)...");
     eprintln!("   sudo {} {}", exe.display(), args.join(" "));
 
-    audit::log("escalate", serde_json::json!({
-        "exe": exe.display().to_string(),
-        "args": args
-    }));
+    audit::log(
+        "escalate",
+        serde_json::json!({
+            "exe": exe.display().to_string(),
+            "args": args
+        }),
+    );
 
     let mut cmd = Command::new("sudo");
     cmd.arg(&exe).args(&args);
@@ -658,11 +661,14 @@ fn main() -> Result<()> {
         Commands::Create { name, policy } => match sub.create(&name, &policy) {
             Ok(id) => {
                 save_state(&sub)?;
-                audit::log("create", serde_json::json!({
-                    "name": name,
-                    "id": id,
-                    "policy": policy
-                }));
+                audit::log(
+                    "create",
+                    serde_json::json!({
+                        "name": name,
+                        "id": id,
+                        "policy": policy
+                    }),
+                );
                 if cli.json {
                     print_json(
                         &serde_json::json!({"ok":true,"sys":id,"name":name,"policy":policy}),
@@ -742,12 +748,15 @@ fn main() -> Result<()> {
                 error(&e.to_string(), cli.json);
             }
             warn_on_cleanup_err(save_state(&sub), "failed to save state after put");
-            audit::log("put", serde_json::json!({
-                "sys": sys,
-                "name": name,
-                "type": r#type,
-                "size": data.len()
-            }));
+            audit::log(
+                "put",
+                serde_json::json!({
+                    "sys": sys,
+                    "name": name,
+                    "type": r#type,
+                    "size": data.len()
+                }),
+            );
             success(&format!("put '{}' into '{}'", name, sys), cli.json);
         }
         Commands::Get { sys, name } => match sub.get(&sys, &name) {
@@ -823,22 +832,34 @@ fn main() -> Result<()> {
                 if let Err(e) = sub.create(&oneshot_id, &effective_policy) {
                     error(&format!("failed to create oneshot system: {}", e), cli.json);
                 }
-                audit::log("create", serde_json::json!({
-                    "name": oneshot_id,
-                    "policy": effective_policy,
-                    "oneshot": true
-                }));
+                audit::log(
+                    "create",
+                    serde_json::json!({
+                        "name": oneshot_id,
+                        "policy": effective_policy,
+                        "oneshot": true
+                    }),
+                );
                 warn_on_cleanup_err(
                     sub.put(&oneshot_id, base_name, "code", &content),
                     "failed to put oneshot content",
                 );
-                warn_on_cleanup_err(save_state(&sub), "failed to save state after oneshot create/put");
+                warn_on_cleanup_err(
+                    save_state(&sub),
+                    "failed to save state after oneshot create/put",
+                );
 
                 let system = match sub.get_system(&oneshot_id) {
                     Ok(s) => s,
                     Err(e) => {
-                        warn_on_cleanup_err(sub.destroy(&oneshot_id), "failed to destroy oneshot system after prep failure");
-                        warn_on_cleanup_err(save_state(&sub), "failed to save state after oneshot prep failure");
+                        warn_on_cleanup_err(
+                            sub.destroy(&oneshot_id),
+                            "failed to destroy oneshot system after prep failure",
+                        );
+                        warn_on_cleanup_err(
+                            save_state(&sub),
+                            "failed to save state after oneshot prep failure",
+                        );
                         error(
                             &format!("failed to prepare oneshot system: {}", e),
                             cli.json,
@@ -878,13 +899,16 @@ fn main() -> Result<()> {
                     );
                 }
 
-                audit::log("exec", serde_json::json!({
-                    "sys": oneshot_id,
-                    "what": effective_what,
-                    "policy": effective_policy,
-                    "oneshot": true,
-                    "source_file": local_path
-                }));
+                audit::log(
+                    "exec",
+                    serde_json::json!({
+                        "sys": oneshot_id,
+                        "what": effective_what,
+                        "policy": effective_policy,
+                        "oneshot": true,
+                        "source_file": local_path
+                    }),
+                );
 
                 let out = match exec_isolated(
                     &effective_what,
@@ -894,8 +918,14 @@ fn main() -> Result<()> {
                 ) {
                     Ok(o) => o,
                     Err(e) => {
-                        warn_on_cleanup_err(sub.destroy(&oneshot_id), "failed to destroy oneshot system on exec error");
-                        warn_on_cleanup_err(save_state(&sub), "failed to save state during oneshot error recovery");
+                        warn_on_cleanup_err(
+                            sub.destroy(&oneshot_id),
+                            "failed to destroy oneshot system on exec error",
+                        );
+                        warn_on_cleanup_err(
+                            save_state(&sub),
+                            "failed to save state during oneshot error recovery",
+                        );
 
                         let err_str = e.to_string();
 
@@ -938,7 +968,10 @@ fn main() -> Result<()> {
 
                 // Always destroy the temporary system (after we're done using the borrow)
                 warn_on_cleanup_err(sub.destroy(&oneshot_id), "failed to destroy oneshot system");
-                warn_on_cleanup_err(save_state(&sub), "failed to save state after oneshot destroy");
+                warn_on_cleanup_err(
+                    save_state(&sub),
+                    "failed to save state after oneshot destroy",
+                );
                 // Best-effort workspace cleanup
                 warn_on_cleanup_err(
                     std::fs::remove_dir_all(
@@ -1029,12 +1062,15 @@ fn main() -> Result<()> {
                 );
             }
 
-            audit::log("exec", serde_json::json!({
-                "sys": sys,
-                "what": effective_what,
-                "policy": system.policy,
-                "oneshot": false
-            }));
+            audit::log(
+                "exec",
+                serde_json::json!({
+                    "sys": sys,
+                    "what": effective_what,
+                    "policy": system.policy,
+                    "oneshot": false
+                }),
+            );
 
             match exec_isolated(&effective_what, input.as_deref(), &sys, workspace) {
                 Ok(out) => {
@@ -1127,7 +1163,11 @@ fn main() -> Result<()> {
             };
 
             let lines: Vec<&str> = content.lines().collect();
-            let start = if lines.len() > tail { lines.len() - tail } else { 0 };
+            let start = if lines.len() > tail {
+                lines.len() - tail
+            } else {
+                0
+            };
             let selected = &lines[start..];
 
             if json {
@@ -1157,6 +1197,8 @@ fn main() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use l2::{load_state, save_state, Substrate};
+    use std::path::Path;
 
     #[test]
     fn success_json_escapes_message_text() {
@@ -1180,7 +1222,8 @@ mod tests {
 
     #[test]
     fn object_paths_allow_nested_relative_names() {
-        let path = l2::object_workspace_path(Path::new("/tmp/l2-workspace"), "./src/main.rs").unwrap();
+        let path =
+            l2::object_workspace_path(Path::new("/tmp/l2-workspace"), "./src/main.rs").unwrap();
 
         assert_eq!(path, PathBuf::from("/tmp/l2-workspace/src/main.rs"));
     }
@@ -1338,9 +1381,7 @@ mod tests {
         std::env::set_var("L2_DATA_DIR", temp.to_str().unwrap());
 
         // Write bad JSON
-        let state_path = temp.join(".l2").join("state.json");  // note: data_dir will be temp/.l2? wait, our logic puts state in L2_DATA_DIR directly for override
-        // Actually with L2_DATA_DIR override, state is directly under it
-        let bad_state = temp.join("state.json");
+        let bad_state = temp.join("state.json"); // With L2_DATA_DIR override, state.json is placed directly under the override dir
         std::fs::write(&bad_state, "{ this is not valid json }").unwrap();
 
         // Should not panic, returns default

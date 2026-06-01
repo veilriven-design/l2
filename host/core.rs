@@ -50,7 +50,9 @@ fn main() {
                 serde_json::json!({"v":1, "id": id, "ok": false, "err": "unsupported version"})
             } else {
                 match op {
-                    "ping" => serde_json::json!({"v":1, "id": id, "ok": true, "msg": "pong from core lib"}),
+                    "ping" => {
+                        serde_json::json!({"v":1, "id": id, "ok": true, "msg": "pong from core lib"})
+                    }
                     "status" => serde_json::json!({
                         "v":1,
                         "id": id,
@@ -59,18 +61,31 @@ fn main() {
                         "systems": core.list_systems().len()
                     }),
                     "create" => {
-                        let name = req.get("name").and_then(|x| x.as_str()).unwrap_or("unnamed");
-                        let policy = req.get("policy").and_then(|x| x.as_str()).unwrap_or("default");
+                        let name = req
+                            .get("name")
+                            .and_then(|x| x.as_str())
+                            .unwrap_or("unnamed");
+                        let policy = req
+                            .get("policy")
+                            .and_then(|x| x.as_str())
+                            .unwrap_or("default");
                         match core.create(name, policy) {
-                            Ok(sys_id) => serde_json::json!({"v":1, "id": id, "ok": true, "sys": sys_id}),
-                            Err(e) => serde_json::json!({"v":1, "id": id, "ok": false, "err": e.to_string()}),
+                            Ok(sys_id) => {
+                                serde_json::json!({"v":1, "id": id, "ok": true, "sys": sys_id})
+                            }
+                            Err(e) => {
+                                serde_json::json!({"v":1, "id": id, "ok": false, "err": e.to_string()})
+                            }
                         }
                     }
                     "list" => {
-                        let systems: Vec<_> = core.list_systems().iter().map(|s| s.name.clone()).collect();
+                        let systems: Vec<_> =
+                            core.list_systems().iter().map(|s| s.name.clone()).collect();
                         serde_json::json!({"v":1, "id": id, "ok": true, "systems": systems})
                     }
-                    _ => serde_json::json!({"v":1, "id": id, "ok": false, "err": format!("unknown op: {}", op)}),
+                    _ => {
+                        serde_json::json!({"v":1, "id": id, "ok": false, "err": format!("unknown op: {}", op)})
+                    }
                 }
             }
         } else {

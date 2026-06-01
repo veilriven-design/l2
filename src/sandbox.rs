@@ -89,11 +89,14 @@ pub fn apply_strict_sandbox(workspace: Option<&Path>) -> Result<()> {
         }
     } else {
         println!("[strict] Sandbox applied (no_new_privs + namespaces)");
-        crate::audit::log("sandbox", serde_json::json!({
-            "type": "strict",
-            "landlock": false,
-            "note": "no workspace provided"
-        }));
+        crate::audit::log(
+            "sandbox",
+            serde_json::json!({
+                "type": "strict",
+                "landlock": false,
+                "note": "no workspace provided"
+            }),
+        );
     }
 
     Ok(())
@@ -139,15 +142,40 @@ fn try_install_seccomp_observer() -> Result<()> {
 
         let filter: [libc::sock_filter; 5] = [
             // Load arch (offset 0)
-            libc::sock_filter { code: (libc::BPF_LD | libc::BPF_W | libc::BPF_ABS) as u16, jt: 0, jf: 0, k: 0 },
+            libc::sock_filter {
+                code: (libc::BPF_LD | libc::BPF_W | libc::BPF_ABS) as u16,
+                jt: 0,
+                jf: 0,
+                k: 0,
+            },
             // Jump if x86_64
-            libc::sock_filter { code: (libc::BPF_JMP | libc::BPF_JEQ | libc::BPF_K) as u16, jt: 1, jf: 0, k: AUDIT_ARCH_X86_64 },
+            libc::sock_filter {
+                code: (libc::BPF_JMP | libc::BPF_JEQ | libc::BPF_K) as u16,
+                jt: 1,
+                jf: 0,
+                k: AUDIT_ARCH_X86_64,
+            },
             // Jump if aarch64 (otherwise fall through to RET_LOG anyway for observation)
-            libc::sock_filter { code: (libc::BPF_JMP | libc::BPF_JEQ | libc::BPF_K) as u16, jt: 0, jf: 1, k: AUDIT_ARCH_AARCH64 },
+            libc::sock_filter {
+                code: (libc::BPF_JMP | libc::BPF_JEQ | libc::BPF_K) as u16,
+                jt: 0,
+                jf: 1,
+                k: AUDIT_ARCH_AARCH64,
+            },
             // Load nr (offset 8)
-            libc::sock_filter { code: (libc::BPF_LD | libc::BPF_W | libc::BPF_ABS) as u16, jt: 0, jf: 0, k: 8 },
+            libc::sock_filter {
+                code: (libc::BPF_LD | libc::BPF_W | libc::BPF_ABS) as u16,
+                jt: 0,
+                jf: 0,
+                k: 8,
+            },
             // Return LOG for everything we care about
-            libc::sock_filter { code: (libc::BPF_RET | libc::BPF_K) as u16, jt: 0, jf: 0, k: SECCOMP_RET_LOG },
+            libc::sock_filter {
+                code: (libc::BPF_RET | libc::BPF_K) as u16,
+                jt: 0,
+                jf: 0,
+                k: SECCOMP_RET_LOG,
+            },
         ];
 
         let prog = libc::sock_fprog {
@@ -174,13 +202,22 @@ fn try_install_seccomp_observer() -> Result<()> {
             if code == Some(libc::ENOSYS) || code == Some(libc::EINVAL) {
                 // PR_SET_SECCOMP = 22, SECCOMP_MODE_FILTER = 2
                 rc = unsafe {
-                    libc::syscall(libc::SYS_prctl, 22i32, 2i32, &prog as *const _ as usize, 0usize, 0usize)
+                    libc::syscall(
+                        libc::SYS_prctl,
+                        22i32,
+                        2i32,
+                        &prog as *const _ as usize,
+                        0usize,
+                        0usize,
+                    )
                 };
             }
 
             if rc < 0 {
                 let err2 = std::io::Error::last_os_error();
-                if err2.raw_os_error() == Some(libc::ENOSYS) || err2.raw_os_error() == Some(libc::EINVAL) {
+                if err2.raw_os_error() == Some(libc::ENOSYS)
+                    || err2.raw_os_error() == Some(libc::EINVAL)
+                {
                     eprintln!("[strict] seccomp observer: kernel does not support seccomp filter logging ({}). Continuing with Landlock + no_new_privs only.", err2);
                     return Ok(());
                 }
@@ -194,11 +231,14 @@ fn try_install_seccomp_observer() -> Result<()> {
              View with:  sudo dmesg -w | grep -i seccomp    or    journalctl -k | grep seccomp"
         );
 
-        crate::audit::log("sandbox", serde_json::json!({
-            "type": "strict",
-            "landlock": true,
-            "seccomp_observer": std::env::var_os("L2_STRICT_SECCOMP_OBSERVE").is_some()
-        }));
+        crate::audit::log(
+            "sandbox",
+            serde_json::json!({
+                "type": "strict",
+                "landlock": true,
+                "seccomp_observer": std::env::var_os("L2_STRICT_SECCOMP_OBSERVE").is_some()
+            }),
+        );
 
         Ok(())
     }

@@ -82,8 +82,11 @@ pub fn data_dir() -> Result<PathBuf> {
     }
 
     // Normal case
-    let home = std::env::var("HOME")
-        .map_err(|_| anyhow::anyhow!("HOME environment variable is not set (required for default data directory)"))?;
+    let home = std::env::var("HOME").map_err(|_| {
+        anyhow::anyhow!(
+            "HOME environment variable is not set (required for default data directory)"
+        )
+    })?;
     Ok(PathBuf::from(home).join(".l2"))
 }
 
@@ -111,15 +114,17 @@ pub fn load_state() -> Substrate {
         return Substrate::default();
     }
     match fs::read_to_string(&path) {
-        Ok(contents) => {
-            match serde_json::from_str(&contents) {
-                Ok(sub) => sub,
-                Err(e) => {
-                    eprintln!("warning: corrupt state file at {} ({}); starting fresh", path.display(), e);
-                    Substrate::default()
-                }
+        Ok(contents) => match serde_json::from_str(&contents) {
+            Ok(sub) => sub,
+            Err(e) => {
+                eprintln!(
+                    "warning: corrupt state file at {} ({}); starting fresh",
+                    path.display(),
+                    e
+                );
+                Substrate::default()
             }
-        }
+        },
         Err(_) => Substrate::default(),
     }
 }
@@ -176,7 +181,10 @@ pub fn workspace_dir(sys: &System) -> Result<PathBuf> {
 
 pub fn prepare_workspace(sys: &System) -> Result<PathBuf> {
     let ws = workspace_dir(sys)?;
-    warn_on_cleanup_err(fs::remove_dir_all(&ws), "failed to remove previous workspace dir");
+    warn_on_cleanup_err(
+        fs::remove_dir_all(&ws),
+        "failed to remove previous workspace dir",
+    );
     fs::create_dir_all(&ws)?;
 
     for (name, obj) in &sys.objects {
@@ -193,7 +201,10 @@ pub fn prepare_workspace(sys: &System) -> Result<PathBuf> {
                 if let Ok(meta) = fs::metadata(&path) {
                     let mut perms = meta.permissions();
                     perms.set_mode(0o755);
-                    warn_on_cleanup_err(fs::set_permissions(&path, perms), "failed to set executable permission on shebang object");
+                    warn_on_cleanup_err(
+                        fs::set_permissions(&path, perms),
+                        "failed to set executable permission on shebang object",
+                    );
                 }
             }
         }
@@ -233,13 +244,19 @@ impl Substrate {
 
     pub fn get_system(&self, name: &str) -> Result<&System> {
         let id = self.resolve_name(name)?;
-        Ok(self.systems.get(&id).expect("system must exist after successful resolve_name"))
+        Ok(self
+            .systems
+            .get(&id)
+            .expect("system must exist after successful resolve_name"))
     }
 
     pub fn put(&mut self, sys_name: &str, obj_name: &str, typ: &str, content: &str) -> Result<()> {
         object_relative_path(obj_name)?;
         let id = self.resolve_name(sys_name)?;
-        let sys = self.systems.get_mut(&id).expect("system must exist after successful resolve_name");
+        let sys = self
+            .systems
+            .get_mut(&id)
+            .expect("system must exist after successful resolve_name");
         let obj = Object {
             name: obj_name.to_string(),
             r#type: typ.to_string(),
@@ -252,7 +269,10 @@ impl Substrate {
 
     pub fn get(&self, sys_name: &str, obj_name: &str) -> Result<Object> {
         let id = self.resolve_name(sys_name)?;
-        let sys = self.systems.get(&id).expect("system must exist after successful resolve_name");
+        let sys = self
+            .systems
+            .get(&id)
+            .expect("system must exist after successful resolve_name");
         sys.objects
             .get(obj_name)
             .cloned()
@@ -268,7 +288,9 @@ impl Substrate {
         anyhow::bail!(
             "system '{}' not found (data dir: {})",
             name,
-            data_dir().map(|p| p.display().to_string()).unwrap_or_else(|_| "<unknown>".into())
+            data_dir()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|_| "<unknown>".into())
         );
     }
 }
