@@ -23,20 +23,27 @@ l2 <command> [subcommand] [arguments] [options]
 
 | Command     | Purpose                                      | Example                              |
 |-------------|----------------------------------------------|--------------------------------------|
-| `create`    | Create a new isolated system                 | `l2 create build-42 --policy strict` |
+| `create`    | Create a new isolated system                 | `l2 create build-42 --policy strict-mcp` |
 | `destroy`   | Destroy a system (total cleanup)             | `l2 destroy build-42`                |
 | `put`       | Place an object into a system                | `l2 put build-42 code ./src`         |
 | `get`       | Retrieve an object or result from a system   | `l2 get build-42 result.tar`         |
-| `exec`      | Execute work inside a system                 | `l2 exec build-42 ./build.sh`        |
+| `exec`      | Execute work inside a system                 | `l2 exec --policy strict-mcp build-42 ./build.sh` |
 | `list`      | List systems or objects inside one           | `l2 list` or `l2 list build-42`      |
 | `revoke`    | Remove specific authority from a system      | `l2 revoke build-42 cap-1234`        |
 | `status`    | Show substrate and system state              | `l2 status` or `l2 status build-42`  |
+| `sel4-setup`| One-shot seL4/Microkit dev environment       | `l2 sel4-setup [--fast]`             |
+| `trace`     | Collect seccomp traces under a policy        | `l2 trace --policy strict-mcp ... --analyze <log>` |
+| `harden`    | Host/container hardening for agentic era     | `l2 harden --profile strict-mcp --network-isolation` |
+| `crypto`    | Select/apply verified crypto profile for system encryption | `l2 crypto --profile hybrid-aes-chacha --apply` |
+| `policies` / `policy` | Discover/inspect policy protocols       | `l2 policy strict-mcp`               |
 
 ### Global Options
 
 - `--help`, `-h`
 - `--json` — machine-readable output for scripting
 - `--quiet` / `--verbose`
+- `--fast` — disable paced "typewriter" output in `l2 sel4-setup`, `l2 harden`, `l2 crypto` (useful in CI or on old hardware)
+- `--policy <protocol>` — explicit policy protocol (`strict-mcp` recommended for high-assurance agentic/MCP work)
 - `--host-backend` (for development: qemu, native, etc.)
 
 ## Interaction Styles

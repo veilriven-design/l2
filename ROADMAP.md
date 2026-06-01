@@ -26,27 +26,38 @@ The external interface and mental model must remain the same whether the backend
 - [STATUS.md](STATUS.md) — Living snapshot of what is actually done and current focus areas
 - [SECURITY.md](SECURITY.md) — Security requirements and philosophy
 
-## Current State (as of v0.3.2)
+## Current State (as of v0.4.0)
 
 See [STATUS.md](STATUS.md) for the authoritative "Done" and "Current Focus" lists.
 
-Highlights:
-- Full command surface with real persistence and `--policy strict`
-- Landlock + no_new_privs baseline (v0.2.0)
-- seccomp observer (Phase 0) — `L2_STRICT_SECCOMP_OBSERVE=1` produces real kernel audit traces
-- Append-only authority audit log + `l2 audit` subcommand
-- Basic out-of-process `l2-core` binary speaking L2P over stdio (architecture prep)
-- Excellent `l2 sel4-setup` on-ramp (Microkit SDK primary path + strong RHEL/Podman guidance)
+Highlights (v0.4.0 focus on agentic/AI/MCP hardening):
+- Explicit policy protocols (`strict-mcp` as flagship) + `l2 policies` / `l2 policy <name>` discovery.
+- **`l2 crypto`**: Selectable verified profiles (AES-256-XTS-Argon2id, XChaCha20-Poly1305-Argon2id, hybrid) for true system encryption (LUKS + gocryptfs). Hybrid mixes complementary algorithms. Paced typewriter output. Integrated with l2 isolation (keys protected by strict-mcp).
+- **`l2 harden`**: Concrete NSA/CISA/FBI-aligned host/container hardening (paced output). `--network-isolation`, auto-generated systemd units, capability dropping, advanced namespaces, trace-driven seccomp profiles. `strict-mcp` profile has aggressive defaults.
+- **`l2 trace`** with policy support + `--analyze` → real minimal profiles that the runtime enforcing filter loads directly.
+- Full integration: policies + crypto + host prep + trace data form a coherent high-assurance path.
+- Paced "typewriter" output in `l2 sel4-setup`, `l2 harden`, `l2 crypto` for readable long guidance (`--fast` to disable).
+- Excellent `l2 sel4-setup` on-ramp (Microkit SDK primary path + strong RHEL/Podman guidance).
+- Landlock + no_new_privs + seccomp baseline (Phase 0 observer complete; Phase 1 enforcing active for strict-family policies).
+- Append-only authority audit log + `l2 audit` subcommand.
+- Basic out-of-process `l2-core` binary speaking L2P over stdio (architecture prep).
 
 ## Prioritized Work
 
 ### Now (Highest Leverage)
 
-1. **seccomp Phase 1 + strict-mcp Policy Protocol (current main focus)**
-   - `l2 trace --policy strict-mcp` is the primary data collection tool (observer + enforcing by default).
-   - `l2 harden` (new major command) prepares host/container environments according to NSA/CISA/FBI guidance for the agentic/AI/MCP era.
-   - `strict-mcp` is the flagship policy protocol that combines strong isolation with the output of `l2 harden`.
-   - Continue maturing per-protocol allowlists, analyzer tooling, and user-facing awareness of policy protocols.
+1. **Agentic/AI/MCP hardening track (v0.4.0+ main focus)**
+   - `l2 crypto` + `strict-mcp` + `l2 harden` as a complete operational path.
+   - Continue maturing: more aggressive defaults in crypto/harden, per-protocol divergence (e.g. network denial, tool-specific rules in strict-mcp), expanded automated application in `l2 harden` (more distros, direct profile application).
+   - `l2 trace --policy strict-mcp` remains the primary data collection tool (observer + enforcing by default); feed into `l2 harden --generate-seccomp`.
+   - `l2 harden --profile strict-mcp` prepares hosts/containers per NSA/CISA/FBI guidance for the agentic era.
+   - `strict-mcp` is the flagship policy protocol (stronger defaults than `strict`, integrates crypto profiles and host hardening).
+   - Mature per-protocol allowlists, analyzer tooling (`l2 trace --analyze`), user-facing awareness (`l2 policies`), and integration (e.g. auto-wiring generated seccomp profiles into runtime).
+
+2. **Deeper crypto + host hardening operationalization**
+   - Make generated profiles/units from `l2 crypto`/`l2 harden` directly consumable with one command.
+   - Expand concrete steps (more distros, TPM integration, fscrypt, etc.).
+   - Policy-aware differences in the runtime (Landlock, seccomp, namespaces) for `strict-mcp` vs. `strict`.
 
 2. **Mature the L2P / core split**
    - Expand the operations implemented over the wire in `host/core.rs`.

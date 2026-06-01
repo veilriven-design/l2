@@ -30,13 +30,17 @@ See SEL4_INTEGRATION.md for architecture details.
 
 See [ROADMAP.md](../ROADMAP.md) for the current overall priorities. The sections below are historical context + detailed hardening notes.
 
-**Status (as of v0.3.2):** Phase 0 complete — real working observer now installs a `SECCOMP_RET_LOG` + `SECCOMP_FILTER_FLAG_LOG` filter when `L2_STRICT_SECCOMP_OBSERVE=1` is set. Kernel audit logs are produced for every syscall under strict policy. See `src/sandbox.rs:try_install_seccomp_observer` and the function docs for exact usage + viewing instructions.
+**Status (as of v0.4.0):** Phase 0 complete — real working observer now installs a `SECCOMP_RET_LOG` + `SECCOMP_FILTER_FLAG_LOG` filter when `L2_STRICT_SECCOMP_OBSERVE=1` is set. Kernel audit logs are produced for every syscall under strict policy. See `src/sandbox.rs:try_install_seccomp_observer` and the function docs for exact usage + viewing instructions.
 
-**Current highest-priority concrete work:** Trace collection from realistic workloads + curation of a minimal allowlist → implementation of the Phase 1 enforcing seccomp filter.
+Phase 1 enforcing is now active for strict-family policies (especially `strict-mcp`, the current main focus). The filter supports loading external trace-derived minimal profiles (generated via `l2 trace --analyze` + `l2 harden --generate-seccomp` or `l2 crypto` flows).
 
-Recent progress on this thread (trace UX):
-- Improved runtime messaging and documentation when `L2_STRICT_SECCOMP_OBSERVE=1` is active.
-- Added `sandbox::print_seccomp_trace_reminder()` helper called during strict execs.
+**Current highest-priority concrete work:** Mature the `l2 crypto` + `strict-mcp` + `l2 harden` path (per the v0.4.0 roadmap). Continue trace collection under `strict-mcp`, curation of allowlists (now policy-aware), and expansion of concrete host hardening steps.
+
+Recent progress on this thread (trace + hardening UX):
+- `l2 trace --policy strict-mcp` (with `--enforce` and auto-paced output).
+- `l2 crypto` for selecting/applying verified profiles (including hybrid) system-wide.
+- `l2 harden` with NSA/CISA/FBI-aligned concrete steps, network isolation, auto systemd units, and seccomp generation.
+- Improved runtime messaging, `sandbox::print_seccomp_trace_reminder()`, and policy-aware Landlock/seccomp.
 - Better guidance on recommended first workloads and practical capture commands.
 
 See `src/sandbox.rs` and the updated `ROADMAP.md`.
