@@ -1,9 +1,13 @@
 [package]
 name = "l2"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/veilriven-design/l2"
+
+[lib]
+name = "l2"
+path = "src/lib.rs"
 
 [dependencies]
 clap = { version = "4.5", features = ["derive", "env"] }
@@ -12,9 +16,10 @@ serde_json = "1.0"
 anyhow = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 colored = "2.1"
-nix = { version = "0.29", features = ["process", "user"] }  # needed for prctl + Uid for privilege checks
+nix = { version = "0.29", features = ["process", "user", "sched"] }  # prctl + Uid + sched (for future user ns exploration in hardening roadmap)
 thiserror = "2.0"
 landlock = "0.4"   # for Landlock LSM sandboxing
+libc = "0.2"       # for raw seccomp syscall + constants in strict observer/hardening (minimal, already transitive via nix)
 
 [[bin]]
 name = "l2"

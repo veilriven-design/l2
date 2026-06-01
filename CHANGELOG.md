@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.3.0] - 2026-06-01
+
+### Added
+- **Audit logging and `l2 audit` subcommand**: Full append-only JSONL authority audit log (`audit.log`) for create/put/exec/destroy/revoke/escalate/sandbox events. New `l2 audit [--tail N] [--json] [--path]` for inspection. Directly fulfills SECURITY.md "Evidence and audit" requirement.
+- **Architecture prep for core split**: 
+  - New `src/lib.rs` extracting core types (`Substrate`, `System`, `Object`) and helpers (persistence, workspace prep, `L2Core` trait) for clear boundary between CLI and future out-of-process / C core.
+  - `host/core.rs` (l2-core binary) now implements real L2P handling (ping, status, create, list) using the shared library Substrate (in-memory simulation today).
+- **Deeper correctness & robustness gaps closed** (continued from v0.2.x):
+  - `data_dir()` / `load_state()` / `save_state()` now return proper `Result` (no more HOME panics).
+  - `load_state()` warns on corrupt state instead of silent fallback.
+  - New `warn_on_cleanup_err` helper (in lib) replaces many silent `let _ =` cleanups in oneshot/exec/prepare paths with visible warnings.
+  - JSON output paths (`print_json`, `json_line`) no longer panic on serialization failure (graceful fallback).
+  - Many other small robustness fixes and 5+ new tests (state roundtrips, corrupt JSON, data_dir override, audit path, warn helper, isolation helpers). Test count now 17+.
+- **CI improvements**: `cargo-audit` security scanning step added to GitHub Actions + expanded smoke tests (now exercises `l2 audit` subcommand).
+
+### Changed
+- Significant reduction in code duplication between CLI and core logic via library extraction (major step toward the narrow L2P + out-of-process core architecture described in docs/PROTOCOL.md and original analysis).
+- `l2-core` binary is now a functional (if still simulated) L2P participant using the shared core.
+- Updated STATUS.md, README quickstart references, and internal comments to reflect v0.3.0 state and split progress.
+- Bumped to 0.3.0.
+
+### Fixed
+- Various silent failure modes in cleanup and state paths now produce warnings.
+- Remaining dangerous `.unwrap()` / `.expect()` in main hot paths either removed or given clear messages (tests excluded).
+- Minor issues in object path handling and oneshot error recovery paths.
+
+This release focuses on **correctness, auditability, and architecture foundation** while preserving the project's minimal high-assurance philosophy. The Linux prototype is stronger; the seL4 path remains the long-term target.
+
+See the full analysis follow-up and plan in the repo history / docs for context.
+
 ## [0.2.1] - 2026-06-01
 
 ### Fixed

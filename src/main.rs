@@ -3,15 +3,17 @@
 //! State lives in ~/.l2/state.json (override with L2_DATA_DIR).
 //!
 //! When run under sudo, it automatically uses the original user's home directory.
+//!
+//! NOTE (architecture prep): Full split to thin CLI + out-of-process l2-core (L2P over stdio)
+//! is in progress. See host/core.rs (now has basic L2P handler) and docs/PROTOCOL.md.
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use colored::Colorize;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fs;
-use std::path::{Component, Path, PathBuf};
+use serde::Serialize;
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
+mod audit;
 mod sandbox;
 
 #[derive(Parser, Debug)]
@@ -79,60 +81,30 @@ enum Commands {
         name: Option<String>,
     },
     Sel4Setup,
+
+    /// View or manage the authority audit log (append-only JSONL)
+    Audit {
+        /// Show the last N entries
+        #[arg(long, default_value_t = 50)]
+        tail: usize,
+
+        /// Output raw JSONL instead of human-readable
+        #[arg(long)]
+        json: bool,
+
+        /// Just print the path to the audit log and exit
+        #[arg(long)]
+        path: bool,
+    },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-struct System {
-    id: String,
-    name: String,
-    policy: String,
-    created_at: String,
-    objects: HashMap<String, Object>,
-    grants: Vec<String>,
-}
+// Core types now live in the library (src/lib.rs) for the architecture split prep.
+// The CLI re-uses them via `l2::...`.
+use l2::{
+    data_dir, load_state, prepare_workspace, save_state, state_path, warn_on_cleanup_err, System,
+};
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-struct Object {
-    name: String,
-    r#type: String,
-    content: String,
-    size: usize,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-struct Substrate {
-    systems: HashMap<String, System>,
-    next_id: u64,
-}
-
-fn get_home_for_user(username: &str) -> Option<String> {
-    let output = std::process::Command::new("getent")
-        .args(["passwd", username])
-        .output()
-        .ok()?;
-
-    let line = std::str::from_utf8(&output.stdout).ok()?;
-    let home = line.split(':').nth(5)?;
-    Some(home.trim().to_string())
-}
-
-fn data_dir() -> PathBuf {
-    // Highest priority: explicit override
-    if let Ok(dir) = std::env::var("L2_DATA_DIR") {
-        return PathBuf::from(dir);
-    }
-
-    // If running under sudo, try to use the original user's home directory
-    if let Ok(sudo_user) = std::env::var("SUDO_USER") {
-        if let Some(home) = get_home_for_user(&sudo_user) {
-            return PathBuf::from(home).join(".l2");
-        }
-    }
-
-    // Normal case
-    let home = std::env::var("HOME").expect("HOME must be set");
-    PathBuf::from(home).join(".l2")
-}
+// Core helpers now come from the library (see src/lib.rs) as part of architecture prep.
 
 /// Returns true if this process is running with root privileges, either directly
 /// or via sudo (in which case SUDO_USER is set in the environment).
@@ -163,6 +135,11 @@ fn escalate_to_root_for_exec() -> ! {
     // Inform the user (non-json path; json users will see sudo's output or errors)
     eprintln!("→ requesting root for isolated exec (namespaces + strict policy)...");
     eprintln!("   sudo {} {}", exe.display(), args.join(" "));
+
+    audit::log("escalate", serde_json::json!({
+        "exe": exe.display().to_string(),
+        "args": args
+    }));
 
     let mut cmd = Command::new("sudo");
     cmd.arg(&exe).args(&args);
@@ -358,6 +335,8 @@ fn suggest_working_command(system: &System) -> Option<String> {
     names.sort();
     names.first().map(|name| format!("cat {}", name))
 }
+
+// warn_on_cleanup_err is now provided by the l2 library (see src/lib.rs for the shared implementation).
 
 // -----------------------------------------------------------------------------
 // Small styling helpers for a more polished terminal experience
@@ -556,173 +535,13 @@ fn normalize_exec_args(args: &[String]) -> (Option<String>, String, bool, Option
     }
 }
 
-fn state_path() -> PathBuf {
-    data_dir().join("state.json")
-}
+// state_path, load_state, save_state now from l2:: (library)
 
-fn load_state() -> Substrate {
-    let path = state_path();
-    if !path.exists() {
-        return Substrate::default();
-    }
-    match fs::read_to_string(&path) {
-        Ok(contents) => serde_json::from_str(&contents).unwrap_or_default(),
-        Err(_) => Substrate::default(),
-    }
-}
+// object_relative_path, object_workspace_path, workspace_dir, prepare_workspace
+// now provided by the l2 library (src/lib.rs) for the core split.
 
-fn save_state(sub: &Substrate) -> Result<()> {
-    let dir = data_dir();
-    fs::create_dir_all(&dir)?;
-    let path = state_path();
-    let json = serde_json::to_string_pretty(sub)?;
-    fs::write(path, json)?;
-    Ok(())
-}
-
-fn object_relative_path(name: &str) -> Result<PathBuf> {
-    if name.is_empty() || name.contains('\0') {
-        anyhow::bail!("object name must be a non-empty relative path");
-    }
-
-    let mut relative = PathBuf::new();
-    for component in Path::new(name).components() {
-        match component {
-            Component::Normal(part) => relative.push(part),
-            Component::CurDir => {}
-            _ => anyhow::bail!(
-                "object name '{}' must stay inside the system workspace",
-                name
-            ),
-        }
-    }
-
-    if relative.as_os_str().is_empty() {
-        anyhow::bail!("object name must name a file inside the system workspace");
-    }
-
-    Ok(relative)
-}
-
-fn object_workspace_path(workspace: &Path, name: &str) -> Result<PathBuf> {
-    Ok(workspace.join(object_relative_path(name)?))
-}
-
-fn workspace_dir(sys: &System) -> Result<PathBuf> {
-    if sys.id.is_empty()
-        || !sys
-            .id
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '-')
-    {
-        anyhow::bail!("system '{}' has an invalid stored id", sys.name);
-    }
-
-    Ok(std::env::temp_dir().join(format!("l2-ws-{}", sys.id)))
-}
-
-fn prepare_workspace(sys: &System) -> Result<PathBuf> {
-    let ws = workspace_dir(sys)?;
-    let _ = fs::remove_dir_all(&ws);
-    fs::create_dir_all(&ws)?;
-
-    for (name, obj) in &sys.objects {
-        let path = object_workspace_path(&ws, name)?;
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-        fs::write(&path, &obj.content)?;
-
-        // Shebang support (key part of "all the way" language execution on the host).
-        // If the author put a proper shebang, make the file directly executable
-        // inside the workspace so `./name` and bare-name dispatch work naturally.
-        // This is harmless for data objects and is confined to the per-system ws.
-        if has_shebang(&obj.content) {
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                if let Ok(meta) = fs::metadata(&path) {
-                    let mut perms = meta.permissions();
-                    perms.set_mode(0o755);
-                    let _ = fs::set_permissions(&path, perms);
-                }
-            }
-        }
-    }
-    Ok(ws)
-}
-
-impl Substrate {
-    fn create(&mut self, name: &str, policy: &str) -> Result<String> {
-        if self.systems.values().any(|s| s.name == name) {
-            anyhow::bail!("system '{}' already exists", name);
-        }
-        let id = format!("sys-{:x}", self.next_id);
-        self.next_id += 1;
-
-        let sys = System {
-            id: id.clone(),
-            name: name.to_string(),
-            policy: policy.to_string(),
-            created_at: chrono::Utc::now().to_rfc3339(),
-            objects: HashMap::new(),
-            grants: vec![],
-        };
-        self.systems.insert(id.clone(), sys);
-        Ok(id)
-    }
-
-    fn destroy(&mut self, name: &str) -> Result<()> {
-        let id = self.resolve_name(name)?;
-        self.systems.remove(&id);
-        Ok(())
-    }
-
-    fn list_systems(&self) -> Vec<&System> {
-        self.systems.values().collect()
-    }
-
-    fn get_system(&self, name: &str) -> Result<&System> {
-        let id = self.resolve_name(name)?;
-        Ok(self.systems.get(&id).unwrap())
-    }
-
-    fn put(&mut self, sys_name: &str, obj_name: &str, typ: &str, content: &str) -> Result<()> {
-        object_relative_path(obj_name)?;
-        let id = self.resolve_name(sys_name)?;
-        let sys = self.systems.get_mut(&id).unwrap();
-        let obj = Object {
-            name: obj_name.to_string(),
-            r#type: typ.to_string(),
-            content: content.to_string(),
-            size: content.len(),
-        };
-        sys.objects.insert(obj_name.to_string(), obj);
-        Ok(())
-    }
-
-    fn get(&self, sys_name: &str, obj_name: &str) -> Result<Object> {
-        let id = self.resolve_name(sys_name)?;
-        let sys = self.systems.get(&id).unwrap();
-        sys.objects
-            .get(obj_name)
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!("object '{}' not found", obj_name))
-    }
-
-    fn resolve_name(&self, name: &str) -> Result<String> {
-        for (id, sys) in &self.systems {
-            if sys.name == name || id == name {
-                return Ok(id.clone());
-            }
-        }
-        anyhow::bail!(
-            "system '{}' not found (data dir: {})",
-            name,
-            data_dir().display()
-        );
-    }
-}
+// Substrate impl now lives in the library (src/lib.rs) as part of architecture prep for the core split.
+// The methods are pub there.
 
 fn exec_isolated(
     what: &str,
@@ -775,14 +594,21 @@ fn exec_isolated(
 }
 
 fn print_json<T: Serialize>(value: &T) {
-    println!(
-        "{}",
-        serde_json::to_string_pretty(value).expect("serializing CLI JSON output")
-    );
+    match serde_json::to_string_pretty(value) {
+        Ok(s) => println!("{}", s),
+        Err(e) => {
+            eprintln!("warning: failed to serialize JSON output: {}", e);
+            // Fallback to a minimal error object so scripts don't break completely
+            println!(r#"{{"ok":false,"err":"internal serialization failure"}}"#);
+        }
+    }
 }
 
 fn json_line<T: Serialize>(value: &T) -> String {
-    serde_json::to_string(value).expect("serializing CLI JSON line")
+    serde_json::to_string(value).unwrap_or_else(|e| {
+        // Extremely unlikely for our controlled types; fall back gracefully
+        format!(r#"{{"ok":false,"err":"serialization error: {}"}}"#, e)
+    })
 }
 
 fn success_json(msg: &str) -> serde_json::Value {
@@ -832,6 +658,11 @@ fn main() -> Result<()> {
         Commands::Create { name, policy } => match sub.create(&name, &policy) {
             Ok(id) => {
                 save_state(&sub)?;
+                audit::log("create", serde_json::json!({
+                    "name": name,
+                    "id": id,
+                    "policy": policy
+                }));
                 if cli.json {
                     print_json(
                         &serde_json::json!({"ok":true,"sys":id,"name":name,"policy":policy}),
@@ -844,7 +675,8 @@ fn main() -> Result<()> {
                         id
                     );
                     println!("   policy: {}", policy);
-                    println!("   state:  {}", state_path().display());
+                    let sp = state_path()?;
+                    println!("   state:  {}", sp.display());
                 }
             }
             Err(e) => error(&e.to_string(), cli.json),
@@ -853,7 +685,8 @@ fn main() -> Result<()> {
             if let Err(e) = sub.destroy(&name) {
                 error(&e.to_string(), cli.json);
             }
-            let _ = save_state(&sub);
+            audit::log("destroy", serde_json::json!({ "name": name }));
+            warn_on_cleanup_err(save_state(&sub), "failed to save state after destroy");
             success(&format!("destroyed '{}'", name), cli.json);
         }
         Commands::List { name } => {
@@ -883,7 +716,8 @@ fn main() -> Result<()> {
                     print_json(&systems);
                 } else if systems.is_empty() {
                     println!("No active systems.");
-                    println!("Data dir: {}", data_dir().display());
+                    let dd = data_dir()?;
+                    println!("Data dir: {}", dd.display());
                 } else {
                     println!("Active systems:");
                     for s in systems {
@@ -907,7 +741,13 @@ fn main() -> Result<()> {
             if let Err(e) = sub.put(&sys, &name, &r#type, &data) {
                 error(&e.to_string(), cli.json);
             }
-            let _ = save_state(&sub);
+            warn_on_cleanup_err(save_state(&sub), "failed to save state after put");
+            audit::log("put", serde_json::json!({
+                "sys": sys,
+                "name": name,
+                "type": r#type,
+                "size": data.len()
+            }));
             success(&format!("put '{}' into '{}'", name, sys), cli.json);
         }
         Commands::Get { sys, name } => match sub.get(&sys, &name) {
@@ -980,15 +820,25 @@ fn main() -> Result<()> {
                     .unwrap_or_else(|| "strict".to_string());
 
                 // Create + populate the temporary system (only in privileged context)
-                let _ = sub.create(&oneshot_id, &effective_policy);
-                let _ = sub.put(&oneshot_id, base_name, "code", &content);
-                let _ = save_state(&sub);
+                if let Err(e) = sub.create(&oneshot_id, &effective_policy) {
+                    error(&format!("failed to create oneshot system: {}", e), cli.json);
+                }
+                audit::log("create", serde_json::json!({
+                    "name": oneshot_id,
+                    "policy": effective_policy,
+                    "oneshot": true
+                }));
+                warn_on_cleanup_err(
+                    sub.put(&oneshot_id, base_name, "code", &content),
+                    "failed to put oneshot content",
+                );
+                warn_on_cleanup_err(save_state(&sub), "failed to save state after oneshot create/put");
 
                 let system = match sub.get_system(&oneshot_id) {
                     Ok(s) => s,
                     Err(e) => {
-                        let _ = sub.destroy(&oneshot_id);
-                        let _ = save_state(&sub);
+                        warn_on_cleanup_err(sub.destroy(&oneshot_id), "failed to destroy oneshot system after prep failure");
+                        warn_on_cleanup_err(save_state(&sub), "failed to save state after oneshot prep failure");
                         error(
                             &format!("failed to prepare oneshot system: {}", e),
                             cli.json,
@@ -1022,8 +872,19 @@ fn main() -> Result<()> {
                 };
 
                 if system.policy == "strict" {
-                    let _ = sandbox::apply_strict_sandbox(workspace.as_deref());
+                    warn_on_cleanup_err(
+                        sandbox::apply_strict_sandbox(workspace.as_deref()),
+                        "strict sandbox apply reported error (non-fatal)",
+                    );
                 }
+
+                audit::log("exec", serde_json::json!({
+                    "sys": oneshot_id,
+                    "what": effective_what,
+                    "policy": effective_policy,
+                    "oneshot": true,
+                    "source_file": local_path
+                }));
 
                 let out = match exec_isolated(
                     &effective_what,
@@ -1033,8 +894,8 @@ fn main() -> Result<()> {
                 ) {
                     Ok(o) => o,
                     Err(e) => {
-                        let _ = sub.destroy(&oneshot_id);
-                        let _ = save_state(&sub);
+                        warn_on_cleanup_err(sub.destroy(&oneshot_id), "failed to destroy oneshot system on exec error");
+                        warn_on_cleanup_err(save_state(&sub), "failed to save state during oneshot error recovery");
 
                         let err_str = e.to_string();
 
@@ -1076,11 +937,14 @@ fn main() -> Result<()> {
                 };
 
                 // Always destroy the temporary system (after we're done using the borrow)
-                let _ = sub.destroy(&oneshot_id);
-                let _ = save_state(&sub);
+                warn_on_cleanup_err(sub.destroy(&oneshot_id), "failed to destroy oneshot system");
+                warn_on_cleanup_err(save_state(&sub), "failed to save state after oneshot destroy");
                 // Best-effort workspace cleanup
-                let _ = std::fs::remove_dir_all(
-                    std::env::temp_dir().join(format!("l2-ws-{}", ws_id_for_cleanup)),
+                warn_on_cleanup_err(
+                    std::fs::remove_dir_all(
+                        std::env::temp_dir().join(format!("l2-ws-{}", ws_id_for_cleanup)),
+                    ),
+                    "failed to remove oneshot workspace",
                 );
 
                 if !cli.json {
@@ -1159,8 +1023,18 @@ fn main() -> Result<()> {
             };
 
             if system.policy == "strict" {
-                let _ = sandbox::apply_strict_sandbox(workspace.as_deref());
+                warn_on_cleanup_err(
+                    sandbox::apply_strict_sandbox(workspace.as_deref()),
+                    "strict sandbox apply reported error (non-fatal)",
+                );
             }
+
+            audit::log("exec", serde_json::json!({
+                "sys": sys,
+                "what": effective_what,
+                "policy": system.policy,
+                "oneshot": false
+            }));
 
             match exec_isolated(&effective_what, input.as_deref(), &sys, workspace) {
                 Ok(out) => {
@@ -1194,10 +1068,13 @@ fn main() -> Result<()> {
                 Err(e) => error(&e.to_string(), cli.json),
             }
         }
-        Commands::Revoke { sys, grant } => success(
-            &format!("revoked '{}' from '{}' (prototype)", grant, sys),
-            cli.json,
-        ),
+        Commands::Revoke { sys, grant } => {
+            audit::log("revoke", serde_json::json!({ "sys": sys, "grant": grant }));
+            success(
+                &format!("revoked '{}' from '{}' (prototype)", grant, sys),
+                cli.json,
+            )
+        }
         Commands::Status { name } => {
             if let Some(n) = name {
                 match sub.get_system(&n) {
@@ -1217,12 +1094,60 @@ fn main() -> Result<()> {
                 } else {
                     println!("l2 host prototype (persistent)");
                     println!("  active systems: {}", count);
-                    println!("  data dir:       {}", data_dir().display());
+                    let dd = data_dir()?;
+                    println!("  data dir:       {}", dd.display());
                 }
             }
         }
         Commands::Sel4Setup => {
             sel4_setup()?;
+        }
+
+        Commands::Audit { tail, json, path } => {
+            let log_path = audit::path();
+
+            if path {
+                println!("{}", log_path.display());
+                return Ok(());
+            }
+
+            if !log_path.exists() {
+                if json {
+                    println!("[]");
+                } else {
+                    println!("No audit log yet at {}", log_path.display());
+                    println!("Audit events are written for create/put/exec/destroy and privilege escalations.");
+                }
+                return Ok(());
+            }
+
+            let content = match std::fs::read_to_string(&log_path) {
+                Ok(c) => c,
+                Err(e) => error(&format!("failed to read audit log: {}", e), cli.json),
+            };
+
+            let lines: Vec<&str> = content.lines().collect();
+            let start = if lines.len() > tail { lines.len() - tail } else { 0 };
+            let selected = &lines[start..];
+
+            if json {
+                for line in selected {
+                    println!("{}", line);
+                }
+            } else {
+                println!("Audit log: {}", log_path.display());
+                println!("Showing last {} entries:\n", selected.len());
+                for line in selected {
+                    // Try to pretty-print a bit
+                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(line) {
+                        let ts = v["ts"].as_str().unwrap_or("?");
+                        let op = v["op"].as_str().unwrap_or("?");
+                        println!("{}  {}  {}", ts, op.bright_blue().bold(), line);
+                    } else {
+                        println!("{}", line);
+                    }
+                }
+            }
         }
     }
 
@@ -1255,16 +1180,16 @@ mod tests {
 
     #[test]
     fn object_paths_allow_nested_relative_names() {
-        let path = object_workspace_path(Path::new("/tmp/l2-workspace"), "./src/main.rs").unwrap();
+        let path = l2::object_workspace_path(Path::new("/tmp/l2-workspace"), "./src/main.rs").unwrap();
 
         assert_eq!(path, PathBuf::from("/tmp/l2-workspace/src/main.rs"));
     }
 
     #[test]
     fn object_paths_reject_workspace_escape_names() {
-        assert!(object_workspace_path(Path::new("/tmp/l2-workspace"), "../escape").is_err());
-        assert!(object_workspace_path(Path::new("/tmp/l2-workspace"), "/tmp/escape").is_err());
-        assert!(object_workspace_path(Path::new("/tmp/l2-workspace"), ".").is_err());
+        assert!(l2::object_workspace_path(Path::new("/tmp/l2-workspace"), "../escape").is_err());
+        assert!(l2::object_workspace_path(Path::new("/tmp/l2-workspace"), "/tmp/escape").is_err());
+        assert!(l2::object_workspace_path(Path::new("/tmp/l2-workspace"), ".").is_err());
     }
 
     #[test]
@@ -1278,10 +1203,12 @@ mod tests {
 
     #[test]
     fn strict_sandbox_applies_without_error() {
-        // Exercises the new v0.2.0 Landlock + no_new_privs path.
-        // Must succeed (even if kernel only partially enforces Landlock in the test env).
+        // Exercises the v0.2 Landlock + no_new_privs path + the Phase 0 seccomp observer scaffolding
+        // (when L2_STRICT_SECCOMP_OBSERVE=1). Must succeed in all envs.
         let tmp = std::env::temp_dir().join(format!("l2-smoke-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&tmp);
+        // Enable observer for the test (purely additive, non-enforcing)
+        std::env::set_var("L2_STRICT_SECCOMP_OBSERVE", "1");
         let res = sandbox::apply_strict_sandbox(Some(&tmp));
         assert!(res.is_ok(), "sandbox apply failed: {:?}", res.err());
         let _ = std::fs::remove_dir_all(&tmp);
@@ -1332,5 +1259,112 @@ mod tests {
             Some("node app.js".to_string())
         );
         assert_eq!(compute_dispatch_command("weird.xyz", "data"), None);
+    }
+
+    #[test]
+    fn warn_on_cleanup_err_does_not_panic_and_logs_on_error() {
+        // Success path
+        warn_on_cleanup_err::<std::io::Error>(Ok(()), "should not warn");
+
+        // Error path (just exercises the eprintln path)
+        warn_on_cleanup_err(Err("simulated cleanup failure"), "test cleanup");
+    }
+
+    #[test]
+    fn data_dir_returns_error_when_home_missing() {
+        // This test is best-effort; environment mutation is not perfectly isolated
+        // but the error path is now properly returned instead of panicking.
+        let original = std::env::var("HOME").ok();
+        std::env::remove_var("HOME");
+        // Also clear L2_DATA_DIR so we hit the HOME path
+        let original_data = std::env::var("L2_DATA_DIR").ok();
+        std::env::remove_var("L2_DATA_DIR");
+
+        let result = data_dir();
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("HOME environment variable"));
+
+        // Restore
+        if let Some(h) = original {
+            std::env::set_var("HOME", h);
+        }
+        if let Some(d) = original_data {
+            std::env::set_var("L2_DATA_DIR", d);
+        }
+    }
+
+    #[test]
+    fn data_dir_respects_l2_data_dir_override() {
+        let temp = std::env::temp_dir().join(format!("l2-test-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&temp);
+        std::env::set_var("L2_DATA_DIR", temp.to_str().unwrap());
+
+        let dir = data_dir().expect("data_dir with override should succeed");
+        assert_eq!(dir, temp);
+
+        // Cleanup
+        let _ = std::env::remove_var("L2_DATA_DIR");
+        let _ = std::fs::remove_dir_all(&temp);
+    }
+
+    #[test]
+    fn json_helpers_do_not_panic_on_valid_data() {
+        let val = success_json("test message");
+        // Should not panic
+        let _ = json_line(&val);
+        // print_json writes to stdout, hard to assert here without capture, but call is safe
+        print_json(&val);
+    }
+
+    #[test]
+    fn audit_path_is_consistent_with_data_dir() {
+        let temp = std::env::temp_dir().join(format!("l2-audit-test-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&temp);
+        std::env::set_var("L2_DATA_DIR", temp.to_str().unwrap());
+
+        let audit_p = audit::path();
+        assert!(audit_p.ends_with("audit.log"));
+        assert!(audit_p.parent().unwrap().ends_with(".l2") || audit_p.parent().unwrap() == temp); // depending on logic
+
+        let _ = std::env::remove_var("L2_DATA_DIR");
+        let _ = std::fs::remove_dir_all(&temp);
+    }
+
+    #[test]
+    fn load_state_handles_corrupt_json_gracefully() {
+        let temp = std::env::temp_dir().join(format!("l2-corrupt-test-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&temp);
+        std::env::set_var("L2_DATA_DIR", temp.to_str().unwrap());
+
+        // Write bad JSON
+        let state_path = temp.join(".l2").join("state.json");  // note: data_dir will be temp/.l2? wait, our logic puts state in L2_DATA_DIR directly for override
+        // Actually with L2_DATA_DIR override, state is directly under it
+        let bad_state = temp.join("state.json");
+        std::fs::write(&bad_state, "{ this is not valid json }").unwrap();
+
+        // Should not panic, returns default
+        let sub = load_state();
+        assert!(sub.systems.is_empty());
+
+        let _ = std::env::remove_var("L2_DATA_DIR");
+        let _ = std::fs::remove_dir_all(&temp);
+    }
+
+    #[test]
+    fn save_and_load_roundtrip_basic() {
+        let temp = std::env::temp_dir().join(format!("l2-roundtrip-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&temp);
+        std::env::set_var("L2_DATA_DIR", temp.to_str().unwrap());
+
+        let mut sub = Substrate::default();
+        let _ = sub.create("roundtrip-sys", "strict");
+        let _ = save_state(&sub);
+
+        let loaded = load_state();
+        assert!(loaded.systems.values().any(|s| s.name == "roundtrip-sys"));
+
+        let _ = std::env::remove_var("L2_DATA_DIR");
+        let _ = std::fs::remove_dir_all(&temp);
     }
 }

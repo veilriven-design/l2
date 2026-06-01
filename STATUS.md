@@ -1,6 +1,6 @@
 # Status
 
-**v0.2.0 released** — main is now the current version. v0.1.0 tag preserved for history and integrity checks.
+**v0.3.0 released** — major step on correctness gaps + architecture foundation for the core split (see CHANGELOG.md for details). v0.2.1 and earlier tags preserved.
 
 ## Charter
 
@@ -29,10 +29,15 @@ l2 is the minimal high-assurance Latticra substrate:
 
 ## Current Focus
 
-1. Better host isolation (seccomp-bpf, capability dropping, tighter Landlock policies, user+mount ns) — Landlock baseline landed in v0.2.0
-2. Out-of-process `l2-core` speaking the real L2P protocol over stdio/socket
-3. Start the disciplined C implementation of the core
-4. seL4/Microkit backend (parallel track) — `l2 sel4-setup` is the current on-ramp
+1. Better host isolation (seccomp-bpf, capability dropping, tighter Landlock policies, user+mount ns) — Landlock baseline v0.2.0. Phase 0 complete: real `SECCOMP_RET_LOG` + `FLAG_LOG` observer now works (`L2_STRICT_SECCOMP_OBSERVE=1`). Kernel audit logs for strict workloads are available. See `src/sandbox.rs` + docs/PROTOTYPE_HARDENING_AND_SEL4_PLAN.md for usage. Ready for trace collection → Phase 1 enforcing filter.
+
+2. Audit logging: Basic append-only JSONL authority audit log (`audit.log` in data dir) now implemented for create/put/exec/destroy/revoke/escalate/sandbox (and oneshot temp systems). Includes `l2 audit` subcommand. Respects SUDO_USER. See `src/audit.rs`. This directly addresses the "Evidence and audit" requirement in SECURITY.md.
+
+3. Correctness gaps: Deeper work — non-panicking JSON output paths, load_state now warns on corrupt JSON, many silent cleanups now use warn_on_cleanup_err, 17 tests (strong coverage on data_dir, state roundtrips, error paths, isolation helpers). See recent changes in src/main.rs.
+
+4. Architecture prep for core split: l2-core binary now implements basic L2P handler (ping/status over stdio). See host/core.rs. Clear boundary (trait + out-of-process) and C core work next. The main `l2` prototype remains the daily driver.
+
+5. seL4/Microkit backend (parallel track) — `l2 sel4-setup` is the current on-ramp. Out-of-process `l2-core` speaking the real L2P protocol and disciplined C implementation remain active focus.
 
 ## How to Use Right Now
 

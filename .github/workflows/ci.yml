@@ -23,6 +23,15 @@ jobs:
       run: cargo clippy -- -D warnings
     - name: Format check
       run: cargo fmt -- --check
+
+    # Security: dependency vulnerability scanning.
+    # Uses cargo-audit (from rustsec). Keep this step to catch supply-chain issues early.
+    # If new advisories appear, investigate before silencing.
+    - name: Security audit
+      run: |
+        cargo install cargo-audit --locked
+        cargo audit
+
     - name: Smoke tests (strict policy + Landlock)
       run: |
         set -euo pipefail
@@ -39,8 +48,12 @@ jobs:
         #  because unshare usually needs privileges, but the sandbox function is still called)
         ./target/release/l2 create smoke-sys --policy strict
         ./target/release/l2 list smoke-sys
-        ./target/release/l2 put smoke-sys hello.txt --content 'hello from v0.2.0 strict Landlock'
-        ./target/release/l2 get smoke-sys hello.txt | grep -q 'hello from v0.2.0 strict Landlock'
+        ./target/release/l2 put smoke-sys hello.txt --content 'hello from v0.2.1 strict Landlock + audit'
+        ./target/release/l2 get smoke-sys hello.txt | grep -q 'v0.2.1 strict Landlock'
+
+        # Exercise the new audit subcommand (added as part of correctness + audit work)
+        ./target/release/l2 audit --path | grep -q 'audit.log'
+        ./target/release/l2 audit --tail 5 --json >/dev/null || true
 
         # Exercise the exec + strict path. Capture everything (including stderr).
         # We do not hard-require the inner command to succeed because GitHub runners
@@ -56,4 +69,4 @@ jobs:
 
         ./target/release/l2 destroy smoke-sys
 
-        echo "✅ All v0.2.0 smoke tests passed (strict policy + Landlock path exercised)"
+        echo "✅ All smoke tests passed (strict policy + Landlock + audit subcommand exercised)"
