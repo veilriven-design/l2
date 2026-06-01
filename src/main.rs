@@ -602,10 +602,9 @@ fn normalize_policy(policy: &str) -> (String, bool, bool) {
             // It implies stricter defaults than plain "strict".
             (policy.to_string(), true, true) // (name, is_strict_family, is_mcp)
         }
-        "strict" => {
-            (policy.to_string(), true, false)
-        }
-        "default" | _ => (policy.to_string(), false, false),
+        "strict" => (policy.to_string(), true, false),
+        "default" => (policy.to_string(), false, false),
+        _ => (policy.to_string(), false, false),
     }
 }
 
@@ -1077,7 +1076,8 @@ fn main() -> Result<()> {
                     }
                 };
 
-                let (_effective_policy, is_strict_family, is_mcp) = normalize_policy(&system.policy);
+                let (_effective_policy, is_strict_family, is_mcp) =
+                    normalize_policy(&system.policy);
                 if is_strict_family {
                     warn_on_cleanup_err(
                         sandbox::apply_strict_sandbox(workspace.as_deref(), &system.policy),
@@ -1331,8 +1331,22 @@ fn main() -> Result<()> {
             sel4_setup(fast)?;
         }
 
-        Commands::Harden { profile, target, dry_run, fast, network_isolation, generate_seccomp } => {
-            harden(profile, target, dry_run, fast, network_isolation, generate_seccomp)?;
+        Commands::Harden {
+            profile,
+            target,
+            dry_run,
+            fast,
+            network_isolation,
+            generate_seccomp,
+        } => {
+            harden(
+                profile,
+                target,
+                dry_run,
+                fast,
+                network_isolation,
+                generate_seccomp,
+            )?;
         }
 
         Commands::Policies {} => {
@@ -1345,7 +1359,9 @@ fn main() -> Result<()> {
             println!("                  • Stronger seccomp enforcing by default");
             println!("                  • MCP/tool-execution threat model considerations");
             println!("                  • Designed to pair with output from `l2 harden --profile strict-mcp`");
-            println!("\nUse `l2 policy <name>` for detailed information (e.g. `l2 policy strict-mcp`).");
+            println!(
+                "\nUse `l2 policy <name>` for detailed information (e.g. `l2 policy strict-mcp`)."
+            );
         }
 
         Commands::Policy { name, json } => {
@@ -1384,8 +1400,12 @@ fn main() -> Result<()> {
                         println!();
                         println!("Description:");
                         println!("  A strict-family policy protocol tailored for the agentic/AI/MCP era.");
-                        println!("  It provides strong isolation while being practical for systems that");
-                        println!("  dynamically invoke tools, MCP servers, and external processes.");
+                        println!(
+                            "  It provides strong isolation while being practical for systems that"
+                        );
+                        println!(
+                            "  dynamically invoke tools, MCP servers, and external processes."
+                        );
                         println!();
                         println!("Key characteristics:");
                         println!("  • Builds directly on the 'strict' isolation baseline");
@@ -1412,7 +1432,9 @@ fn main() -> Result<()> {
                     } else {
                         println!("strict");
                         println!("------");
-                        println!("Strong isolation policy using Landlock, no_new_privs, and seccomp.");
+                        println!(
+                            "Strong isolation policy using Landlock, no_new_privs, and seccomp."
+                        );
                         println!("This is the foundation that strict-mcp builds upon.");
                         println!("Use `l2 policy show strict-mcp` for the currently recommended protocol.");
                     }
@@ -1429,24 +1451,34 @@ fn main() -> Result<()> {
             }
         }
 
-        Commands::Trace { system, command, input, policy, enforce, analyze } => {
+        Commands::Trace {
+            system,
+            command,
+            input,
+            policy,
+            enforce,
+            analyze,
+        } => {
             if let Some(logfile) = analyze {
                 // Simple post-processing helper for Phase 1 (item 3)
-                let content = std::fs::read_to_string(&logfile)
-                    .unwrap_or_else(|_| String::new());
+                let content = std::fs::read_to_string(&logfile).unwrap_or_else(|_| String::new());
 
                 let mut syscalls = std::collections::BTreeSet::new();
 
                 for line in content.lines() {
                     if let Some(idx) = line.find("syscall=") {
-                        if let Some(num_str) = line[idx+8..].split(|c: char| !c.is_ascii_digit()).next() {
+                        if let Some(num_str) =
+                            line[idx + 8..].split(|c: char| !c.is_ascii_digit()).next()
+                        {
                             if let Ok(n) = num_str.parse::<u32>() {
                                 syscalls.insert(n);
                             }
                         }
                     }
                     if let Some(idx) = line.find(" nr=") {
-                        if let Some(num_str) = line[idx+4..].split(|c: char| !c.is_ascii_digit()).next() {
+                        if let Some(num_str) =
+                            line[idx + 4..].split(|c: char| !c.is_ascii_digit()).next()
+                        {
                             if let Ok(n) = num_str.parse::<u32>() {
                                 syscalls.insert(n);
                             }
@@ -1455,21 +1487,42 @@ fn main() -> Result<()> {
                 }
 
                 if syscalls.is_empty() {
-                    println!("No syscalls found in {}. Try: journalctl -k | grep seccomp > log.txt", logfile);
+                    println!(
+                        "No syscalls found in {}. Try: journalctl -k | grep seccomp > log.txt",
+                        logfile
+                    );
                 } else {
                     println!("Unique syscalls found ({}):", syscalls.len());
                     println!();
 
                     // Expanded name map for curation (keep this in sync with allowlist doc)
                     let names: std::collections::HashMap<u32, &str> = [
-                        (0, "read"), (1, "write"), (3, "close"), (8, "lseek"),
-                        (9, "mmap"), (10, "mprotect"), (11, "munmap"), (12, "brk"),
-                        (59, "execve"), (60, "exit"), (231, "exit_group"),
-                        (257, "openat"), (78, "getdents64"), (228, "clock_gettime"),
-                        (202, "futex"), (13, "rt_sigaction"), (14, "rt_sigprocmask"),
-                        (79, "getcwd"), (435, "clone3"), (16, "ioctl"),
-                        (270, "pselect6"), (262, "newfstatat"),
-                    ].iter().cloned().collect();
+                        (0, "read"),
+                        (1, "write"),
+                        (3, "close"),
+                        (8, "lseek"),
+                        (9, "mmap"),
+                        (10, "mprotect"),
+                        (11, "munmap"),
+                        (12, "brk"),
+                        (59, "execve"),
+                        (60, "exit"),
+                        (231, "exit_group"),
+                        (257, "openat"),
+                        (78, "getdents64"),
+                        (228, "clock_gettime"),
+                        (202, "futex"),
+                        (13, "rt_sigaction"),
+                        (14, "rt_sigprocmask"),
+                        (79, "getcwd"),
+                        (435, "clone3"),
+                        (16, "ioctl"),
+                        (270, "pselect6"),
+                        (262, "newfstatat"),
+                    ]
+                    .iter()
+                    .cloned()
+                    .collect();
 
                     println!("```");
                     for n in &syscalls {
@@ -1482,7 +1535,9 @@ fn main() -> Result<()> {
                     println!("```");
                     println!();
                     println!("Copy the block above into docs/seccomp-phase1-allowlist.md under the relevant architecture section.");
-                    println!("Then review each one for safety before adding to the enforcing filter.");
+                    println!(
+                        "Then review each one for safety before adding to the enforcing filter."
+                    );
                 }
                 return Ok(());
             }
@@ -1506,7 +1561,11 @@ fn main() -> Result<()> {
             println!(
                 "[trace] Starting with policy protocol: '{}'  |  observer=ON  |  enforce={}",
                 canonical_policy,
-                if enforce_active { "ON (Phase 1 true hardening)" } else { "OFF" }
+                if enforce_active {
+                    "ON (Phase 1 true hardening)"
+                } else {
+                    "OFF"
+                }
             );
 
             match canonical_policy.as_str() {
@@ -1523,7 +1582,11 @@ fn main() -> Result<()> {
                 _ => {}
             }
 
-            let mut child_args = vec!["exec".to_string(), "--policy".to_string(), canonical_policy.clone()];
+            let mut child_args = vec![
+                "exec".to_string(),
+                "--policy".to_string(),
+                canonical_policy.clone(),
+            ];
 
             if let Some(i) = &input {
                 child_args.push("--input".to_string());
@@ -1536,9 +1599,7 @@ fn main() -> Result<()> {
             child_args.extend(command.clone());
 
             let exe = std::env::current_exe()?;
-            let status = std::process::Command::new(exe)
-                .args(&child_args)
-                .status()?;
+            let status = std::process::Command::new(exe).args(&child_args).status()?;
 
             if !status.success() {
                 std::process::exit(status.code().unwrap_or(1));
