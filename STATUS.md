@@ -1,6 +1,6 @@
 # Status
 
-**v0.3.1 released** — UX hardening for `l2 sel4-setup` on low-end/ancient hardware (RHEL+Podman): SDK is now the unambiguous default with strong time/hardware warnings; full CAmkES/L4v container requires explicit multi-word confirmation and is no longer offered as a near-default. v0.3.0 and earlier tags preserved.
+**v0.3.2 released** — `l2 sel4-setup` now types output slowly ("typewriter style") on TTYs so users can read along instead of facing a wall of text. Added `--fast` / `-f` flag (plus `L2_FAST=1`) to disable pacing on old hardware or in scripts. v0.3.1 and earlier tags preserved.
 
 ## Charter
 

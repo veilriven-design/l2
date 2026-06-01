@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.2] - 2026-06-02
+
+### Added
+- **`l2 sel4-setup` paced / "typewriter" output**: The script now reveals its terminal output slowly and methodically (character-by-character for headings, line-by-line for long instruction blocks) so users can comfortably read along instead of receiving a massive wall of text instantly. This is especially valuable for the large RHEL+Podman hardware warning block.
+- **`--fast` / `-f` flag** for `l2 sel4-setup`: Disables all slow/paced output for instant behavior (also works via `L2_FAST=1` or `L2_SEL4_SETUP_FAST=1`, and when invoking the script directly). Ideal for old hardware, scripts, or CI.
+- The shell script now accepts `--fast` / `-f` as a command-line argument and forwards it cleanly whether called via the `l2` binary or directly.
+
+### Changed
+- Updated all version references, documentation, and the generated workspace README to document the new pacing behavior and fast-escape options.
+- Bumped crate version to 0.3.2.
+
+This is a small but high-quality UX polish on top of the v0.3.1 sel4-setup improvements, making the on-ramp significantly more pleasant on a wide range of hardware.
+
 ## [0.3.1] - 2026-06-02
 
 ### Changed

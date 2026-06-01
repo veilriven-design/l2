@@ -80,7 +80,11 @@ enum Commands {
     Status {
         name: Option<String>,
     },
-    Sel4Setup,
+    Sel4Setup {
+        /// Disable slow/paced terminal output (useful on old/slow hardware or in scripts/CI)
+        #[arg(long, short = 'f')]
+        fast: bool,
+    },
 
     /// View or manage the authority audit log (append-only JSONL)
     Audit {
@@ -639,13 +643,22 @@ fn error(msg: &str, json: bool) -> ! {
     std::process::exit(1);
 }
 
-fn sel4_setup() -> Result<()> {
+fn sel4_setup(fast: bool) -> Result<()> {
     println!("🔧 Running seL4 setup...");
     // Resolve script relative to current working dir or CARGO_MANIFEST_DIR for dev
     let script = std::env::var("CARGO_MANIFEST_DIR")
         .map(|d| format!("{}/scripts/sel4-setup.sh", d))
         .unwrap_or_else(|_| "scripts/sel4-setup.sh".to_string());
-    let status = Command::new("sh").arg(&script).status()?;
+
+    let mut cmd = Command::new("sh");
+    cmd.arg(&script);
+
+    if fast {
+        cmd.arg("--fast");
+        cmd.env("L2_FAST", "1");
+    }
+
+    let status = cmd.status()?;
     if !status.success() {
         anyhow::bail!("seL4 setup failed (see script output)");
     }
@@ -1135,8 +1148,8 @@ fn main() -> Result<()> {
                 }
             }
         }
-        Commands::Sel4Setup => {
-            sel4_setup()?;
+        Commands::Sel4Setup { fast } => {
+            sel4_setup(fast)?;
         }
 
         Commands::Audit { tail, json, path } => {

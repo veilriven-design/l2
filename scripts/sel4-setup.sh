@@ -8,11 +8,33 @@
 # v0.3.1: SDK tarball is the clear default/fast path for all users (including ancient
 #         and low-RAM RHEL machines). The full CAmkES/L4v container now requires
 #         explicit deliberate confirmation and carries strong time/hardware warnings.
+#
+# v0.3.2+: Terminal output is revealed slowly (typewriter style) on interactive
+#          terminals so you can read along.
+#
+#          Disable with:
+#            l2 sel4-setup --fast
+#            L2_FAST=1 l2 sel4-setup
+#            L2_SEL4_SETUP_FAST=1 l2 sel4-setup
+#          The script also understands `--fast` / `-f` when invoked directly.
 
 set -euo pipefail
 
 WORKSPACE="$HOME/l2-sel4-workspace"
 L2_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Parse command-line arguments (supports being called directly or via `l2 sel4-setup --fast`)
+for arg in "$@"; do
+    case "$arg" in
+        --fast|-f)
+            export L2_FAST=1
+            ;;
+        --help|-h)
+            # Let the user see normal help if they ask, but we don't have full getopt yet.
+            # The main help comes from `l2 sel4-setup --help` (clap).
+            ;;
+    esac
+done
 
 # -----------------------------------------------------------------------------
 # Spinner + live status for long-running commands (especially container setup)
@@ -81,13 +103,78 @@ run_with_spinner() {
     return $exit_code
 }
 
-echo "=== l2 sel4-setup ==="
-echo "One-command seL4/Microkit + l2 development environment"
-echo "Workspace: $WORKSPACE"
+# -----------------------------------------------------------------------------
+# Slow, readable terminal output ("typewriter" / paced reveal)
+# Added so the (sometimes long) instructions don't slam the user as one giant
+# wall of text. Especially valuable on the RHEL+Podman warning path.
+# -----------------------------------------------------------------------------
+TYPE_CHAR_DELAY="${L2_TYPE_DELAY:-0.014}"   # per-character delay
+TYPE_LINE_DELAY="${L2_LINE_DELAY:-0.09}"    # extra delay between long lines
+
+should_type_slowly() {
+    [ "${L2_FAST:-0}" = "1" ] && return 1
+    [ "${L2_SEL4_SETUP_FAST:-0}" = "1" ] && return 1
+    [ -t 1 ] || return 1          # not a TTY → instant
+    return 0
+}
+
+# Type a single line character-by-character (good for short important lines)
+type_line() {
+    local text="$*"
+    if ! should_type_slowly; then
+        printf '%s\n' "$text"
+        return
+    fi
+    local i ch
+    for (( i=0; i<${#text}; i++ )); do
+        ch="${text:i:1}"
+        printf '%s' "$ch"
+        sleep "$TYPE_CHAR_DELAY"
+    done
+    printf '\n'
+}
+
+# Reveal a multi-line block line-by-line at a comfortable reading pace.
+# Much nicer than char-by-char for long warnings / instructions.
+reveal_lines() {
+    local text="$1"
+    local delay="$TYPE_LINE_DELAY"
+    if ! should_type_slowly; then
+        printf '%s\n' "$text"
+        return
+    fi
+    while IFS= read -r line || [ -n "$line" ]; do
+        printf '%s\n' "$line"
+        sleep "$delay"
+    done <<< "$text"
+}
+
+# Short breathing room between major sections (only when typing is active)
+breathe() {
+    if should_type_slowly; then
+        sleep "${1:-0.55}"
+    fi
+}
+
+# Print a section header in a paced way
+section() {
+    type_line "$1"
+    breathe 0.25
+}
+
+type_line "=== l2 sel4-setup ==="
+type_line "One-command seL4/Microkit + l2 development environment"
+type_line "Workspace: $WORKSPACE"
 echo
 
+if should_type_slowly; then
+    type_line "(Output is being revealed slowly so you can read along."
+    type_line " Set L2_FAST=1 to get instant output.)"
+    breathe 0.9
+fi
+
 # 1. Basic host tools check (non-fatal hints)
-echo "[1/6] Checking host prerequisites..."
+section "[1/6] Checking host prerequisites..."
 CONTAINER_CMD=""
 if command -v podman >/dev/null 2>&1; then
     CONTAINER_CMD="podman"
@@ -108,19 +195,19 @@ else
 fi
 
 # 2. Create isolated workspace
-echo "[2/6] Preparing workspace at $WORKSPACE"
+section "[2/6] Preparing workspace at $WORKSPACE"
 mkdir -p "$WORKSPACE"
 cd "$WORKSPACE"
 
 # 3. Record l2 source location for easy reference
-echo "[3/6] Linking l2 source (current checkout at $L2_DIR)"
+section "[3/6] Linking l2 source (current checkout at $L2_DIR)"
 if [ ! -e l2-source ]; then
     ln -sfn "$L2_DIR" l2-source
 fi
 echo "  ✓ l2 source symlinked as ./l2-source"
 
 # 4. Clone or update minimal seL4/Microkit example material (best effort)
-echo "[4/6] Fetching seL4/Microkit examples (best effort, network optional)..."
+section "[4/6] Fetching seL4/Microkit examples (best effort, network optional)..."
 if command -v git >/dev/null 2>&1; then
     if [ ! -d microkit ]; then
         # Official Microkit repo (contains examples, build system, docs)
@@ -138,7 +225,7 @@ else
 fi
 
 # 5. Microkit SDK (clear default / fast path) + optional heavy container
-echo "[5/6] Getting Microkit toolchain (SDK is the recommended default for almost everyone)..."
+section "[5/6] Getting Microkit toolchain (SDK is the recommended default for almost everyone)..."
 if command -v curl >/dev/null 2>&1; then
     SDK_URL="https://github.com/seL4/microkit/releases/download/2.2.0/microkit-sdk-2.2.0-linux-x86-64.tar.gz"
     if [ ! -f microkit-sdk-2.2.0.tar.gz ]; then
@@ -200,9 +287,12 @@ esac
 #     and carries realistic multi-hour (or multi-day on old hardware) warnings.
 if [[ "${ID:-}" =~ ^(fedora|rhel|centos|rocky|almalinux|ol)$ ]] && [ "$CONTAINER_CMD" = "podman" ]; then
     echo
-    echo ">>> RHEL-family system + podman detected."
+    type_line ">>> RHEL-family system + podman detected."
     echo
-    cat << 'HEAVY_WARN'
+    breathe 0.25
+
+    # Reveal the big warning at a readable pace instead of slamming the user
+    reveal_lines "$(cat << 'HEAVY_WARN'
     The official seL4/CAmkES/L4v container (the thing 'make user' builds) is a HEAVY
     optional path. It is NOT required for l2 + Microkit work.
 
@@ -235,11 +325,13 @@ if [[ "${ID:-}" =~ ^(fedora|rhel|centos|rocky|almalinux|ol)$ ]] && [ "$CONTAINER
       # then follow the official Microkit tutorial (excellent and self-contained)
 
 HEAVY_WARN
+)"
 
-    echo "    Only proceed with the full container if you have the time, disk space,"
-    echo "    and a genuine need for CAmkES + L4v (most l2 users do not)."
+    breathe 0.4
+    type_line "    Only proceed with the full container if you have the time, disk space,"
+    type_line "    and a genuine need for CAmkES + L4v (most l2 users do not)."
     echo
-    echo "    To continue anyway, you must type the exact phrase below."
+    type_line "    To continue anyway, you must type the exact phrase below."
     read -r -p "    Type exactly: yes i accept the long build time   --> " reply || true
     echo
     if [ "$reply" = "yes i accept the long build time" ]; then
@@ -276,17 +368,17 @@ HEAVY_WARN
             fi
         fi
     else
-        echo "    Skipped (this is the correct default for the vast majority of users,"
-        echo "    especially anyone on older or memory-constrained hardware)."
+        type_line "    Skipped (this is the correct default for the vast majority of users,"
+        type_line "    especially anyone on older or memory-constrained hardware)."
         echo
-        echo "    If you later decide you truly need the full container you can still"
-        echo "    run it manually:"
-        echo "      cd $WORKSPACE/seL4-CAmkES-L4v-dockerfiles && DOCKER=podman make user"
+        type_line "    If you later decide you truly need the full container you can still"
+        type_line "    run it manually:"
+        type_line "      cd $WORKSPACE/seL4-CAmkES-L4v-dockerfiles && DOCKER=podman make user"
     fi
 fi
 
 # 6. Emit a ready-to-use README in the workspace
-echo "[6/6] Writing quickstart guide..."
+section "[6/6] Writing quickstart guide..."
 cat > "$WORKSPACE/README-l2-sel4.md" << 'EOF'
 # l2 on seL4 / Microkit Quickstart
 
@@ -407,6 +499,7 @@ the container) against the `l2.system` description and the l2_core ELF.
 # Re-run setup after pulling latest l2 changes (idempotent)
 cargo install --path ~/l2 --force
 l2 sel4-setup
+# l2 sel4-setup --fast     # disable slow "typewriter" output (recommended on old hardware)
 
 # (Only if you previously accepted the heavy container and it finished)
 cd ~/l2-sel4-workspace/seL4-CAmkES-L4v-dockerfiles
@@ -442,35 +535,42 @@ Just edit files in `~/l2` — the symlink and volume mount are live.
 
 ---
 
-Generated by `l2 sel4-setup` (v0.3.1 — SDK-first with explicit opt-in for the heavy container)  
+Generated by `l2 sel4-setup` (v0.3.2+ — paced terminal output + SDK-first with explicit opt-in for the heavy container)  
 For project status see: `~/l2/STATUS.md` and the docs/ directory in l2-source.
+
+Tip: If you want instant (non-paced) output when re-running:
+    L2_FAST=1 l2 sel4-setup
+    # or
+    L2_FAST=1 ~/l2-sel4-workspace/l2-source/scripts/sel4-setup.sh  (if running directly)
 EOF
 echo "  ✓ Wrote $WORKSPACE/README-l2-sel4.md"
 
 echo
+breathe 0.6
 
-echo "=== ✓ l2 sel4-setup complete ==="
+type_line "=== ✓ l2 sel4-setup complete ==="
 echo
-echo "Workspace ready: $WORKSPACE"
-echo "Quickstart guide: cat $WORKSPACE/README-l2-sel4.md"
+type_line "Workspace ready: $WORKSPACE"
+type_line "Quickstart guide: cat $WORKSPACE/README-l2-sel4.md"
 echo
 
 if [[ "${ID:-}" =~ ^(fedora|rhel|centos|rocky|almalinux|ol)$ ]]; then
-    echo "On your RHEL-family system (v0.3.1 behavior):"
-    echo "  The Microkit SDK + host cross-compiler packages is the fast default path."
-    echo "  Re-run 'l2 sel4-setup' after a 'git pull' if you want to be re-offered the"
-    echo "  optional full container (it will again require the explicit confirmation phrase)."
+    type_line "On your RHEL-family system (v0.3.1 behavior):"
+    type_line "  The Microkit SDK + host cross-compiler packages is the fast default path."
+    type_line "  Re-run 'l2 sel4-setup' after a 'git pull' if you want to be re-offered the"
+    type_line "  optional full container (it will again require the explicit confirmation phrase)."
     echo
-    echo "  Only if you later need the full CAmkES/L4v stack:"
-    echo "    cd $WORKSPACE/seL4-CAmkES-L4v-dockerfiles && DOCKER=podman make user"
+    type_line "  Only if you later need the full CAmkES/L4v stack:"
+    type_line "    cd $WORKSPACE/seL4-CAmkES-L4v-dockerfiles && DOCKER=podman make user"
 else
-    echo "Most people should now just:"
-    echo "  tar xzf microkit-sdk-*.tar.gz"
-    echo "  and follow https://docs.sel4.systems/projects/microkit/tutorial/"
+    type_line "Most people should now just:"
+    type_line "  tar xzf microkit-sdk-*.tar.gz"
+    type_line "  and follow https://docs.sel4.systems/projects/microkit/tutorial/"
 fi
 
 echo
-echo "Run the host prototype from anywhere:"
-echo "  cargo install --path $L2_DIR --force"
-echo "  l2 --help"
-echo "  l2 sel4-setup   # (idempotent, safe to re-run)"
+type_line "Run the host prototype from anywhere:"
+type_line "  cargo install --path $L2_DIR --force"
+type_line "  l2 --help"
+type_line "  l2 sel4-setup           # (idempotent, safe to re-run)"
+type_line "  l2 sel4-setup --fast    # (disable slow paced output on old hardware)"

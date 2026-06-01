@@ -1,4 +1,4 @@
-# l2 — Minimal High-Assurance System Substrate (v0.3.1)
+# l2 — Minimal High-Assurance System Substrate (v0.3.2)
 
 Terminal-first CLI for creating, using, and destroying strongly isolated execution contexts. Narrow surface. Built for high-assurance with seL4 as the root of trust.
 
@@ -11,7 +11,7 @@ Terminal-first CLI for creating, using, and destroying strongly isolated executi
 ```bash
 git clone https://github.com/veilriven-design/l2.git
 cd l2
-git checkout v0.3.1
+git checkout v0.3.2
 cargo install --path . --force
 l2 --help
 ```
@@ -20,7 +20,7 @@ l2 --help
 ```bash
 git clone https://github.com/veilriven-design/l2.git
 cd l2
-git checkout v0.3.1
+git checkout v0.3.2
 cargo build --release
 ./target/release/l2 --help
 # (or add target/release to PATH, or use the install command above)
@@ -77,6 +77,8 @@ l2 exec review-agent review.py     # becomes "python3 review.py"
 High-assurance seL4 development environment:
 ```bash
 l2 sel4-setup
+# On very old/slow machines, you can disable the slow "typing" output:
+# l2 sel4-setup --fast
 cat ~/l2-sel4-workspace/README-l2-sel4.md
 ```
 
@@ -102,7 +104,7 @@ git checkout v0.1.0
 | `l2 exec <sys> [command]` | Run code inside a system. Bare filenames are auto-dispatched (`hello.py` → `python3 hello.py`). One-shot mode: `l2 exec hello.py` (local file) creates a temp isolated system, executes, then destroys it. |
 | `l2 list [name]`         | List systems or details |
 | `l2 destroy <name>`      | Remove system and all objects |
-| `l2 sel4-setup`          | One-shot seL4/Microkit dev environment |
+| `l2 sel4-setup [--fast/-f]` | One-shot seL4/Microkit dev environment (use `--fast` on slow/ancient hardware to disable paced output) |
 
 Full surface: create, put, get, exec, list, destroy, status, revoke, sel4-setup. JSON output via `--json`.
 
