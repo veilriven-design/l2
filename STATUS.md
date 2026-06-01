@@ -1,6 +1,6 @@
 # Status
 
-**v0.3.0 released** — major step on correctness gaps + architecture foundation for the core split (see CHANGELOG.md for details). v0.2.1 and earlier tags preserved.
+**v0.3.1 released** — UX hardening for `l2 sel4-setup` on low-end/ancient hardware (RHEL+Podman): SDK is now the unambiguous default with strong time/hardware warnings; full CAmkES/L4v container requires explicit multi-word confirmation and is no longer offered as a near-default. v0.3.0 and earlier tags preserved.
 
 ## Charter
 
@@ -19,11 +19,11 @@ l2 is the minimal high-assurance Latticra substrate:
 - Real Linux namespace isolation for `exec` (`unshare`)
 - **Real Landlock + no_new_privs sandboxing for `--policy strict`**: workspace-confined writes, RO+EXEC on system essentials (v0.2.0)
 - **Full `l2 sel4-setup` command**: one-command seL4/Microkit bootstrap with:
-  - Official Microkit SDK 2.2.0 tarball download
+  - Official Microkit SDK 2.2.0 tarball download (clear primary/fast path)
   - Distro-aware behavior (especially strong support for RHEL/Fedora + podman)
   - Automatic pre-pull of base images using `docker.io/trustworthysystems/...` fully-qualified names (bakes in the fix for Podman's "short-name resolution enforced but cannot prompt without a TTY" error on RHEL)
-  - Automatic offer + live spinner to set up the official seL4/CAmkES development container on RHEL+podman
-  - High-quality generated `README-l2-sel4.md` with the RHEL/Podman one-time fix permanently documented
+  - On RHEL+podman: heavy time/hardware warnings (hours to 40h+ on ancient/low-RAM machines); SDK + host cross tools presented as the default; full container requires typing an explicit confirmation phrase (v0.3.1 UX hardening for old hardware like X200-class systems)
+  - High-quality generated `README-l2-sel4.md` with the RHEL/Podman one-time fix permanently documented and strong guidance on choosing the right path by hardware capability
 - Dramatically improved `list` output and overall UX
 - `demo.sh` removed (commands documented directly in README instead)
 

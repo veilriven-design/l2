@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.3.1] - 2026-06-02
+
+### Changed
+- **`l2 sel4-setup` UX hardening for real-world RHEL + Podman users on low-end and ancient hardware** (the main deliverable of this point release):
+  - The Microkit SDK tarball path is now the unambiguous, strongly recommended default for almost everyone. It is downloaded early and presented with clear "extract and go" instructions before any optional heavy steps.
+  - On RHEL-family + podman systems the previous near-default offer (`[Y/n]`) of the full official seL4-CAmkES-L4v container has been removed.
+  - Replaced with a large, explicit warning block that states realistic wall-clock times by hardware class:
+    - Modern machines: several hours
+    - 2015-2018 hardware: 8-20+ hours common
+    - Ancient/low-RAM machines (X200-class ThinkPads, early 2010s EliteBooks, ≤8 GB RAM, mechanical disks): 15-40+ hours or more is realistic due to rootless Podman + fuse-overlayfs layer I/O.
+  - The full container (which pulls 10-50+ GB of images and runs `make user` from the official dockerfiles) now requires the user to type the exact phrase `yes i accept the long build time`. Empty input or any other reply safely skips it.
+  - Added explicit "alternate route" language and host-package guidance so users on old hardware can get a working cross-compiler + Microkit environment in minutes instead of days.
+  - The generated `~/l2-sel4-workspace/README-l2-sel4.md` was updated with the same stronger guidance and hardware-aware recommendations.
+- This change keeps the full container path fully available for users who genuinely need CAmkES + L4v/Isabelle, while making the common l2 + Microkit case fast and safe even on 15-year-old RHEL machines.
+
+### Fixed
+- Minor: the previous prompt defaulted to "yes" on empty input, which was too aggressive for a multi-hour-to-multi-day operation on vintage hardware.
+
+Bumped crate version to 0.3.1.
+
 ## [0.3.0] - 2026-06-01
 
 ### Added

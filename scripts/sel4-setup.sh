@@ -4,6 +4,10 @@
 #
 # This script sets up a ready-to-use workspace for building seL4/Micorkit systems
 # that can host the l2 substrate (long-term: l2-core as a protection domain).
+#
+# v0.3.1: SDK tarball is the clear default/fast path for all users (including ancient
+#         and low-RAM RHEL machines). The full CAmkES/L4v container now requires
+#         explicit deliberate confirmation and carries strong time/hardware warnings.
 
 set -euo pipefail
 
@@ -133,15 +137,17 @@ else
     echo "    git not found - skipping example clone"
 fi
 
-# 5. Microkit SDK + optional containerized seL4 environment
-echo "[5/6] Getting Microkit toolchain (SDK first - recommended)..."
+# 5. Microkit SDK (clear default / fast path) + optional heavy container
+echo "[5/6] Getting Microkit toolchain (SDK is the recommended default for almost everyone)..."
 if command -v curl >/dev/null 2>&1; then
     SDK_URL="https://github.com/seL4/microkit/releases/download/2.2.0/microkit-sdk-2.2.0-linux-x86-64.tar.gz"
     if [ ! -f microkit-sdk-2.2.0.tar.gz ]; then
         echo "  Downloading official prebuilt Microkit SDK 2.2.0 (no container required)..."
         if curl -L -o microkit-sdk-2.2.0.tar.gz "$SDK_URL" 2>/dev/null; then
             echo "  ✓ Downloaded microkit-sdk-2.2.0.tar.gz"
+            echo "    This is the FAST, sufficient path for l2 + Microkit development."
             echo "    Extract with:  tar xzf microkit-sdk-2.2.0.tar.gz"
+            echo "    export MICROKIT_SDK=\$(pwd)/microkit-sdk-2.2.0"
             echo "    Then follow:   https://docs.sel4.systems/projects/microkit/tutorial/part0.html"
         else
             echo "    (Download failed or offline - you can grab it manually later)"
@@ -155,15 +161,10 @@ else
 fi
 
 echo
-
-echo "  (Optional) Full seL4 dev container (if you need CAmkES, L4v, etc.):"
-echo "    git clone https://github.com/seL4/seL4-CAmkES-L4v-dockerfiles.git"
-echo "    cd seL4-CAmkES-L4v-dockerfiles"
-echo "    # With podman (common on Fedora/RHEL):"
-echo "    DOCKER=podman make user"
-echo "    # Or with real docker:"
-echo "    make user"
-echo "  Then inside the container you can add the Microkit SDK above."
+echo "  (Optional, rarely needed) Full seL4/CAmkES/L4v dev container:"
+echo "    Only use this if you specifically need the CAmkES modeling toolkit"
+echo "    + the L4v/Isabelle verified stack. It is NOT required for l2/Microkit work."
+echo "    The images are 10-50+ GB and first-time setup often takes many hours."
 
 # 5b. Print distro-aware package hints (official tutorial is very Ubuntu-centric)
 echo
@@ -194,15 +195,54 @@ case "${ID:-unknown}" in
         ;;
 esac
 
-# 5c. On RHEL-family systems with podman, actively offer to set up the official container
+# 5c. On RHEL-family + podman: present the FULL container as a HEAVY, explicitly opt-in path only.
+#     v0.3.1: SDK + host packages is the clear default. The container now requires deliberate confirmation
+#     and carries realistic multi-hour (or multi-day on old hardware) warnings.
 if [[ "${ID:-}" =~ ^(fedora|rhel|centos|rocky|almalinux|ol)$ ]] && [ "$CONTAINER_CMD" = "podman" ]; then
     echo
     echo ">>> RHEL-family system + podman detected."
-    echo "    The easiest way to get a working seL4/Microkit environment (with"
-    echo "    proper cross-compiler) is the official container."
     echo
-    read -r -p "    Set it up now with 'DOCKER=podman make user'? [Y/n] " reply || true
-    if [[ -z "$reply" || "$reply" =~ ^[Yy] ]]; then
+    cat << 'HEAVY_WARN'
+    The official seL4/CAmkES/L4v container (the thing 'make user' builds) is a HEAVY
+    optional path. It is NOT required for l2 + Microkit work.
+
+    What it actually does:
+      - Pulls several large pre-built images (trustworthysystems/{sel4,camkes,l4v})
+      - Runs the upstream Makefile which adds user-mapping layers on top
+      - The L4v image alone carries a full Isabelle installation + proof sessions
+
+    Realistic first-time wall time (the numbers the spinner will show):
+      - Fast modern desktop / good SSD / 16+ GB RAM:   2–8 hours typical
+      - 2015–2018 era hardware:                         8–20+ hours common
+      - Ancient / low-spec machines (X200-class ThinkPads, early 2010s EliteBooks,
+        mechanical HDDs, 4–8 GB RAM):                  15–40+ HOURS or more is normal.
+        Rootless Podman on RHEL uses fuse-overlayfs; layer commits + extraction
+        become I/O bound and memory pressure causes heavy swapping.
+
+    Disk requirement: often 10–50+ GB once fully expanded.
+
+    This path only makes sense if you specifically need the CAmkES modeling tools
+    AND the L4v/Isabelle verified stack. For ordinary Microkit development
+    (including eventually running l2-core as a protection domain) the SDK tarball
+    you already have is the correct, fast tool.
+
+    ALTERNATE / FAST ROUTE for older or low-RAM RHEL machines (recommended):
+      sudo dnf install -y qemu-kvm qemu-img gcc-aarch64-linux-gnu \
+                          binutils-aarch64-linux-gnu make
+      cd ~/l2-sel4-workspace
+      tar xzf microkit-sdk-2.2.0.tar.gz
+      export MICROKIT_SDK=$(pwd)/microkit-sdk-2.2.0
+      # then follow the official Microkit tutorial (excellent and self-contained)
+
+HEAVY_WARN
+
+    echo "    Only proceed with the full container if you have the time, disk space,"
+    echo "    and a genuine need for CAmkES + L4v (most l2 users do not)."
+    echo
+    echo "    To continue anyway, you must type the exact phrase below."
+    read -r -p "    Type exactly: yes i accept the long build time   --> " reply || true
+    echo
+    if [ "$reply" = "yes i accept the long build time" ]; then
         DOCKERFILES_DIR="$WORKSPACE/seL4-CAmkES-L4v-dockerfiles"
         if [ ! -d "$DOCKERFILES_DIR" ]; then
             echo "    Cloning official seL4 dockerfiles repo..."
@@ -221,6 +261,9 @@ if [[ "${ID:-}" =~ ^(fedora|rhel|centos|rocky|almalinux|ol)$ ]] && [ "$CONTAINER
             echo "    Command that will be run:"
             echo "      cd $DOCKERFILES_DIR && DOCKER=podman make user"
             echo
+            echo "    (This step is deliberately slow on purpose on low-end hardware."
+            echo "     You can safely Ctrl-C and finish with the SDK instead.)"
+            echo
 
             if run_with_spinner "Setting up official seL4 development container" \
                     bash -c "cd '$DOCKERFILES_DIR' && DOCKER=podman make user"; then
@@ -233,7 +276,11 @@ if [[ "${ID:-}" =~ ^(fedora|rhel|centos|rocky|almalinux|ol)$ ]] && [ "$CONTAINER
             fi
         fi
     else
-        echo "    Skipped. You can set it up anytime with the pre-pulls + make user:"
+        echo "    Skipped (this is the correct default for the vast majority of users,"
+        echo "    especially anyone on older or memory-constrained hardware)."
+        echo
+        echo "    If you later decide you truly need the full container you can still"
+        echo "    run it manually:"
         echo "      cd $WORKSPACE/seL4-CAmkES-L4v-dockerfiles && DOCKER=podman make user"
     fi
 fi
@@ -249,48 +296,12 @@ This workspace was created by `l2 sel4-setup`.
 
 - `./l2-source` → symlink to your current l2 checkout (live — edits are immediate)
 - `./microkit` → shallow clone of the official Microkit repository (examples + build system)
-- `microkit-sdk-2.2.0.tar.gz` → official prebuilt Microkit SDK 2.2.0 (recommended starting point)
-- `seL4-CAmkES-L4v-dockerfiles/` → (RHEL + Podman auto-setup) official seL4 development container sources
+- `microkit-sdk-2.2.0.tar.gz` → official prebuilt Microkit SDK 2.2.0 (**primary / fast path**)
+- `seL4-CAmkES-L4v-dockerfiles/` → (RHEL + Podman, **opt-in only** since v0.3.1) sources for the full official container
 
-## One-time RHEL / Podman Fix (IMPORTANT)
+## Primary Path (v0.3.1): Microkit SDK (no container required)
 
-On RHEL, CentOS, Rocky, AlmaLinux, Fedora etc. with Podman, short-name resolution is
-enforced. When `make user` (or the Makefile) runs non-interactively it fails with:
-
-```
-short-name resolution enforced but cannot prompt without a TTY
-```
-
-**Run these two commands once** (from the dockerfiles dir):
-
-```bash
-cd ~/l2-sel4-workspace/seL4-CAmkES-L4v-dockerfiles
-
-# Pre-pull using fully-qualified names
-podman pull docker.io/trustworthysystems/camkes
-podman pull docker.io/trustworthysystems/sel4
-podman pull docker.io/trustworthysystems/l4v
-
-# Then build the user container (l2 sel4-setup does the pre-pulls for you
-# automatically during the interactive offer on RHEL+podman)
-DOCKER=podman make user
-```
-
-After this the container is ready and you can enter it with:
-
-```bash
-DOCKER=podman make bash
-```
-
-## Host Packages (RHEL / Fedora family)
-
-```bash
-sudo dnf install -y qemu-kvm qemu-img \
-                    gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu make
-sudo dnf group install -y "Virtualization Host"   # optional but helpful
-```
-
-## Primary Path: Use the Microkit SDK directly (no container required)
+For l2 + Microkit development this is the correct, fast starting point on any hardware:
 
 ```bash
 cd ~/l2-sel4-workspace
@@ -304,13 +315,73 @@ export MICROKIT_SDK=$(pwd)/microkit-sdk-2.2.0
 The SDK contains the Microkit tool, libraries, monitor, and examples. It is the
 simplest reliable way to start doing real seL4/Microkit development today.
 
-## Full seL4 + CAmkES Environment (RHEL + Podman recommended)
+On RHEL-family machines you will also want the host cross-compiler packages (see below).
 
-If you need the complete verified toolchain (CAmkES, L4v, Isabelle, etc.) or a
-reliable aarch64 cross-compiler on RHEL-family systems, use the container:
+## One-time RHEL / Podman Fix (only needed if you choose the full container later)
+
+On RHEL, CentOS, Rocky, AlmaLinux, Fedora etc. with Podman, short-name resolution is
+enforced. When `make user` (or the Makefile) runs non-interactively it fails with:
+
+```
+short-name resolution enforced but cannot prompt without a TTY
+```
+
+**Only do this if you have explicitly chosen the full container path** (see the
+"Full seL4 + CAmkES/L4v Environment" section below — it is heavy and rarely needed).
 
 ```bash
 cd ~/l2-sel4-workspace/seL4-CAmkES-L4v-dockerfiles
+
+# Pre-pull using fully-qualified names
+podman pull docker.io/trustworthysystems/camkes
+podman pull docker.io/trustworthysystems/sel4
+podman pull docker.io/trustworthysystems/l4v
+
+# Then build the user container
+DOCKER=podman make user
+```
+
+After this the container is ready and you can enter it with:
+
+```bash
+DOCKER=podman make bash
+```
+
+## Host Packages (RHEL / Fedora family) — fast path for older / low-RAM machines
+
+```bash
+sudo dnf install -y qemu-kvm qemu-img \
+                    gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu make
+sudo dnf group install -y "Virtualization Host"   # optional but helpful
+```
+
+These packages plus the SDK tarball above give you a working aarch64 cross
+environment on RHEL without any giant container downloads or multi-hour builds.
+This is the recommended route on low-RAM or pre-2015 hardware (X200-class machines, etc.).
+
+## Full seL4 + CAmkES/L4v Environment (heavy, opt-in only since v0.3.1)
+
+**Warning (added in v0.3.1):** The full official container is large (10-50+ GB) and
+the first `make user` run is frequently a multi-hour (or multi-day on old hardware)
+operation under rootless Podman.
+
+Only use this path if you have a specific need for CAmkES modeling tools + the
+L4v/Isabelle verified stack. It is **not** required for normal Microkit or l2 work.
+
+On RHEL+podman, `l2 sel4-setup` will only start this after you type the exact
+confirmation phrase `yes i accept the long build time`. Empty input or anything
+else safely skips it.
+
+If you later decide you need it:
+
+```bash
+cd ~/l2-sel4-workspace/seL4-CAmkES-L4v-dockerfiles
+DOCKER=podman make user
+```
+
+Then to work inside it:
+
+```bash
 DOCKER=podman make bash     # drops you inside the container with everything
 ```
 
@@ -337,11 +408,11 @@ the container) against the `l2.system` description and the l2_core ELF.
 cargo install --path ~/l2 --force
 l2 sel4-setup
 
-# Enter the development container
+# (Only if you previously accepted the heavy container and it finished)
 cd ~/l2-sel4-workspace/seL4-CAmkES-L4v-dockerfiles
 DOCKER=podman make bash
 
-# Rebuild the container image from scratch
+# Rebuild the container image from scratch (only if you chose the full path)
 cd ~/l2-sel4-workspace/seL4-CAmkES-L4v-dockerfiles
 DOCKER=podman make clean
 DOCKER=podman make user
@@ -354,19 +425,24 @@ DOCKER=podman make user
 in the "One-time RHEL / Podman Fix" section above.
 
 **QEMU aarch64 or cross tools missing on host (SDK path)**  
-→ Install the packages from the "Host Packages (RHEL / Fedora family)" section.
+→ Install the packages from the "Host Packages (RHEL / Fedora family) — fast path for older / low-RAM machines" section. This is the recommended route on vintage hardware.
 
-**Container rebuild needed**  
+**Container rebuild needed** (only if you are using the full path)  
 ```bash
 DOCKER=podman make clean && DOCKER=podman make user
 ```
+
+**"The container build is taking forever on my old machine" (v0.3.1+)**  
+ This is expected. The full seL4/CAmkES/L4v images are huge and rootless Podman
+layer operations on mechanical disks + limited RAM are extremely slow. Kill it
+and use the SDK + host packages instead — you will be much happier.
 
 **Want the latest l2 changes inside the container?**  
 Just edit files in `~/l2` — the symlink and volume mount are live.
 
 ---
 
-Generated by `l2 sel4-setup`  
+Generated by `l2 sel4-setup` (v0.3.1 — SDK-first with explicit opt-in for the heavy container)  
 For project status see: `~/l2/STATUS.md` and the docs/ directory in l2-source.
 EOF
 echo "  ✓ Wrote $WORKSPACE/README-l2-sel4.md"
@@ -380,11 +456,12 @@ echo "Quickstart guide: cat $WORKSPACE/README-l2-sel4.md"
 echo
 
 if [[ "${ID:-}" =~ ^(fedora|rhel|centos|rocky|almalinux|ol)$ ]]; then
-    echo "On your RHEL-family system:"
-    echo "  Re-run 'l2 sel4-setup' after a 'git pull' — it will offer to set up"
-    echo "  the official seL4 container (with pre-pulls to avoid Podman short-name errors)."
+    echo "On your RHEL-family system (v0.3.1 behavior):"
+    echo "  The Microkit SDK + host cross-compiler packages is the fast default path."
+    echo "  Re-run 'l2 sel4-setup' after a 'git pull' if you want to be re-offered the"
+    echo "  optional full container (it will again require the explicit confirmation phrase)."
     echo
-    echo "  Or do the container step manually:"
+    echo "  Only if you later need the full CAmkES/L4v stack:"
     echo "    cd $WORKSPACE/seL4-CAmkES-L4v-dockerfiles && DOCKER=podman make user"
 else
     echo "Most people should now just:"
