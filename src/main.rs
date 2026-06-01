@@ -88,11 +88,7 @@ enum Commands {
         fast: bool,
     },
 
-    /// Run a command with seccomp tracing enabled (Phase 1 allowlist collection).
-    ///
-    /// Companion to `l2 harden` (the host/environment hardening tool).
-    /// Use this to safely collect data while exercising policy protocols
-    /// such as "strict-mcp" (current main focus for high-assurance agentic/MCP work).
+    /// Collect seccomp traces for policy hardening (Phase 1).
     Trace {
         /// Run inside an existing system instead of oneshot mode
         #[arg(short, long)]
@@ -123,19 +119,13 @@ enum Commands {
         analyze: Option<String>,
     },
 
-    /// Apply high-assurance hardening to the current system (host, container, or environment)
-    /// aligned with NSA/CISA/FBI guidance for the agentic/AI/MCP era.
-    ///
-    /// This is the companion to policy protocols like "strict-mcp".
-    /// Running `l2 harden` prepares the substrate environment so that `strict-mcp`
-    /// (and future hardened protocols) can be used safely and effectively.
+    /// High-assurance hardening for agentic/AI/MCP systems (NSA/CISA-aligned).
     Harden {
-        /// Hardening level / profile.
-        /// "strict-mcp" is the current recommended profile for agentic/MCP workloads.
+        /// Hardening profile (e.g. strict-mcp).
         #[arg(long, default_value = "strict-mcp")]
         profile: String,
 
-        /// Target scope: "host", "container", or "user".
+        /// Target: host, container, or user.
         #[arg(long, default_value = "host")]
         target: String,
 
@@ -147,22 +137,19 @@ enum Commands {
         #[arg(long, short = 'f')]
         fast: bool,
 
-        /// Enable strong network isolation recommendations/lockdown for the agent user.
-        /// One of the highest value controls for MCP/agent workloads.
+        /// Enable network isolation for the agent user (recommended for MCP).
         #[arg(long)]
         network_isolation: bool,
 
-        /// Generate a minimal real seccomp profile from a trace previously collected with
-        /// `l2 trace --policy strict-mcp ...`. Produces both systemd SystemCallFilter
-        /// and data suitable for our custom Phase 1 enforcing filter.
+        /// Generate seccomp profile from a collected trace log.
         #[arg(long)]
         generate_seccomp: Option<String>,
     },
 
-    /// List available policy protocols (strict, strict-mcp, etc.)
+    /// List available policy protocols.
     Policies {},
 
-    /// Show details for a specific policy protocol
+    /// Show details for a policy protocol.
     Policy {
         /// Name of the policy protocol (e.g. "strict-mcp")
         name: String,
@@ -172,7 +159,7 @@ enum Commands {
         json: bool,
     },
 
-    /// View or manage the authority audit log (append-only JSONL)
+    /// View or manage the audit log.
     Audit {
         /// Show the last N entries
         #[arg(long, default_value_t = 50)]
