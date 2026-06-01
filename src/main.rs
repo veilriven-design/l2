@@ -851,7 +851,13 @@ fn harden(
 /// Cryptography profile selection and system-wide application via the l2 substrate.
 /// Uses verified open-source algorithms for true encryption (LUKS/gocryptfs etc.).
 /// Integrates with strict policies for key protection. Supports hybrid profiles.
-fn crypto(profile: String, list: bool, apply: bool, fast: bool, network_isolation: bool) -> Result<()> {
+fn crypto(
+    profile: String,
+    list: bool,
+    apply: bool,
+    fast: bool,
+    network_isolation: bool,
+) -> Result<()> {
     println!("🔐 Running l2 crypto profile setup...");
     println!("   Profile : {}", profile);
     if list {
