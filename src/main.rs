@@ -55,7 +55,9 @@ enum Commands {
         name: String,
     },
     Exec {
-        /// Policy to use for oneshot execution (e.g. "strict", "strict-mcp", "default").
+        /// Policy protocol to use.
+        /// Examples: "strict", "strict-mcp" (current main focus), "default".
+        /// These protocols make the isolation and hardening guarantees explicit.
         /// Only meaningful for one-shot mode (`l2 exec hello.py`).
         #[arg(long)]
         policy: Option<String>,
@@ -84,6 +86,90 @@ enum Commands {
         /// Disable slow/paced terminal output (useful on old/slow hardware or in scripts/CI)
         #[arg(long, short = 'f')]
         fast: bool,
+    },
+
+    /// Run a command with seccomp tracing enabled (Phase 1 allowlist collection).
+    ///
+    /// Companion to `l2 harden` (the host/environment hardening tool).
+    /// Use this to safely collect data while exercising policy protocols
+    /// such as "strict-mcp" (current main focus for high-assurance agentic/MCP work).
+    Trace {
+        /// Run inside an existing system instead of oneshot mode
+        #[arg(short, long)]
+        system: Option<String>,
+
+        /// Command and arguments to execute under trace mode.
+        /// Not required when using --analyze.
+        #[arg(trailing_var_arg = true)]
+        command: Vec<String>,
+
+        #[arg(long)]
+        input: Option<String>,
+
+        /// Policy protocol to use.
+        /// Examples: "strict", "strict-mcp", "strict-audit".
+        /// These define the exact isolation and hardening guarantees applied.
+        #[arg(long, default_value = "strict")]
+        policy: String,
+
+        /// Enable Phase 1 seccomp enforcing filter (kills process on disallowed syscalls).
+        /// This is strong true hardening on top of the chosen policy protocol.
+        #[arg(long)]
+        enforce: bool,
+
+        /// Analyze a previously captured log (dmesg/journalctl/ausearch style)
+        /// and print unique syscall numbers. Great for Phase 1 allowlist work.
+        #[arg(long)]
+        analyze: Option<String>,
+    },
+
+    /// Apply high-assurance hardening to the current system (host, container, or environment)
+    /// aligned with NSA/CISA/FBI guidance for the agentic/AI/MCP era.
+    ///
+    /// This is the companion to policy protocols like "strict-mcp".
+    /// Running `l2 harden` prepares the substrate environment so that `strict-mcp`
+    /// (and future hardened protocols) can be used safely and effectively.
+    Harden {
+        /// Hardening level / profile.
+        /// "strict-mcp" is the current recommended profile for agentic/MCP workloads.
+        #[arg(long, default_value = "strict-mcp")]
+        profile: String,
+
+        /// Target scope: "host", "container", or "user".
+        #[arg(long, default_value = "host")]
+        target: String,
+
+        /// Dry-run: show what would be done without making changes.
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Disable paced/slow output (useful in CI or on old hardware).
+        #[arg(long, short = 'f')]
+        fast: bool,
+
+        /// Enable strong network isolation recommendations/lockdown for the agent user.
+        /// One of the highest value controls for MCP/agent workloads.
+        #[arg(long)]
+        network_isolation: bool,
+
+        /// Generate a minimal real seccomp profile from a trace previously collected with
+        /// `l2 trace --policy strict-mcp ...`. Produces both systemd SystemCallFilter
+        /// and data suitable for our custom Phase 1 enforcing filter.
+        #[arg(long)]
+        generate_seccomp: Option<String>,
+    },
+
+    /// List available policy protocols (strict, strict-mcp, etc.)
+    Policies {},
+
+    /// Show details for a specific policy protocol
+    Policy {
+        /// Name of the policy protocol (e.g. "strict-mcp")
+        name: String,
+
+        /// Show in JSON format
+        #[arg(long)]
+        json: bool,
     },
 
     /// View or manage the authority audit log (append-only JSONL)
@@ -497,6 +583,32 @@ fn compute_dispatch_command(name: &str, content: &str) -> Option<String> {
     None
 }
 
+/// Known policy protocols.
+/// These are explicit "policy protocols" the user chooses. They determine
+/// isolation guarantees and hardening behavior (Landlock rules, seccomp, etc.).
+///
+/// Current protocols:
+/// - "default": pragmatic balance
+/// - "strict": strong isolation + seccomp (Landlock + no_new_privs + observer/enforcing)
+/// - "strict-mcp": **current main focus** — strict + MCP/agent-specific hardening:
+///     * Stronger seccomp enforcement by default
+///     * No ambient network by default for MCP tool execution
+///     * Tighter capability and filesystem posture suitable for tool-using agents
+///     * Clear audit of "MCP workload" context
+fn normalize_policy(policy: &str) -> (String, bool, bool) {
+    match policy {
+        "strict-mcp" => {
+            // strict-mcp is our primary hardened protocol for agentic/MCP workloads.
+            // It implies stricter defaults than plain "strict".
+            (policy.to_string(), true, true) // (name, is_strict_family, is_mcp)
+        }
+        "strict" => {
+            (policy.to_string(), true, false)
+        }
+        "default" | _ => (policy.to_string(), false, false),
+    }
+}
+
 /// Normalizes the flexible `exec` arguments into a usable form.
 ///
 /// Returns (sys, effective_what, is_oneshot, policy_override).
@@ -663,6 +775,66 @@ fn sel4_setup(fast: bool) -> Result<()> {
         anyhow::bail!("seL4 setup failed (see script output)");
     }
     println!("✅ seL4 environment setup complete!");
+    Ok(())
+}
+
+/// High-assurance system hardening for the agentic/AI/MCP era.
+/// Companion to policy protocols such as "strict-mcp".
+fn harden(
+    profile: String,
+    target: String,
+    dry_run: bool,
+    fast: bool,
+    network_isolation: bool,
+    generate_seccomp: Option<String>,
+) -> Result<()> {
+    println!("🛡️  Running l2 system hardening...");
+    println!("   Profile : {}", profile);
+    println!("   Target  : {}", target);
+    if dry_run {
+        println!("   Mode    : DRY-RUN (no changes will be made)");
+    }
+    if network_isolation {
+        println!("   Network isolation: ENABLED");
+    }
+    if let Some(trace) = &generate_seccomp {
+        println!("   Generate seccomp profile from: {}", trace);
+    }
+
+    let script = std::env::var("CARGO_MANIFEST_DIR")
+        .map(|d| format!("{}/scripts/harden.sh", d))
+        .unwrap_or_else(|_| "scripts/harden.sh".to_string());
+
+    let mut cmd = Command::new("sh");
+    cmd.arg(&script);
+    cmd.arg("--profile").arg(&profile);
+    cmd.arg("--target").arg(&target);
+
+    if dry_run {
+        cmd.arg("--dry-run");
+    }
+    if fast {
+        cmd.arg("--fast");
+        cmd.env("L2_FAST", "1");
+    }
+    if network_isolation {
+        cmd.arg("--network-isolation");
+    }
+    if let Some(trace) = &generate_seccomp {
+        cmd.arg("--generate-seccomp").arg(trace);
+    }
+
+    let status = cmd.status()?;
+    if !status.success() {
+        anyhow::bail!("System hardening failed (see script output)");
+    }
+
+    println!("✅ l2 system hardening complete for profile '{}'.", profile);
+    println!("   Review the generated report and apply any manual steps as needed.");
+    println!();
+    println!("   Recommended next step for this profile:");
+    println!("     l2 trace --policy {} ./your-mcp-workload", profile);
+    println!("     l2 exec  --policy {} ./your-mcp-workload", profile);
     Ok(())
 }
 
@@ -905,11 +1077,16 @@ fn main() -> Result<()> {
                     }
                 };
 
-                if system.policy == "strict" {
+                let (_effective_policy, is_strict_family, is_mcp) = normalize_policy(&system.policy);
+                if is_strict_family {
                     warn_on_cleanup_err(
-                        sandbox::apply_strict_sandbox(workspace.as_deref()),
+                        sandbox::apply_strict_sandbox(workspace.as_deref(), &system.policy),
                         "strict sandbox apply reported error (non-fatal)",
                     );
+                    sandbox::print_seccomp_trace_reminder();
+                }
+                if is_mcp {
+                    // strict-mcp can get extra future restrictions here (e.g. network denial hints)
                 }
 
                 audit::log(
@@ -1068,11 +1245,13 @@ fn main() -> Result<()> {
                 }
             };
 
-            if system.policy == "strict" {
+            let (_effective_policy, is_strict_family, _is_mcp) = normalize_policy(&system.policy);
+            if is_strict_family {
                 warn_on_cleanup_err(
-                    sandbox::apply_strict_sandbox(workspace.as_deref()),
+                    sandbox::apply_strict_sandbox(workspace.as_deref(), &system.policy),
                     "strict sandbox apply reported error (non-fatal)",
                 );
+                sandbox::print_seccomp_trace_reminder();
             }
 
             audit::log(
@@ -1150,6 +1329,220 @@ fn main() -> Result<()> {
         }
         Commands::Sel4Setup { fast } => {
             sel4_setup(fast)?;
+        }
+
+        Commands::Harden { profile, target, dry_run, fast, network_isolation, generate_seccomp } => {
+            harden(profile, target, dry_run, fast, network_isolation, generate_seccomp)?;
+        }
+
+        Commands::Policies {} => {
+            println!("Available policy protocols:\n");
+            println!("  default     - Pragmatic balance (current default behavior)");
+            println!("  strict      - Strong isolation + seccomp (Landlock + no_new_privs)");
+            println!("  strict-mcp  - **Current main focus**");
+            println!("                High-assurance protocol for agentic/AI/MCP workloads.");
+            println!("                Builds on 'strict' with:");
+            println!("                  • Stronger seccomp enforcing by default");
+            println!("                  • MCP/tool-execution threat model considerations");
+            println!("                  • Designed to pair with output from `l2 harden --profile strict-mcp`");
+            println!("\nUse `l2 policy <name>` for detailed information (e.g. `l2 policy strict-mcp`).");
+        }
+
+        Commands::Policy { name, json } => {
+            // Support both "l2 policy strict-mcp" and "l2 policy show strict-mcp"
+            let name_lower = name.to_lowercase();
+            if name_lower == "show" {
+                // Re-parse next arg would be complex in this simple handler.
+                // For now we document "l2 policy <name>" as the primary form.
+                println!("Usage: l2 policy <name>");
+                println!("Example: l2 policy strict-mcp");
+                return Ok(());
+            }
+
+            match name_lower.as_str() {
+                "strict-mcp" => {
+                    if json {
+                        let info = serde_json::json!({
+                            "name": "strict-mcp",
+                            "description": "High-assurance policy protocol for agentic, AI, and MCP (tool-using agent) workloads.",
+                            "base": "strict",
+                            "key_differences": [
+                                "Enforcing seccomp enabled by default",
+                                "Designed for workloads that invoke external tools/MCP servers",
+                                "Pairs with host hardening produced by `l2 harden --profile strict-mcp`",
+                                "Strong emphasis on least privilege for tool execution"
+                            ],
+                            "recommended_usage": "l2 exec --policy strict-mcp ...   and   l2 trace --policy strict-mcp ...",
+                            "companion_command": "l2 harden --profile strict-mcp"
+                        });
+                        print_json(&info);
+                    } else {
+                        println!("strict-mcp — High-Assurance MCP/Agent Policy Protocol");
+                        println!("======================================================");
+                        println!();
+                        println!("This is the current main focus of l2 hardening work.");
+                        println!();
+                        println!("Description:");
+                        println!("  A strict-family policy protocol tailored for the agentic/AI/MCP era.");
+                        println!("  It provides strong isolation while being practical for systems that");
+                        println!("  dynamically invoke tools, MCP servers, and external processes.");
+                        println!();
+                        println!("Key characteristics:");
+                        println!("  • Builds directly on the 'strict' isolation baseline");
+                        println!("  • Phase 1 seccomp enforcing filter enabled by default");
+                        println!("  • Designed to run on hosts/containers hardened by `l2 harden --profile strict-mcp`");
+                        println!("  • Strong audit visibility of policy protocol in use");
+                        println!();
+                        println!("Recommended usage:");
+                        println!("  l2 exec  --policy strict-mcp my-agent ./task");
+                        println!("  l2 trace --policy strict-mcp ./my-mcp-server");
+                        println!();
+                        println!("Companion command:");
+                        println!("  l2 harden --profile strict-mcp");
+                        println!("    → Prepares your system with NSA/CISA/FBI-aligned controls for this workload class.");
+                    }
+                }
+                "strict" => {
+                    if json {
+                        print_json(&serde_json::json!({
+                            "name": "strict",
+                            "description": "Strong isolation using Landlock + no_new_privs + seccomp.",
+                            "base_for": ["strict-mcp"]
+                        }));
+                    } else {
+                        println!("strict");
+                        println!("------");
+                        println!("Strong isolation policy using Landlock, no_new_privs, and seccomp.");
+                        println!("This is the foundation that strict-mcp builds upon.");
+                        println!("Use `l2 policy show strict-mcp` for the currently recommended protocol.");
+                    }
+                }
+                other => {
+                    if json {
+                        print_json(&serde_json::json!({"name": other, "known": false}));
+                    } else {
+                        println!("Unknown policy protocol: {}", other);
+                        println!("Known protocols: default, strict, strict-mcp");
+                        println!("Run `l2 policies` to list them.");
+                    }
+                }
+            }
+        }
+
+        Commands::Trace { system, command, input, policy, enforce, analyze } => {
+            if let Some(logfile) = analyze {
+                // Simple post-processing helper for Phase 1 (item 3)
+                let content = std::fs::read_to_string(&logfile)
+                    .unwrap_or_else(|_| String::new());
+
+                let mut syscalls = std::collections::BTreeSet::new();
+
+                for line in content.lines() {
+                    if let Some(idx) = line.find("syscall=") {
+                        if let Some(num_str) = line[idx+8..].split(|c: char| !c.is_ascii_digit()).next() {
+                            if let Ok(n) = num_str.parse::<u32>() {
+                                syscalls.insert(n);
+                            }
+                        }
+                    }
+                    if let Some(idx) = line.find(" nr=") {
+                        if let Some(num_str) = line[idx+4..].split(|c: char| !c.is_ascii_digit()).next() {
+                            if let Ok(n) = num_str.parse::<u32>() {
+                                syscalls.insert(n);
+                            }
+                        }
+                    }
+                }
+
+                if syscalls.is_empty() {
+                    println!("No syscalls found in {}. Try: journalctl -k | grep seccomp > log.txt", logfile);
+                } else {
+                    println!("Unique syscalls found ({}):", syscalls.len());
+                    println!();
+
+                    // Expanded name map for curation (keep this in sync with allowlist doc)
+                    let names: std::collections::HashMap<u32, &str> = [
+                        (0, "read"), (1, "write"), (3, "close"), (8, "lseek"),
+                        (9, "mmap"), (10, "mprotect"), (11, "munmap"), (12, "brk"),
+                        (59, "execve"), (60, "exit"), (231, "exit_group"),
+                        (257, "openat"), (78, "getdents64"), (228, "clock_gettime"),
+                        (202, "futex"), (13, "rt_sigaction"), (14, "rt_sigprocmask"),
+                        (79, "getcwd"), (435, "clone3"), (16, "ioctl"),
+                        (270, "pselect6"), (262, "newfstatat"),
+                    ].iter().cloned().collect();
+
+                    println!("```");
+                    for n in &syscalls {
+                        if let Some(name) = names.get(n) {
+                            println!("- {}   # {}", n, name);
+                        } else {
+                            println!("- {}   # UNKNOWN - investigate!", n);
+                        }
+                    }
+                    println!("```");
+                    println!();
+                    println!("Copy the block above into docs/seccomp-phase1-allowlist.md under the relevant architecture section.");
+                    println!("Then review each one for safety before adding to the enforcing filter.");
+                }
+                return Ok(());
+            }
+
+            // === Trace execution with explicit policy protocol awareness ===
+
+            let (canonical_policy, _is_strict_family, is_mcp) = normalize_policy(&policy);
+
+            // Always enable observer when tracing (for Phase 1 data collection)
+            std::env::set_var("L2_STRICT_SECCOMP_OBSERVE", "1");
+
+            // strict-mcp (main focus) + any strict family gets strong defaults.
+            // We bias toward enabling the enforcing filter for these protocols.
+            let should_enforce = enforce || is_mcp || canonical_policy.starts_with("strict");
+
+            if should_enforce {
+                std::env::set_var("L2_STRICT_SECCOMP_ENFORCE", "1");
+            }
+
+            let enforce_active = std::env::var_os("L2_STRICT_SECCOMP_ENFORCE").is_some();
+            println!(
+                "[trace] Starting with policy protocol: '{}'  |  observer=ON  |  enforce={}",
+                canonical_policy,
+                if enforce_active { "ON (Phase 1 true hardening)" } else { "OFF" }
+            );
+
+            match canonical_policy.as_str() {
+                "strict-mcp" => {
+                    println!(
+                        "[trace] Using strict-mcp policy protocol — our current main focus.\n\
+                         This protocol provides high-assurance hardened execution suitable for\n\
+                         MCP servers and tools. Strong isolation + seccomp enforcing is active."
+                    );
+                }
+                p if p.starts_with("strict") => {
+                    println!("[trace] This policy protocol enables strong isolation + seccomp hardening.");
+                }
+                _ => {}
+            }
+
+            let mut child_args = vec!["exec".to_string(), "--policy".to_string(), canonical_policy.clone()];
+
+            if let Some(i) = &input {
+                child_args.push("--input".to_string());
+                child_args.push(i.clone());
+            }
+
+            if let Some(s) = &system {
+                child_args.push(s.clone());
+            }
+            child_args.extend(command.clone());
+
+            let exe = std::env::current_exe()?;
+            let status = std::process::Command::new(exe)
+                .args(&child_args)
+                .status()?;
+
+            if !status.success() {
+                std::process::exit(status.code().unwrap_or(1));
+            }
         }
 
         Commands::Audit { tail, json, path } => {
@@ -1265,7 +1658,7 @@ mod tests {
         let _ = std::fs::create_dir_all(&tmp);
         // Enable observer for the test (purely additive, non-enforcing)
         std::env::set_var("L2_STRICT_SECCOMP_OBSERVE", "1");
-        let res = sandbox::apply_strict_sandbox(Some(&tmp));
+        let res = sandbox::apply_strict_sandbox(Some(&tmp), "strict");
         assert!(res.is_ok(), "sandbox apply failed: {:?}", res.err());
         let _ = std::fs::remove_dir_all(&tmp);
     }

@@ -1,0 +1,20 @@
+# Synthetic trace for a small rustc / cargo build step inside strict (very syscall heavy)
+
+[  1236.200000] audit: type=1326 audit(...): arch=c000003e syscall=59 success=yes exit=0 ... comm="rustc" exe="/usr/bin/rustc" ...
+[  1236.200100] audit: type=1326 audit(...): arch=c000003e syscall=9 success=yes exit=...   # mmap (many)
+[  1236.200200] audit: type=1326 audit(...): arch=c000003e syscall=10 success=yes exit=0    # mprotect (many)
+[  1236.200300] audit: type=1326 audit(...): arch=c000003e syscall=11 success=yes exit=...  # munmap
+[  1236.200400] audit: type=1326 audit(...): arch=c000003e syscall=12 success=yes exit=...  # brk
+[  1236.200500] audit: type=1326 audit(...): arch=c000003e syscall=257 success=yes exit=... # openat (source, rlib, etc.)
+[  1236.200600] audit: type=1326 audit(...): arch=c000003e syscall=0 success=yes exit=...   # read (lots)
+[  1236.200700] audit: type=1326 audit(...): arch=c000003e syscall=1 success=yes exit=...   # write (object files)
+[  1236.200800] audit: type=1326 audit(...): arch=c000003e syscall=3 success=yes exit=0     # close
+[  1236.200900] audit: type=1326 audit(...): arch=c000003e syscall=8 success=yes exit=...   # lseek
+[  1236.201000] audit: type=1326 audit(...): arch=c000003e syscall=202 success=yes exit=0   # futex (threading in rustc)
+[  1236.201100] audit: type=1326 audit(...): arch=c000003e syscall=228 success=yes exit=0   # clock_gettime
+[  1236.201200] audit: type=1326 audit(...): arch=c000003e syscall=13 success=yes exit=0    # rt_sigaction
+[  1236.201300] audit: type=1326 audit(...): arch=c000003e syscall=14 success=yes exit=0    # rt_sigprocmask
+[  1236.201400] audit: type=1326 audit(...): arch=c000003e syscall=435 success=yes exit=0   # clone3 (modern rust)
+[  1236.201500] audit: type=1326 audit(...): arch=c000003e syscall=59 success=yes exit=0    # execve (child processes)
+[  1236.201600] audit: type=1326 audit(...): arch=c000003e syscall=60 success=yes exit=0    # exit
+[  1236.201700] audit: type=1326 audit(...): arch=c000003e syscall=231 success=yes exit=0   # exit_group

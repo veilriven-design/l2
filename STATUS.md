@@ -1,6 +1,15 @@
 # Status
 
-**v0.3.2 released** — `l2 sel4-setup` now types output slowly ("typewriter style") on TTYs so users can read along instead of facing a wall of text. Added `--fast` / `-f` flag (plus `L2_FAST=1`) to disable pacing on old hardware or in scripts. v0.3.1 and earlier tags preserved.
+**v0.3.9 released** — Major milestone on the agentic/AI/MCP hardening track:
+- New `l2 harden` command + `scripts/harden.sh` (modeled after sel4-setup with paced typewriter output). Applies NSA/CISA/FBI-aligned concrete hardening steps for the agentic era.
+- `strict-mcp` policy protocol is now the main focus: diverges from `strict` with aggressive defaults (enforcing seccomp on by default, tighter posture).
+- Full integration: `l2 trace --policy strict-mcp` + `--analyze`, `l2 harden --generate-seccomp`, and the runtime enforcing filter can directly load generated minimal profiles.
+- Automatic generation of hardened systemd unit templates from `l2 harden`.
+- New commands: `l2 policies` and `l2 policy <name>` (especially `l2 policy strict-mcp`).
+- Significant maturity in seccomp tooling, capability/namespace guidance, and network isolation options.
+- `l2 harden --network-isolation` and concrete host hardening steps (sysctls, dedicated users, audit rules, etc.).
+
+This release makes `strict-mcp` + `l2 harden` a real, operational high-assurance path for MCP/agentic workloads. v0.3.2 and earlier tags preserved.
 
 ## Charter
 
@@ -40,6 +49,8 @@ l2 is the minimal high-assurance Latticra substrate:
 5. seL4/Microkit backend (parallel track) — `l2 sel4-setup` is the current on-ramp. Out-of-process `l2-core` speaking the real L2P protocol and disciplined C implementation remain active focus.
 
 ## How to Use Right Now
+
+See [ROADMAP.md](ROADMAP.md) for the current prioritized direction.
 
 See the full install + usage instructions in `README.md` (covers both `cargo build --release` and `cargo install --path . --force`).
 

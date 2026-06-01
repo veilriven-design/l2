@@ -1,0 +1,20 @@
+# Synthetic realistic seccomp log for python -c "print('hi'); import os; print(os.listdir('.'))"
+
+[  1235.100000] audit: type=1326 audit(...): arch=c000003e syscall=59 success=yes exit=0 ... comm="python3" exe="/usr/bin/python3" ...
+[  1235.100100] audit: type=1326 audit(...): arch=c000003e syscall=0  success=yes exit=...  # read
+[  1235.100200] audit: type=1326 audit(...): arch=c000003e syscall=1  success=yes exit=...  # write
+[  1235.100300] audit: type=1326 audit(...): arch=c000003e syscall=3  success=yes exit=0    # close
+[  1235.100400] audit: type=1326 audit(...): arch=c000003e syscall=9  success=yes exit=...  # mmap
+[  1235.100500] audit: type=1326 audit(...): arch=c000003e syscall=10 success=yes exit=0    # mprotect
+[  1235.100600] audit: type=1326 audit(...): arch=c000003e syscall=11 success=yes exit=...  # munmap
+[  1235.100700] audit: type=1326 audit(...): arch=c000003e syscall=12 success=yes exit=...  # brk
+[  1235.100800] audit: type=1326 audit(...): arch=c000003e syscall=202 success=yes exit=0   # futex
+[  1235.100900] audit: type=1326 audit(...): arch=c000003e syscall=228 success=yes exit=0   # clock_gettime
+[  1235.101000] audit: type=1326 audit(...): arch=c000003e syscall=257 success=yes exit=3   # openat
+[  1235.101100] audit: type=1326 audit(...): arch=c000003e syscall=0  success=yes exit=...  # read (many)
+[  1235.101200] audit: type=1326 audit(...): arch=c000003e syscall=78 success=yes exit=...  # getdents64
+[  1235.101300] audit: type=1326 audit(...): arch=c000003e syscall=79 success=yes exit=...  # getcwd
+[  1235.101400] audit: type=1326 audit(...): arch=c000003e syscall=1  success=yes exit=...  # write
+[  1235.101500] audit: type=1326 audit(...): arch=c000003e syscall=3  success=yes exit=0    # close
+[  1235.101600] audit: type=1326 audit(...): arch=c000003e syscall=60 success=yes exit=0    # exit
+[  1235.101700] audit: type=1326 audit(...): arch=c000003e syscall=231 success=yes exit=0   # exit_group

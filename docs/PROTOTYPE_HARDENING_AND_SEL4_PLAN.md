@@ -28,8 +28,15 @@
 
 See SEL4_INTEGRATION.md for architecture details.
 
-Next: Implement seccomp in Rust CLI/exec path.
+See [ROADMAP.md](../ROADMAP.md) for the current overall priorities. The sections below are historical context + detailed hardening notes.
 
-**Status (post-analysis):** Phase 0 complete — real working observer now installs a `SECCOMP_RET_LOG` + `SECCOMP_FILTER_FLAG_LOG` filter when `L2_STRICT_SECCOMP_OBSERVE=1` is set. Kernel audit logs are produced for every syscall under strict policy. See `src/sandbox.rs:try_install_seccomp_observer` and the function docs for exact usage + viewing instructions.
+**Status (as of v0.3.2):** Phase 0 complete — real working observer now installs a `SECCOMP_RET_LOG` + `SECCOMP_FILTER_FLAG_LOG` filter when `L2_STRICT_SECCOMP_OBSERVE=1` is set. Kernel audit logs are produced for every syscall under strict policy. See `src/sandbox.rs:try_install_seccomp_observer` and the function docs for exact usage + viewing instructions.
 
-Next concrete step: collect traces from representative workloads (python, shell, rustc-in-.l2tmp wrappers, etc.) and curate the Phase 1 allowlist.
+**Current highest-priority concrete work:** Trace collection from realistic workloads + curation of a minimal allowlist → implementation of the Phase 1 enforcing seccomp filter.
+
+Recent progress on this thread (trace UX):
+- Improved runtime messaging and documentation when `L2_STRICT_SECCOMP_OBSERVE=1` is active.
+- Added `sandbox::print_seccomp_trace_reminder()` helper called during strict execs.
+- Better guidance on recommended first workloads and practical capture commands.
+
+See `src/sandbox.rs` and the updated `ROADMAP.md`.

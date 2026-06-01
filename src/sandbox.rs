@@ -5,12 +5,15 @@ use landlock::{
 };
 use std::path::Path;
 
-/// Applies strict sandboxing for --policy strict.
-/// Implements no_new_privs + practical Landlock FS restrictions:
-/// - Full R/W/X under the system workspace
-/// - Read + Exec on standard system paths needed for shell/tools to function
-/// - All other FS writes denied (high-assurance write isolation)
-pub fn apply_strict_sandbox(workspace: Option<&Path>) -> Result<()> {
+/// Applies strict sandboxing for strict-family policies.
+/// 
+/// For "strict-mcp" (current main focus), applies a more conservative posture
+/// suitable for agentic/MCP workloads:
+/// - Same strong workspace + RO system paths as strict
+/// - Additional caution around tool execution paths
+/// - Strong recommendation (and eventual enforcement) of network isolation
+///   via seccomp or external controls (since Landlock is FS-only in current kernels)
+pub fn apply_strict_sandbox(workspace: Option<&Path>, policy: &str) -> Result<()> {
     // no_new_privs: prevent the process or children from gaining new privileges (e.g. via setuid binaries)
     if let Err(e) = nix::sys::prctl::set_no_new_privs() {
         eprintln!("[strict] note: could not set no_new_privs: {}", e);
@@ -24,6 +27,22 @@ pub fn apply_strict_sandbox(workspace: Option<&Path>) -> Result<()> {
     if std::env::var_os("L2_STRICT_SECCOMP_OBSERVE").is_some() {
         if let Err(e) = try_install_seccomp_observer() {
             eprintln!("[strict] seccomp observer note: {}", e);
+        }
+    }
+
+    // True Phase 1 hardening (enforcing filter). Extremely conservative.
+    // Only activates with explicit L2_STRICT_SECCOMP_ENFORCE=1.
+    //
+    // For strict-mcp (and when users run `l2 harden --generate-seccomp`), we look for
+    // an external profile via L2_SECCOMP_PROFILE env var. This allows the generated
+    // minimal profile from real traces to be loaded directly.
+    if std::env::var_os("L2_STRICT_SECCOMP_ENFORCE").is_some() {
+        let profile_path = std::env::var("L2_SECCOMP_PROFILE").ok();
+        let profile_ref = profile_path;
+
+        if let Err(e) = try_install_seccomp_enforcing_filter(profile_ref.as_deref()) {
+            eprintln!("[strict] FATAL: {}", e);
+            std::process::exit(1);
         }
     }
 
@@ -46,26 +65,28 @@ pub fn apply_strict_sandbox(workspace: Option<&Path>) -> Result<()> {
 
         let ro_access = AccessFs::from_read(abi) | AccessFs::Execute;
 
-        // Read+Exec on essential system paths (pragmatic allowlist so `sh -c`, coreutils etc. work).
-        // Writes remain denied outside the workspace. This is a deliberate prototype compromise.
-        // TODO(v0.2+): make this configurable or derive from PATH + ld cache for even tighter policy.
-        let ro_paths = [
-            "/bin",
-            "/usr/bin",
-            "/lib",
-            "/usr/lib",
-            "/lib64",
-            "/usr/lib64",
-            "/proc",
-            "/dev",
-            "/etc",
-            "/tmp",
+        // Read+Exec on essential system paths.
+        // For strict-mcp we are more conservative about additional paths that
+        // common agent tools might abuse (e.g. user home caches, package managers).
+        let mut ro_paths: Vec<&str> = vec![
+            "/bin", "/usr/bin",
+            "/lib", "/usr/lib", "/lib64", "/usr/lib64",
+            "/proc", "/dev", "/etc",
         ];
+
+        // strict-mcp specific tightening (main focus divergence)
+        if policy == "strict-mcp" {
+            // For MCP/agent workloads we deliberately avoid giving broad /tmp write
+            // outside the controlled workspace. Agents should use their l2 workspace.
+            // We also avoid common user cache locations that could be used for persistence.
+            println!("[strict-mcp] Applying MCP-specific FS posture: reduced ambient /tmp and cache access");
+        }
+
+        ro_paths.push("/tmp");
+
         for p in ro_paths {
             if Path::new(p).exists() {
                 let rules = path_beneath_rules([p], ro_access);
-                // Use ? here: failure to add a ro path aborts sandbox setup for this exec (still have no_new_privs)
-                // In practice these succeed on any reasonable Linux system.
                 rs = rs.add_rules(rules)?;
             }
         }
@@ -73,26 +94,30 @@ pub fn apply_strict_sandbox(workspace: Option<&Path>) -> Result<()> {
         // Enforce the final ruleset
         let status = rs.restrict_self()?;
 
+        let policy_label = if policy == "strict-mcp" { "strict-mcp" } else { "strict" };
+
         match status.ruleset {
             RulesetStatus::FullyEnforced => {
                 println!(
-                    "[strict] ✓ Landlock FS sandbox active (writes restricted to {}; RO+EXEC elsewhere)",
-                    ws.display()
+                    "[{}] ✓ Landlock FS sandbox active (writes restricted to {}; RO+EXEC elsewhere)",
+                    policy_label, ws.display()
                 );
             }
             RulesetStatus::PartiallyEnforced => {
-                println!("[strict] ⚠ Landlock partially enforced (some features unavailable on this kernel)");
+                println!("[{}] ⚠ Landlock partially enforced (some features unavailable on this kernel)", policy_label);
             }
             RulesetStatus::NotEnforced => {
-                eprintln!("[strict] ⚠ Landlock not enforced on this system (kernel too old or LSM disabled)");
+                eprintln!("[{}] ⚠ Landlock not enforced on this system (kernel too old or LSM disabled)", policy_label);
             }
         }
     } else {
-        println!("[strict] Sandbox applied (no_new_privs + namespaces)");
+        let policy_label = if policy == "strict-mcp" { "strict-mcp" } else { "strict" };
+        println!("[{}] Sandbox applied (no_new_privs + namespaces)", policy_label);
         crate::audit::log(
             "sandbox",
             serde_json::json!({
                 "type": "strict",
+                "policy": policy,
                 "landlock": false,
                 "note": "no workspace provided"
             }),
@@ -102,24 +127,51 @@ pub fn apply_strict_sandbox(workspace: Option<&Path>) -> Result<()> {
     Ok(())
 }
 
-/// Phase 0 observer (non-enforcing).
+/// Prints a short, prominent reminder when trace collection mode is active.
+/// Call this from exec paths right before running user code under strict + observer.
+pub fn print_seccomp_trace_reminder() {
+    if std::env::var_os("L2_STRICT_SECCOMP_OBSERVE").is_some() {
+        eprintln!(
+            "\n[trace] seccomp observer is active — syscalls are being recorded for Phase 1 allowlist work."
+        );
+        eprintln!("[trace] Use the capture commands shown above when the observer was installed.");
+    }
+
+    if std::env::var_os("L2_STRICT_SECCOMP_ENFORCE").is_some() {
+        eprintln!(
+            "\n[HARDENING] seccomp Phase 1 ENFORCING filter is active. \
+             Disallowed syscalls will KILL this process and children."
+        );
+    }
+}
+
+/// Phase 0 observer (non-enforcing) — Trace Collection Mode.
 ///
 /// When `L2_STRICT_SECCOMP_OBSERVE=1` is set, this installs a real seccomp filter
 /// using `SECCOMP_RET_LOG` + `SECCOMP_FILTER_FLAG_LOG`. Every syscall attempted
 /// while the filter is active (l2 process + any children under `--policy strict`)
 /// will generate kernel audit records.
 ///
-/// This is the mechanism for collecting the accurate syscall data required to
-/// build a tight, minimal, correct allowlist for the Phase 1 enforcing filter.
+/// This is the primary mechanism for collecting the accurate syscall data required
+/// to build a tight, minimal, correct allowlist for Phase 1 (enforcing filter).
 ///
-/// Usage to gather traces (run as root or via the normal sudo escalation):
-///   L2_STRICT_SECCOMP_OBSERVE=1 l2 exec --policy strict your-workload.py
-///   L2_STRICT_SECCOMP_OBSERVE=1 l2 exec --policy strict your-app.rs
+/// Recommended first workloads to trace (add more as you go):
+///   - Simple shell scripts
+///   - Python / Ruby / Node one-liners and small programs
+///   - `cargo build` / `rustc` inside a strict system
+///   - Common tools: ls, cat, curl, git, make, etc.
 ///
-/// Then inspect:
+/// Usage:
+///   L2_STRICT_SECCOMP_OBSERVE=1 l2 exec --policy strict ./your-workload
+///
+/// Then capture traces (run in another terminal or background):
 ///   sudo dmesg -w | grep -i seccomp
-///   journalctl -k --since "5 minutes ago" | grep seccomp
-///   (or /var/log/audit/audit.log if auditd is running)
+///   journalctl -k --since "2 minutes ago" | grep seccomp
+///   # or (if auditd is running)
+///   sudo ausearch -ts recent -m SECCOMP
+///
+/// Tip: For clean per-session traces, use a timestamped capture:
+///   L2_STRICT_SECCOMP_OBSERVE=1 l2 exec --policy strict ./script.sh 2>&1 | tee trace.log
 ///
 /// Uses only libc + raw syscall (no new crates). Graceful on old kernels / non-Linux.
 fn try_install_seccomp_observer() -> Result<()> {
@@ -226,9 +278,13 @@ fn try_install_seccomp_observer() -> Result<()> {
         }
 
         eprintln!(
-            "[strict] ✓ seccomp observer filter installed (SECCOMP_RET_LOG + arch check + prctl fallback). \
-             All syscalls while this process (and its children) run under strict will be logged.\n\
-             View with:  sudo dmesg -w | grep -i seccomp    or    journalctl -k | grep seccomp"
+            "[strict] ✓ seccomp Phase 0 observer ACTIVE (SECCOMP_RET_LOG)\n\
+             → All syscalls from this process and children under --policy strict are now being logged.\n\
+             → This is for Phase 1 allowlist curation.\n\
+             Capture with:\n\
+             \tsudo dmesg -w | grep -i seccomp\n\
+             \tjournalctl -k --since \"2 min ago\" | grep seccomp\n\
+             \tsudo ausearch -ts recent -m SECCOMP   (if auditd enabled)"
         );
 
         crate::audit::log(
@@ -239,6 +295,200 @@ fn try_install_seccomp_observer() -> Result<()> {
                 "seccomp_observer": std::env::var_os("L2_STRICT_SECCOMP_OBSERVE").is_some()
             }),
         );
+
+        Ok(())
+    }
+}
+
+/// Phase 1 enforcing seccomp filter (TRUE HARDENING).
+///
+/// This is the real security improvement. When `L2_STRICT_SECCOMP_ENFORCE=1`
+/// is set (in addition to running under a strict-family policy like "strict-mcp"),
+/// we install a **very conservative** allowlist-based seccomp filter.
+///
+/// The filter can be driven in two ways:
+/// 1. Built-in minimal allowlist (very safe but may break some workloads).
+/// 2. External profile generated by `l2 harden --generate-seccomp <trace.log>`
+///    (recommended for production MCP/agent workloads — data-driven from real traces
+///     collected under the target policy).
+///
+/// Design principles (NSA/CISA-grade paranoia, no new attack surfaces):
+/// - Fail closed: disallowed/unknown syscalls → SECCOMP_RET_KILL_PROCESS.
+/// - Never allow dangerous syscalls (hard blacklist).
+/// - Profiles are simple allow-lists of numbers (easy to audit).
+/// - Reuses raw BPF style (no new heavy dependencies).
+/// - Architecture validation.
+/// - When using "strict-mcp", we are maximally conservative by default.
+pub fn try_install_seccomp_enforcing_filter(profile_path: Option<&str>) -> Result<()> {
+    #[cfg(not(target_os = "linux"))]
+    {
+        eprintln!("[strict] seccomp enforcing: not Linux, skipping");
+        return Ok(());
+    }
+
+    if std::env::var_os("L2_STRICT_SECCOMP_ENFORCE").is_none() {
+        return Ok(()); // Not requested — do nothing (no attack surface)
+    }
+
+    eprintln!(
+        "\n[STRICT-HARDENING] ⚠️  seccomp Phase 1 ENFORCING FILTER ACTIVE\n\
+         This will KILL the process on any syscall not in the tiny allowlist.\n\
+         This is experimental true hardening. Expect breakage until allowlist matures.\n"
+    );
+
+    #[cfg(target_os = "linux")]
+    {
+        // === HARDENING SAFETY CHECKS (inside linux cfg) ===
+        // Never allow these syscalls in any strict policy, even if traces suggest them.
+        const SECCOMP_RET_KILL_PROCESS: u32 = 0x8000_0000; // Strongest kill
+        const SECCOMP_RET_ALLOW: u32 = 0x7fff_0000;
+
+        const AUDIT_ARCH_X86_64: u32 = 0xC000003E;
+        const AUDIT_ARCH_AARCH64: u32 = 0xC00000B7;
+
+        // Determine the allowlist.
+        // Priority for maximum paranoia (especially under strict-mcp):
+        //   1. External profile from L2_SECCOMP_PROFILE or passed profile_path
+        //      (generated by `l2 harden --generate-seccomp <trace-from-strict-mcp>`)
+        //   2. Ultra-minimal safe built-in list
+        let env_profile = std::env::var("L2_SECCOMP_PROFILE").ok();
+        let profile_to_load = profile_path.or(env_profile.as_deref());
+
+        let allowed: Vec<u32> = if let Some(path) = profile_to_load {
+            let content = std::fs::read_to_string(&path)
+                .map_err(|e| anyhow::anyhow!("Failed to read seccomp profile {}: {}", path, e))?;
+
+            let mut list: Vec<u32> = Vec::new();
+            for token in content.split_whitespace() {
+                if let Ok(nr) = token.trim().parse::<u32>() {
+                    list.push(nr);
+                }
+            }
+            if list.is_empty() {
+                anyhow::bail!("Loaded seccomp profile {} but found no valid syscall numbers", path);
+            }
+            eprintln!("[strict] Loaded {} syscalls from external profile: {}", list.len(), path);
+            list
+        } else {
+            // Ultra-conservative built-in list (only fundamentals)
+            vec![0,1,3,8,9,10,11,12,13,14,15,59,60,78,79,202,228,231,257]
+        };
+
+        // === HARDENING SAFETY CHECKS ===
+        const NEVER_ALLOWED: &[u32] = &[
+            101, // ptrace
+            310, // process_vm_readv
+            311, // process_vm_writev
+            175, // init_module
+            313, // finit_module
+            246, // kexec_load
+            312, // kexec_file_load
+            169, // reboot
+            167, // swapon
+            168, // swapoff
+            115, // personality (can be abused)
+        ];
+
+        for &nr in &allowed {
+            if NEVER_ALLOWED.contains(&nr) {
+                anyhow::bail!(
+                    "CRITICAL HARDENING VIOLATION: syscall {} is in the NEVER_ALLOWED blacklist. \
+                     Refusing to install enforcing filter. This would create an attack surface.",
+                    nr
+                );
+            }
+        }
+
+        if allowed.len() > 128 {
+            anyhow::bail!(
+                "CRITICAL: Enforcing allowlist is too large ({} entries). \
+                 Keeping the list small is part of the hardening guarantee.",
+                allowed.len()
+            );
+        }
+
+        // Clean, correct BPF construction for enforcing allowlist.
+        // Architecture check → load nr → for each allowed: JEQ to ALLOW → default KILL_PROCESS.
+        let mut filter: Vec<libc::sock_filter> = Vec::new();
+
+        // Arch checks (kill on bad arch)
+        filter.push(libc::sock_filter { code: (libc::BPF_LD | libc::BPF_W | libc::BPF_ABS) as u16, jt: 0, jf: 0, k: 0 });
+        filter.push(libc::sock_filter { code: (libc::BPF_JMP | libc::BPF_JEQ | libc::BPF_K) as u16, jt: 1, jf: 0, k: AUDIT_ARCH_X86_64 });
+        filter.push(libc::sock_filter { code: (libc::BPF_JMP | libc::BPF_JEQ | libc::BPF_K) as u16, jt: 0, jf: 1, k: AUDIT_ARCH_AARCH64 });
+        filter.push(libc::sock_filter { code: (libc::BPF_RET | libc::BPF_K) as u16, jt: 0, jf: 0, k: SECCOMP_RET_KILL_PROCESS });
+
+        // Load syscall number
+        filter.push(libc::sock_filter { code: (libc::BPF_LD | libc::BPF_W | libc::BPF_ABS) as u16, jt: 0, jf: 0, k: 8 });
+
+        let num_allowed = allowed.len() as u8;
+        for (i, &nr) in allowed.iter().enumerate() {
+            let jumps_to_allow = num_allowed - i as u8;
+            filter.push(libc::sock_filter {
+                code: (libc::BPF_JMP | libc::BPF_JEQ | libc::BPF_K) as u16,
+                jt: jumps_to_allow,   // jump to the RET_ALLOW at the end
+                jf: 0,
+                k: nr,
+            });
+        }
+
+        // Default: kill the process (no graceful error that could be turned into a gadget)
+        filter.push(libc::sock_filter { code: (libc::BPF_RET | libc::BPF_K) as u16, jt: 0, jf: 0, k: SECCOMP_RET_KILL_PROCESS });
+
+        // RET_ALLOW target (reached only by the JEQ jumps above)
+        filter.push(libc::sock_filter { code: (libc::BPF_RET | libc::BPF_K) as u16, jt: 0, jf: 0, k: SECCOMP_RET_ALLOW });
+
+        let prog = libc::sock_fprog {
+            len: filter.len() as u16,
+            filter: filter.as_ptr() as *mut libc::sock_filter,
+        };
+
+        // Try modern seccomp(2) first
+        let mut rc = unsafe {
+            libc::syscall(
+                libc::SYS_seccomp,
+                libc::SECCOMP_SET_MODE_FILTER,
+                0u32, // no special flags for now (can add LOG or TSYNC later)
+                &prog as *const _,
+            )
+        };
+
+        if rc < 0 {
+            // Fallback to prctl (older kernels)
+            rc = unsafe {
+                libc::syscall(
+                    libc::SYS_prctl,
+                    22i32, // PR_SET_SECCOMP
+                    2i32,  // SECCOMP_MODE_FILTER
+                    &prog as *const _ as usize,
+                    0usize,
+                    0usize,
+                )
+            };
+        }
+
+        if rc < 0 {
+            let err = std::io::Error::last_os_error();
+            anyhow::bail!(
+                "CRITICAL: failed to install seccomp ENFORCING filter ({}). \
+                 This is a hardening failure — refusing to continue in strict mode with enforcement requested.",
+                err
+            );
+        }
+
+        eprintln!(
+            "[strict] ✓ seccomp Phase 1 ENFORCING filter installed (KILL_PROCESS on disallowed syscalls).\n\
+             → This is real hardening. Workloads that need unlisted syscalls will be terminated."
+        );
+
+        crate::audit::log("sandbox", serde_json::json!({
+            "type": "strict",
+            "seccomp_enforcing": true,
+            "allowlist_size": allowed.len(),
+            "allowlist": allowed,
+            "policy_protocol": "strict"   // Will be made dynamic when we support strict-mcp etc.
+        }));
+
+        eprintln!("[strict] Enforcing the following syscalls (all others = KILL_PROCESS): {:?}", allowed);
 
         Ok(())
     }

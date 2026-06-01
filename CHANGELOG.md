@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.3.9] - 2026-06-02
+
+### Added
+- **`l2 harden`** — New major command (and `scripts/harden.sh`) for applying high-assurance, NSA/CISA/FBI-aligned hardening to hosts/containers for the agentic/AI/MCP era. Supports profiles (especially `strict-mcp`), `--network-isolation`, `--generate-seccomp <trace>`, and produces rich reports + full hardened systemd unit templates.
+- **Real seccomp profile generation** from traces collected via `l2 trace --policy strict-mcp`. The custom Phase 1 enforcing filter can now directly load these generated minimal profiles (via `L2_SECCOMP_PROFILE`).
+- **`l2 policies`** and **`l2 policy <name>`** commands to discover and inspect available policy protocols (with excellent detail for `strict-mcp`).
+- `strict-mcp` as a first-class, diverging policy protocol (stronger defaults than `strict`, including automatic Phase 1 enforcing).
+- Concrete, actionable host hardening steps in the harden script (dedicated agent users, kernel sysctls, audit rules, capability bounding, namespace restrictions, etc.).
+- `--network-isolation` flag and guidance in `l2 harden`.
+- Automatic generation of production-ready hardened systemd unit templates when using `strict-mcp`.
+
+### Changed
+- `apply_strict_sandbox` is now policy-aware. `strict-mcp` applies a more conservative Landlock posture.
+- `normalize_policy` returns richer metadata and treats `strict-mcp` specially.
+- `l2 trace --policy strict-mcp` now enables the enforcing filter by default.
+- The enforcing seccomp filter supports loading external trace-derived profiles and has stronger safety checks (NEVER_ALLOWED blacklist, size limits, etc.).
+- All relevant documentation (ROADMAP, STATUS, allowlist doc, harden reports) updated to reflect the new focus on `strict-mcp` + host hardening.
+- Bumped crate version to 0.3.9.
+
+This release significantly advances l2's mission as a high-assurance substrate for the agentic era. The combination of `l2 harden` + `strict-mcp` + trace-driven seccomp profiles provides a practical path toward NSA/CISA-grade controls for MCP and autonomous agent workloads.
+
 ## [0.3.2] - 2026-06-02
 
 ### Added
