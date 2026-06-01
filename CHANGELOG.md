@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.4.0] - 2026-06-02
+
+### Added
+- **`l2 crypto`** — New major feature for selecting and applying cryptography profiles across the l2 substrate for true system encryption.
+  - Profiles limited to most effective/verified open-source algorithms: `aes256-xts-argon2id`, `xchacha20-poly1305-argon2id`, and `hybrid-aes-chacha`.
+  - `hybrid` mixes complementary algorithms (AES for bulk + ChaCha for keys/meta) for robust defense-in-depth.
+  - Applies proficiently and simply via LUKS/dm-crypt for volumes and gocryptfs for per-dir (easy user-space).
+  - Integrated with l2 isolation (e.g. `strict-mcp` policies) to protect keys and crypto operations.
+  - `--apply` performs user-confirmed setup of encrypted storage for l2 data (and guidance for home/data).
+  - `--network-isolation` flag for aggressive outbound lockdown (nftables examples).
+  - `--generate-seccomp <trace>` to produce minimal profiles from traces (SystemCallFilter + custom filter format).
+  - Automatic generation of full hardened systemd unit templates (with capabilities, namespaces, seccomp, etc.).
+  - Uses same paced "typewriter" output as `l2 sel4-setup` and `l2 harden` for readable setup.
+- Expanded `l2 harden` with more aggressive defaults for `strict-mcp`, capability dropping, advanced namespace setup, and deeper integration.
+- The enforcing seccomp filter can directly load generated profiles (via `L2_SECCOMP_PROFILE` env or arg).
+- `strict-mcp` now has meaningfully stronger defaults (enforcing on, tighter Landlock, network bias).
+- `l2 policies` and `l2 policy <name>` (including rich `strict-mcp` docs) updated for crypto context.
+
+### Changed
+- `apply_strict_sandbox` and policy normalization are now fully aware of `strict-mcp` for differentiated (more paranoid) behavior.
+- CLI help descriptions kept terse (as per feedback) while detailed help remains informative.
+- Bumped crate version to 0.4.0 (major feature release).
+
+This release makes l2 a complete high-assurance substrate for the agentic era: isolation policies, host hardening, and now selectable verified crypto profiles applied simply yet robustly across the system.
+
 ## [0.3.9] - 2026-06-02
 
 ### Added

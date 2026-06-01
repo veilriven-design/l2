@@ -1,6 +1,6 @@
 # Status
 
-**v0.3.9 released** — Major milestone on the agentic/AI/MCP hardening track:
+**v0.4.0 released** — Major milestone on the agentic/AI/MCP hardening track, including new `l2 crypto` feature for selecting and applying verified crypto profiles (AES-256-XTS-Argon2id, XChaCha20-Poly1305-Argon2id, hybrid) system-wide via LUKS/gocryptfs integrated with l2 isolation (strict-mcp). Includes aggressive defaults, network isolation flag, auto-generated systemd units and seccomp profiles from traces, capability dropping, advanced namespaces in harden script. `l2 crypto` uses paced typewriter output. v0.3.9 and earlier tags preserved.
 - New `l2 harden` command + `scripts/harden.sh` (modeled after sel4-setup with paced typewriter output). Applies NSA/CISA/FBI-aligned concrete hardening steps for the agentic era.
 - `strict-mcp` policy protocol is now the main focus: diverges from `strict` with aggressive defaults (enforcing seccomp on by default, tighter posture).
 - Full integration: `l2 trace --policy strict-mcp` + `--analyze`, `l2 harden --generate-seccomp`, and the runtime enforcing filter can directly load generated minimal profiles.

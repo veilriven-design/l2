@@ -146,6 +146,30 @@ enum Commands {
         generate_seccomp: Option<String>,
     },
 
+    /// Select and apply crypto profile for true system encryption (LUKS/gocryptfs + l2 isolation).
+    Crypto {
+        /// Crypto profile to use.
+        /// Use --list to see options. Default: aes256-xts-argon2id
+        #[arg(long, default_value = "aes256-xts-argon2id")]
+        profile: String,
+
+        /// List available crypto profiles with details (uses typewriter output).
+        #[arg(long)]
+        list: bool,
+
+        /// Apply the profile to the system (sets up encrypted storage for l2 data and recommends for home/data).
+        #[arg(long)]
+        apply: bool,
+
+        /// Disable paced/slow typewriter output (useful in scripts/CI).
+        #[arg(long, short = 'f')]
+        fast: bool,
+
+        /// Enable network isolation lockdown for the encrypted data (highly recommended for agentic/MCP).
+        #[arg(long)]
+        network_isolation: bool,
+    },
+
     /// List available policy protocols.
     Policies {},
 
@@ -824,6 +848,53 @@ fn harden(
     Ok(())
 }
 
+/// Cryptography profile selection and system-wide application via the l2 substrate.
+/// Uses verified open-source algorithms for true encryption (LUKS/gocryptfs etc.).
+/// Integrates with strict policies for key protection. Supports hybrid profiles.
+fn crypto(profile: String, list: bool, apply: bool, fast: bool, network_isolation: bool) -> Result<()> {
+    println!("🔐 Running l2 crypto profile setup...");
+    println!("   Profile : {}", profile);
+    if list {
+        println!("   Mode    : LIST PROFILES");
+    }
+    if apply {
+        println!("   Mode    : APPLY TO SYSTEM");
+    }
+    if network_isolation {
+        println!("   Network isolation: ON");
+    }
+
+    let script = std::env::var("CARGO_MANIFEST_DIR")
+        .map(|d| format!("{}/scripts/crypto.sh", d))
+        .unwrap_or_else(|_| "scripts/crypto.sh".to_string());
+
+    let mut cmd = Command::new("sh");
+    cmd.arg(&script);
+    cmd.arg("--profile").arg(&profile);
+
+    if list {
+        cmd.arg("--list");
+    }
+    if apply {
+        cmd.arg("--apply");
+    }
+    if fast {
+        cmd.arg("--fast");
+        cmd.env("L2_FAST", "1");
+    }
+    if network_isolation {
+        cmd.arg("--network-isolation");
+    }
+
+    let status = cmd.status()?;
+    if !status.success() {
+        anyhow::bail!("Crypto setup failed (see script output)");
+    }
+
+    println!("✅ l2 crypto setup complete for profile '{}'.", profile);
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
     let mut sub = load_state();
@@ -1334,6 +1405,16 @@ fn main() -> Result<()> {
                 network_isolation,
                 generate_seccomp,
             )?;
+        }
+
+        Commands::Crypto {
+            profile,
+            list,
+            apply,
+            fast,
+            network_isolation,
+        } => {
+            crypto(profile, list, apply, fast, network_isolation)?;
         }
 
         Commands::Policies {} => {

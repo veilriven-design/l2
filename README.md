@@ -1,4 +1,4 @@
-# l2 — Minimal High-Assurance System Substrate (v0.3.9)
+# l2 — Minimal High-Assurance System Substrate (v0.4.0)
 
 Terminal-first CLI for creating, using, and destroying strongly isolated execution contexts. Narrow surface. Built for high-assurance with seL4 as the root of trust.
 
@@ -13,7 +13,7 @@ See [ROADMAP.md](ROADMAP.md) for current priorities and direction (seccomp Phase
 ```bash
 git clone https://github.com/veilriven-design/l2.git
 cd l2
-git checkout v0.3.9
+git checkout v0.4.0
 cargo install --path . --force
 l2 --help
 ```
@@ -22,7 +22,7 @@ l2 --help
 ```bash
 git clone https://github.com/veilriven-design/l2.git
 cd l2
-git checkout v0.3.9
+git checkout v0.4.0
 cargo build --release
 ./target/release/l2 --help
 # (or add target/release to PATH, or use the install command above)
