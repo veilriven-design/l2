@@ -40,14 +40,14 @@ l2 is the minimal high-assurance Latticra substrate:
 - **`l2 harden`** (v0.4.0+): NSA/CISA/FBI-aligned concrete host/container hardening for the agentic era. Paced output, `--network-isolation`, capability dropping, advanced namespaces, automatic systemd unit generation, and trace-driven seccomp profiles. Supports `strict-mcp` and `ransom-hardened` profiles (ransomware-specific blocks, standards in json). `strict-mcp` profile is the main focus and has aggressive defaults (enforcing on by default, tighter Landlock).
 - **`l2 trace`** with policy support (incl. `ransom-hardened`), `--analyze`, and `--output-profile` to generate real minimal seccomp profiles that the runtime enforcing filter + strict-mcp / ransom-hardened auto-discovery load directly (via `L2_SECCOMP_PROFILE` or `~/.l2/seccomp/...`).
 - More C integration (core/host.c + src/core/core.c polished with L2P/seL4/Rust ties + safe.c usage), user-ns exploration (L2_EXPERIMENTAL_USER_NS=1 + nix sched), and ongoing trace/harden/overall polish (analyzer robustness, script UX, quality gates, L2P/C consistency).
-- Full integration between policies (strict-mcp + ransom-hardened), crypto, trace data, host hardening, and `l2 audit --test` (consumes harden json artifacts). All long guidance uses readable paced "typewriter" output (disable with `--fast`).
+- Full integration between policies (strict-mcp + ransom-hardened + great-harden), crypto, trace data, host hardening (`l2 great-harden` for supreme), and `l2 audit --test` (consumes harden json artifacts). All long guidance uses readable paced "typewriter" output (disable with `--fast`).
 - Dramatically improved `list` output and overall UX (repeated for emphasis on v0.4+ polish)
 
 ## Current Focus
 
-1. **Agentic/AI/MCP hardening track (v0.4.0+ main focus; next: #7)**: `l2 crypto` + `strict-mcp` + `ransom-hardened` + `l2 harden` + `l2 audit --test` as a complete, operational high-assurance path (incl. ransomware containment validation + Miasma supply-chain worm resistance via dedicated demo). Further per-protocol divergence, more aggressive defaults in crypto/harden, deeper integration of generated seccomp profiles into runtime, and expanded concrete steps + direct consumability in `l2 harden` (more distros, automated unit/profile application, --apply for real state changes; see GitHub #7).
+1. **Agentic/AI/MCP hardening track (v0.4.0+ main focus; next: #7) + great-harden for aerospace/industrial**: `l2 crypto` + `strict-mcp` + `ransom-hardened` + `l2 harden` + `l2 audit --test` + **NEW `l2 great-harden`** as a complete, operational high-assurance path (incl. ransomware containment validation + Miasma supply-chain worm resistance via dedicated demo + supreme aerospace/industrial impenetrable mode). Further per-protocol divergence, more aggressive defaults in crypto/harden, deeper integration of generated seccomp profiles into runtime, and expanded concrete steps + direct consumability in `l2 harden` (more distros, automated unit/profile application, --apply for real state changes; see GitHub #7). `great-harden` closes remaining logic gaps for critical complexes.
 
-   **New: ransom-hardened (full safety) policy + WannaCry-class + Miasma supply-chain resistance prep**: Explicit `ransom-hardened` protocol (auto-enforcing, minimal Landlock ws-only, rlimits, dedicated harden profile + audit checks "Ransomware containment" and "Miasma supply-chain worm containment"). Includes self-contained educational sims `docs/examples/l2_ransomware_resistance_demo.c` (SMB 445/killswitch, mass encrypt+.WNCRY, persistence, priv esc — only ws files succeed) and `l2_miasma_resistance_demo.c` (npm preinstall + OIDC credential theft + "Miasma: The Spreading Blight" exfil/repack/propagation — only ws files affected). `l2 create ... --policy ransom-hardened ; ... exec ... ; l2 audit --test` now exercises full substrate for ransomware + supply-chain worm resistance. Prepares for real testing "when ready". See SECURITY.md and the demo headers.
+   **New: ransom-hardened (full safety) policy + WannaCry-class + Miasma supply-chain resistance prep + great-harden supreme + AIO malware-cancer**: Explicit `ransom-hardened` protocol (auto-enforcing, minimal Landlock ws-only, rlimits, dedicated harden profile + audit checks "Ransomware containment" and "Miasma supply-chain worm containment"). Includes self-contained educational sims `docs/examples/l2_ransomware_resistance_demo.c` (SMB 445/killswitch, mass encrypt+.WNCRY, persistence, priv esc — only ws files succeed) and `l2_miasma_resistance_demo.c` (npm preinstall + OIDC credential theft + "Miasma: The Spreading Blight" exfil/repack/propagation — only ws files affected). `l2 create ... --policy ransom-hardened ; ... exec ... ; l2 audit --test` now exercises full substrate for ransomware + supply-chain worm resistance. **NEW `l2 great-harden`**: supreme higher-assurance for aerospace/industrial/critical (closes logic gaps, extreme configs for impenetrable servers to malware/worms/viruses, great-harden policy, aerospace lockdown). **AIO "malware-cancer" attack sim** (`docs/examples/l2_malware_cancer_resistance_demo.c`): named comprehensive attack on the l2 substrate (ransom + Miasma + direct state/trace/audit/crypto tamper + ns/bpf/setns/unshare escapes + fork/priv-esc); substrate prepared (extended NEVER seccomp etc.) + validated via great-harden + new audit check. Prepares for real testing "when ready". See SECURITY.md, README Troubleshooting, and the demo headers.
 
    **Recent concrete improvements to crypto + MCP hardening (incl. v0.4.4 full-safety):**
    - Capability bounding set fully dropped (PR_CAPBSET_DROP) for all strict/strict-mcp/ransom-hardened workloads.
@@ -72,7 +72,7 @@ l2 is the minimal high-assurance Latticra substrate:
 
 See [ROADMAP.md](ROADMAP.md) for the current prioritized direction.
 
-See the full install + usage instructions in `README.md` (covers both `cargo build --release` and `cargo install --path . --force`).
+See the full install + usage instructions (and the dedicated Troubleshooting subsection) in `README.md` (covers both `cargo build --release` and `cargo install --path . --force`).
 
 Quick reference:
 ```bash
@@ -82,9 +82,10 @@ l2 put demo note.txt --content 'hello'
 l2 exec demo 'cat note.txt'
 l2 destroy demo
 l2 sel4-setup
+# For aerospace/industrial + AIO substrate defense: l2 great-harden --apply ; l2 create critical --policy great-harden ; l2 put ... l2_malware_cancer_resistance_demo.c ; ... ; l2 audit --test
 ```
 
-Override state with `L2_DATA_DIR=/path l2 ...`.
+Override state with `L2_DATA_DIR=/path l2 ...` (fully supported, including through `l2 exec`'s automatic sudo escalation for namespace isolation under strict/ransom-hardened policies). See the Troubleshooting section in README.md for common gotchas and solutions.
 
 ## Out of Scope
 Effect systems, lattices, packaging, physics work, scope creep.

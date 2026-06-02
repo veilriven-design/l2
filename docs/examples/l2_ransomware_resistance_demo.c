@@ -16,10 +16,15 @@
  *     - Privilege escalation / anti-analysis (setuid(0), ptrace, personality, modules)
  *     - Spread (fork + re-exec children)
  *
- *   When run inside:
+ *   Recommended (use L2_DATA_DIR for clean isolated testing; `l2 exec` under
+ *   strict/ransom-hardened policies auto-escalates via sudo for namespaces, and
+ *   L2_DATA_DIR (plus other L2_* vars) is now properly passed through):
+ *        export L2_DATA_DIR=$(mktemp -d)
  *        l2 create wc-test --policy ransom-hardened
  *        l2 put wc-test wc-sim.c --file docs/examples/l2_ransomware_resistance_demo.c
  *        l2 exec wc-test 'gcc -static -Wall -Wextra -o wc-sim wc-sim.c && ./wc-sim'
+ *        l2 audit --test   # exercises the Ransomware containment check
+ *        l2 destroy wc-test
  *
  *   ...only files inside the l2-provided workspace (/tmp/l2-ws-*) can be affected.
  *   All other attempts are blocked by the substrate (Landlock + auto seccomp KILL +
@@ -29,7 +34,8 @@
  *   documents, drop notes, persist, and attempt to spread.
  *
  * Compile / run inside l2 (recommended):
- *   (see usage above; use -static to minimize required RO libs under Landlock)
+ *   (see usage above with `L2_DATA_DIR`; use -static to minimize required RO libs under Landlock.
+ *    See the dedicated Troubleshooting subsection in README.md for L2_DATA_DIR + sudo notes, old kernels, etc.)
  *
  * Compile standalone (for education / "what it does on host"):
  *   gcc -Wall -Wextra -o wc-sim l2_ransomware_resistance_demo.c

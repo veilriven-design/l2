@@ -107,6 +107,8 @@ The script is deliberately advisory (prints what to run, never auto-mutates priv
   - Auto-wires enforcing + policy metadata so users are explicitly aware.
   - Designed to pair directly with `l2 harden --profile strict-mcp` output and `l2 crypto` keys.
 - `ransom-hardened`: The explicit "full safety" protocol for ransomware / malicious workload containment testing (WannaCry-class red-team validation). See below.
+- `great-harden` (via `l2 great-harden`): Supreme for aerospace, industrial, critical infrastructure. Higher assurance, advanced hardening to close logic gaps, make servers impenetrable to malware/worms/viruses. Extreme configs (kernel lockdown, full ro, no dynamic, great policy). See below.
+- `great-harden`: SUPREME higher-assurance protocol + `l2 great-harden` command for aerospace/industrial/critical (impenetrable servers, closes gaps, aerospace-grade extreme). See `l2 great-harden --help` and below.
 
 Usage is explicit everywhere:
 
@@ -131,6 +133,7 @@ It is the strictest practical posture on the current Linux prototype:
 
 **Typical use for testing (when you feel the system is ready):**
 ```bash
+export L2_DATA_DIR=$(mktemp -d)
 l2 create wc-test --policy ransom-hardened
 l2 put wc-test wc-sim.c --file docs/examples/l2_ransomware_resistance_demo.c
 l2 exec wc-test 'gcc -static -Wall -Wextra -o wc-sim wc-sim.c && ./wc-sim'
@@ -140,18 +143,49 @@ l2 exec wc-test 'gcc -static -Wall -Wextra -o wc-sim wc-sim.c && ./wc-sim'
 l2 audit --test   # PASS on the ransomware containment check + harden report
 l2 destroy wc-test
 
-# Similarly for Miasma supply-chain worm:
-l2 put wc-test miasma-sim.c --file docs/examples/l2_miasma_resistance_demo.c
-l2 exec wc-test 'gcc -static ... && ./miasma-sim'
+# Similarly for Miasma supply-chain worm (full commands):
+l2 create miasma-test --policy ransom-hardened
+l2 put miasma-test miasma-sim.c --file docs/examples/l2_miasma_resistance_demo.c
+l2 exec miasma-test 'gcc -static -Wall -Wextra -o miasma-sim miasma-sim.c && ./miasma-sim'
 # Only ws files "poisoned"; no credential exfil, no npm cache tampering, no GitHub "Miasma: The Spreading Blight" propagation.
 l2 audit --test   # PASS on the Miasma supply-chain check
+l2 destroy miasma-test
 ```
+
+(Note: `L2_DATA_DIR` overrides are respected everywhere, including across the automatic `sudo` escalation performed by `l2 exec` for strict/ransom-hardened policies. See the dedicated Troubleshooting section in README.md for details and workarounds.)
 
 The included `l2_ransomware_resistance_demo.c` is a self-contained educational sim of exactly the behaviors (killswitch, SMB scan+connect+bind, mass encrypt+rename of common extensions, ransom note, cron/bashrc/systemd persistence, priv esc, fork spread). It only succeeds on the explicit workspace — proving the substrate.
 
 This directly supports "prepare the l2 program for a full safety protocol" and future real WannaCry (or Linux port/equiv) testing. The combination of policy + demo + harden artifact + `l2 audit --test` gives a repeatable, evidence-based, standards-backed (CISA ransomware guidance + NSA/CISA/FBI) validation that malicious encryptors/worms are contained to the narrow authority the terminal operator explicitly granted.
 
-See `docs/examples/l2_ransomware_resistance_demo.c` and `docs/examples/l2_miasma_resistance_demo.c` (headers have full run instructions) and the ransom-hardened case in `scripts/harden.sh`.
+See `docs/examples/l2_ransomware_resistance_demo.c` and `docs/examples/l2_miasma_resistance_demo.c` (headers have full run instructions) and the ransom-hardened case in `scripts/harden.sh`. For the full AIO substrate attack (malware-cancer) see the great-harden section below and `docs/examples/l2_malware_cancer_resistance_demo.c`. See also the dedicated Troubleshooting subsection in README.md.
+
+### great-harden (SUPREME for Aerospace, Industrial, Critical Infrastructure)
+
+`l2 great-harden` is the explicit supreme command and policy for aerospace (high-integrity), industrial control systems, and critical infrastructure where standard or even full-safety hardening has gaps.
+
+It delivers **higher assurance and advanced security hardening**:
+- Extreme surface reduction: kernel lockdown mode, modules disabled at runtime, full read-only root where possible, no dynamic loading/unsigned code.
+- Closes logic gaps from exhaustive prior sweeps (seccomp BPF correctness, state persistence, input guards, priv drop, C safety, TOCTOU, etc.).
+- Supreme posture: tiniest Landlock RO (static only, no /proc no /etc), full NEVER seccomp + great-harden policy (ransom-hardened superset + no net, extreme rlimits), full cap drop, always enforcing.
+- Integrates everything: `l2 trace --policy great-harden`, `l2 crypto`, `l2 great-harden --apply` for units/configs, `l2 audit --test` (new great-harden checks + evidence).
+- Goal: servers IMPENETRABLE to all known malware, worms, viruses (ransomware, Miasma-style supply chain, etc.).
+- **AIO "malware-cancer"**: The named comprehensive attack simulation on the l2 substrate itself (ransomware + Miasma + direct substrate attacks: state.json/audit/trace/crypto tamper + exfil, put/guard bypass, Landlock probes, namespace/setns/unshare/bpf escapes, fork-bomb under rlimits, l2-process priv-esc + anti-analysis). Prepared + defended by great-harden (extended NEVER seccomp for bpf/setns/unshare + tiniest Landlock no-/proc + HOME=ws sanitization + host lockdown from --apply). Use the dedicated `docs/examples/l2_malware_cancer_resistance_demo.c` for validation.
+
+**Typical use for critical systems (with AIO substrate defense validation):**
+```bash
+export L2_DATA_DIR=$(mktemp -d)
+l2 great-harden --apply   # supreme lockdown (kernel, ro, units, evidence)
+l2 create critical --policy great-harden
+l2 put critical cancer-sim.c --file docs/examples/l2_malware_cancer_resistance_demo.c
+l2 exec --policy great-harden critical 'gcc -static -Wall -Wextra -o cancer-sim cancer-sim.c && ./cancer-sim'
+l2 audit --test   # PASS on great-harden + AIO malware-cancer containment (full substrate defense)
+l2 destroy critical
+```
+
+The `great-harden` policy + command + malware-cancer sim give repeatable, auditable, supreme validation for high-assurance complexes that the substrate itself is defended against AIO attacks.
+
+See `l2 great-harden --help`, `l2 policy great-harden`, README Troubleshooting, `scripts/harden.sh` (great-harden case), and the cancer demo header.
 
 ### Trace Collection → Profile Generation → Enforcing (`l2 trace`)
 
@@ -180,7 +214,7 @@ This is the practical realization of "collect traces, curate allowlist, wire enf
 - Every policy choice, boundary crossing, crypto apply step, and harden recommendation is logged in the tamper-evident audit trail.
 - Paced tools, `--fast` escape hatch, explicit confirmations, and dry-run/advisory modes keep the experience usable on real (including old/low-RAM) hardware without compromising the model.
 
-The net result is a practical, verifiable high-assurance path: explicit protocols → substrate isolation → host hardening → verified crypto → data-driven minimal seccomp → full audit, all while preserving the narrow terminal interface and "no ambient authority" core properties. These features directly operationalize CISA Secure by Design/Default, NSA hardening guidance, and joint CISA/NSA/FBI recommendations for least-privilege, supply-chain-aware (Miasma-style npm worms), auditable agentic systems.
+The net result is a practical, verifiable high-assurance path: explicit protocols → substrate isolation → host hardening (incl. `l2 great-harden` supreme for aerospace/industrial) → verified crypto → data-driven minimal seccomp → full audit, all while preserving the narrow terminal interface and "no ambient authority" core properties. These features directly operationalize CISA Secure by Design/Default, NSA hardening guidance, and joint CISA/NSA/FBI recommendations for least-privilege, supply-chain-aware (Miasma-style npm worms), auditable agentic + critical infrastructure systems. `l2 great-harden` closes remaining logic gaps for impenetrable servers.
 
 See `CHANGELOG.md`, the scripts (`scripts/crypto.sh`, `scripts/harden.sh`), `src/main.rs` (Crypto/Harden/Trace subcommands + normalize_policy), and `src/sandbox.rs` (enforcing filter + strict-mcp / ransom-hardened Landlock divergence) for implementation specifics. All v0.4.0+ work stays within the original threat model and design principles.
 

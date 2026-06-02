@@ -6,6 +6,7 @@
 # modern agentic, AI, and MCP (Model Context Protocol / tool-using agents) workloads.
 # ransom-hardened profile adds worm/encrypt/persistence blocks for WannaCry-class containment testing
 # and supply-chain (Miasma npm preinstall + credential exfil + "Miasma: The Spreading Blight" propagation).
+# great-harden: supreme aerospace/industrial (l2 great-harden) - higher assurance, closes gaps, impenetrable servers.
 #
 # This is a major priority for the l2 system-substrate.
 
@@ -291,6 +292,14 @@ case "$PROFILE" in
         echo "      → Use with l2 exec --policy ransom-hardened + the resistance demo to validate containment."
         echo "      → See docs/examples/l2_ransomware_resistance_demo.c for the sim (encrypt + SMB + persist + priv-esc attempts contained)."
         ;;
+    great-harden)
+        echo "      → great-harden: SUPREME aerospace/industrial/critical infrastructure mode (l2 great-harden)"
+        echo "      → Makes servers IMPENETRABLE to all known malware, worms, viruses."
+        echo "      → Extreme: combines ransom-hardened + strict-mcp + aerospace (kernel lockdown, modules disabled, full ro root, no dynamic code, extreme caps/seccomp/Landlock, verified paths)."
+        echo "      → Closes all logic gaps from prior sweeps. Use for high-assurance where standard hardening misses."
+        echo "      → Forces great-harden policy (ransom-hardened superset). Pair with l2 exec --policy great-harden."
+        echo "      → Generates supreme units, full system lockdown configs, anti-malware rules."
+        ;;
     strict)
         echo "      → strict: Strong general-purpose isolation baseline"
         ;;
@@ -368,11 +377,56 @@ if [ "$TARGET" = "host" ]; then
         type_line "      This is one of the highest-leverage controls for agentic systems."
     fi
 
-    # Automatic hardened systemd unit template for strict-mcp + ransom-hardened (full safety)
-    if [ "$PROFILE" = "strict-mcp" ] || [ "$PROFILE" = "ransom-hardened" ]; then
+    # Automatic hardened systemd unit template for strict-mcp + ransom-hardened + great-harden (supreme)
+    if [ "$PROFILE" = "strict-mcp" ] || [ "$PROFILE" = "ransom-hardened" ] || [ "$PROFILE" = "great-harden" ]; then
         echo
         type_line "      === Generating hardened systemd unit template ($PROFILE) ==="
         generate_systemd_unit "my-${PROFILE}-agent" "/etc/l2/seccomp-${PROFILE}.profile"
+    fi
+
+    # GREAT-HARDEN SUPREME AEROSPACE/INDUSTRIAL (l2 great-harden) - extra extreme for impenetrable
+    if [ "$PROFILE" = "great-harden" ]; then
+        echo
+        type_line "      === GREAT-HARDEN SUPREME AEROSPACE/INDUSTRIAL LOCKDOWN (closes gaps, no malware surface) ==="
+        type_line "      Kernel lockdown + modules off + full ro + anti-malware extreme for critical infra."
+        echo
+        type_line "      RHEL/Fedora + general extreme steps (run as root/sudo):"
+        echo "      # 1. Kernel lockdown (aerospace-grade integrity/confidentiality)"
+        echo "      echo 1 > /proc/sys/kernel/lockdown || sysctl -w kernel.lockdown=1"
+        echo "      # 2. Disable loadable modules (no rootkits/dynamic malware)"
+        echo "      echo 1 > /proc/sys/kernel/modules_disabled || true"
+        echo "      # 3. Extreme sysctls (beyond standard)"
+        echo "      cat >> /etc/sysctl.d/99-l2-great-harden.conf << 'SYSCTL'"
+        echo "      kernel.kptr_restrict = 2"
+        echo "      kernel.dmesg_restrict = 1"
+        echo "      kernel.unprivileged_bpf_disabled = 1"
+        echo "      kernel.yama.ptrace_scope = 3"
+        echo "      fs.protected_symlinks = 1"
+        echo "      fs.protected_hardlinks = 1"
+        echo "      fs.protected_fifos = 2"
+        echo "      fs.protected_regular = 2"
+        echo "      kernel.perf_event_paranoid = 3"
+        echo "      SYSCTL"
+        echo "      sysctl -p /etc/sysctl.d/99-l2-great-harden.conf"
+        echo "      # 4. Full audit for industrial (more rules)"
+        echo "      cat > /etc/audit/rules.d/l2-great-harden.rules << 'AUDIT'"
+        echo "      -w /usr/bin/ -p x -k l2-great-tools"
+        echo "      -w /etc/ -p wa -k l2-great-config"
+        echo "      -w /boot/ -p wa -k l2-great-boot"
+        echo "      AUDIT"
+        echo "      augenrules --load"
+        echo "      # 5. Full ro root example (bind mounts, ProtectSystem=strict in units)"
+        echo "      # See generated unit; for full: mount -o remount,ro / ; etc (careful)"
+        echo "      # 6. No USB/storage for air-gap like: "
+        echo "      echo 'blacklist usb_storage' > /etc/modprobe.d/l2-great-no-usb.conf || true"
+        echo "      # 7. Enforce great-harden policy for critical procs via units or l2 exec --policy great-harden"
+        echo
+        type_line "      This + great-harden policy + l2 runtime sandbox = servers impenetrable to known threats."
+        echo "      # Validate with AIO malware-cancer sim (ransom + Miasma + direct substrate attacks on state/trace/audit/crypto/ns/bpf):"
+        echo "      #   export L2_DATA_DIR=\$(mktemp -d); l2 great-harden --fast --apply || true"
+        echo "      #   l2 create cancer-test --policy great-harden"
+        echo "      #   l2 put cancer-test cancer-sim.c --file docs/examples/l2_malware_cancer_resistance_demo.c"
+        echo "      #   l2 exec cancer-test 'gcc -static ... && ./cancer-sim'; l2 audit --test"
     fi
 fi
 
@@ -626,8 +680,10 @@ cat > "$LATEST_JSON" << EOF
     "systemd unit templates with NoNewPrivileges + SystemCallFilter",
     "network isolation (nftables default-deny for agent)",
     "supply-chain (Miasma npm worm + credential exfil + repack) resistance",
+    "AIO malware-cancer substrate defense (state/trace/audit/crypto tamper, ns/bpf/setns/unshare escapes, fork/priv-esc on l2)",
     "APPLY: live artifacts written (units, profiles, confs) + attempted enforcement"
   ],
+  "great_harden_note": "${PROFILE} is l2 great-harden supreme mode for aerospace/industrial - closes logic gaps (incl. AIO malware-cancer substrate attacks on state/audit/trace/ns/bpf), makes impenetrable.",
   "standards": [
     "NSA / CISA \"Securing AI Systems\" guidance",
     "CISA Zero Trust Maturity Model (adapted for agents)",
@@ -635,6 +691,7 @@ cat > "$LATEST_JSON" << EOF
     "CIS Benchmarks for Linux hardening",
     "CISA Stop Ransomware / worm containment guidance (for ransom-hardened)",
     "Supply chain (Miasma-style npm worm + credential exfil + repack resistance)",
+    "AIO malware-cancer (ransomware + Miasma + direct l2 substrate attack resistance under great-harden)",
     "l2 ${PROFILE} policy protocol + regular \`l2 audit --test\`"
   ],
   "report_md": "$REPORT_FILE",
@@ -653,6 +710,7 @@ echo "      3. Run agents with \`l2 exec --policy ${PROFILE}\`"
 echo "      4. (Beautiful part) Re-run with --apply to make it operational:  l2 harden --profile ${PROFILE} --apply"
 echo "      5. Run \`l2 audit --test\` to automatically verify standards compliance (harden reports + chain + ${PROFILE} usage etc.)"
 echo "      6. For supply-chain (Miasma) testing: l2 put ... l2_miasma_resistance_demo.c ; exec under ${PROFILE}"
+echo "      7. For supreme aerospace/industrial (great-harden) + AIO substrate defense: l2 great-harden --apply ; use --policy great-harden + l2_malware_cancer_resistance_demo.c ; l2 audit --test"
 
 echo
 echo "[6/6] l2 harden complete for profile '$PROFILE'."

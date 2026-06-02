@@ -4,7 +4,7 @@ C implementation of the l2 substrate core.
 
 ## Model
 
-Systems are created (with explicit `--policy` e.g. strict-mcp or ransom-hardened), populated, executed inside, queried, and destroyed on demand from the terminal.
+Systems are created (with explicit `--policy` e.g. strict-mcp, ransom-hardened, or great-harden), populated, executed inside, queried, and destroyed on demand from the terminal. great-harden is supreme for AIO malware-cancer substrate defense validation.
 
 All authority and boundary crossings go through the narrow `l2_sys_*` interface (see `core/sys.h`). Policy protocols are honored in sandboxing and core.
 

@@ -21,10 +21,15 @@
  *     - Persistence for supply chain (write .npmrc hooks, global package scripts, /etc profile hooks)
  *     - Anti-analysis / priv (ptrace, personality, setuid attempts)
  *
- *   When run inside:
+ *   Recommended (use L2_DATA_DIR for clean isolated testing; `l2 exec` under
+ *   strict/ransom-hardened policies auto-escalates via sudo for namespaces, and
+ *   L2_DATA_DIR (plus other L2_* vars) is now properly passed through):
+ *        export L2_DATA_DIR=$(mktemp -d)
  *        l2 create miasma-test --policy ransom-hardened
  *        l2 put miasma-test miasma-sim.c --file docs/examples/l2_miasma_resistance_demo.c
  *        l2 exec miasma-test 'gcc -static -Wall -Wextra -o miasma-sim miasma-sim.c && ./miasma-sim'
+ *        l2 audit --test   # exercises the Miasma supply-chain check
+ *        l2 destroy miasma-test
  *
  *   ...only files inside the l2-provided workspace can be affected ("poisoned").
  *   All network exfil, host file tampering, credential access, and spread attempts
@@ -41,7 +46,8 @@
  *   - Leave persistent hooks in ~/.npm , global node_modules, etc.
  *
  * Compile / run inside l2 (recommended for testing containment):
- *   (see usage above; -static minimizes required RO paths under strict Landlock)
+ *   (see usage above with `L2_DATA_DIR`; -static minimizes required RO paths under strict Landlock.
+ *    See the dedicated Troubleshooting subsection in README.md for L2_DATA_DIR + sudo notes, old kernels, etc.)
  *
  * Compile standalone (for education / "what it does on host"):
  *   gcc -Wall -Wextra -o miasma-sim l2_miasma_resistance_demo.c
@@ -52,9 +58,10 @@
  *
  * Cross-references:
  *   - See docs/examples/l2_ransomware_resistance_demo.c (WannaCry-class sibling)
+ *   - See docs/examples/l2_malware_cancer_resistance_demo.c (AIO "malware-cancer" attack on l2 substrate under great-harden; full substrate defense validation)
  *   - See docs/examples/l2_safe_execution_demo.c (the "good" contrast)
- *   - SECURITY.md (supply chain section), ROADMAP, the ransom-hardened policy
- *   - l2 harden --profile ransom-hardened (or strict-mcp) + l2 audit --test
+ *   - SECURITY.md (supply chain section + great-harden AIO), ROADMAP, the ransom-hardened / great-harden policy
+ *   - l2 harden --profile ransom-hardened (or strict-mcp) + l2 audit --test ; l2 great-harden --apply for supreme
  *
  * This extends l2's "prepare for real malicious workload testing" story to
  * supply-chain worms like Miasma: the policy + this demo + harden artifacts +

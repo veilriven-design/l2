@@ -5,7 +5,7 @@ Terminal-first CLI for creating, using, and destroying strongly isolated executi
 **Linux prototype** — ready for immediate use and validation (with powerful hardening and crypto).  
 **seL4/Microkit** — the production/high-assurance path.
 
-**v0.4.4 highlights + Miasma defenses:** `ransom-hardened` full-safety policy protocol for ransomware/malicious workload containment testing (WannaCry-class) and supply-chain worms (Miasma: Red Hat npm credential-stealing worm with preinstall, OIDC/GitHub exfil, tarball repack, "Miasma: The Spreading Blight" propagation); new self-contained `docs/examples/l2_ransomware_resistance_demo.c` + `l2_miasma_resistance_demo.c` (only succeed inside explicit l2 ws); `l2 harden --profile ransom-hardened` + `l2 audit --test` integration (Ransomware + Miasma containment checks, --apply for operational artifacts); dedicated harden profile. All additive, preserves prior guarantees. Builds on v0.4.3 security sweep. See full details in CHANGELOG.md.
+**v0.4.4 highlights + Miasma defenses + great-harden + AIO malware-cancer:** `ransom-hardened` full-safety policy protocol for ransomware/malicious workload containment testing (WannaCry-class) and supply-chain worms (Miasma: Red Hat npm credential-stealing worm with preinstall, OIDC/GitHub exfil, tarball repack, "Miasma: The Spreading Blight" propagation); new self-contained `docs/examples/l2_ransomware_resistance_demo.c` + `l2_miasma_resistance_demo.c` (only succeed inside explicit l2 ws); `l2 harden --profile ransom-hardened` + `l2 audit --test` integration (Ransomware + Miasma containment checks, --apply for operational artifacts); dedicated harden profile. **NEW: `l2 great-harden`** for aerospace & industrial - supreme higher-assurance mode that makes servers impenetrable to all known malware/worms/viruses, closes logic gaps, aerospace-grade extreme hardening (kernel lockdown, full ro, no dynamic, great policy). **AIO "malware-cancer" attack sim** (`docs/examples/l2_malware_cancer_resistance_demo.c`): named comprehensive attack on the l2 substrate (ransom + Miasma + direct: state/trace/audit/crypto tamper, ns/bpf/setns/unshare escapes, fork/priv-esc on l2); prepared + validated under great-harden. All additive, preserves prior guarantees. Builds on v0.4.3 security sweep. See full details in CHANGELOG.md.
 
 See the dedicated **[Crypto & Hardening](#crypto--hardening-v040)** section (collapsible) and [SECURITY.md](SECURITY.md) for full v0.4.0+ crypto/hardening/strict-mcp/ransom-hardened details, plus [ROADMAP.md](ROADMAP.md) and [STATUS.md](STATUS.md).
 
@@ -30,7 +30,7 @@ cargo build --release
 # (or add target/release to PATH, or use the install command above)
 ```
 
-Override state location anytime with `L2_DATA_DIR=/path l2 ...`.
+Override state location anytime with `L2_DATA_DIR=/path l2 ...` (this is fully respected for create/put/get/exec/etc., and is automatically passed through `l2 exec`'s sudo escalation for strict/ransom-hardened policies that require root for namespace isolation).
 
 ## Quick Start
 
@@ -42,7 +42,7 @@ l2 create my-agent --policy strict
 l2 put my-agent task.sh --type code --content 'echo "Hello from l2"'
 
 # Execute inside the isolated environment (strict policy applies Landlock)
-# (l2 auto-escalates via sudo if namespace isolation requires root)
+# (l2 auto-escalates via sudo if namespace isolation requires root; L2_DATA_DIR and other L2_* vars are preserved)
 l2 exec my-agent 'sh task.sh'
 
 # New simpler forms (auto-dispatch + oneshot)
@@ -104,6 +104,16 @@ l2 policy strict-mcp
 - `strict`: Strong baseline (Landlock + no_new_privs + seccomp).
 - `strict-mcp`: Current flagship — stricter defaults for agentic/MCP/tool workloads (seccomp enforcing auto-on, tighter Landlock). Pair with `l2 harden --profile strict-mcp`.
 - `ransom-hardened`: Full safety for ransomware/malicious code testing (WannaCry-class) and supply-chain worms (Miasma npm credential exfil + propagation). Auto-enforce + minimal ws-only surface. See `l2 policy ransom-hardened`, the demos in docs/examples/ (ransomware + miasma), and SECURITY.md.
+- `great-harden`: **SUPREME** (via `l2 great-harden` command) for aerospace, industrial, critical systems. Higher assurance, advanced hardening, closes gaps, makes servers impenetrable to malware/worms/viruses (incl. AIO "malware-cancer" substrate attacks). Extreme configs + great policy. See `l2 great-harden --help`, `l2 policy great-harden`, README Troubleshooting.
+  - Example (with `L2_DATA_DIR` for clean tests; sudo escalation preserves it):
+    ```bash
+    export L2_DATA_DIR=$(mktemp -d)
+    l2 create miasma-test --policy ransom-hardened
+    l2 put miasma-test miasma-sim.c --file docs/examples/l2_miasma_resistance_demo.c
+    l2 exec miasma-test 'gcc -static -Wall -Wextra -o miasma-sim miasma-sim.c && ./miasma-sim'
+    l2 audit --test  # PASS on the Miasma supply-chain check
+    l2 destroy miasma-test
+    ```
 
 Use with `--policy strict-mcp` on create/exec/trace/etc.
 
@@ -148,12 +158,13 @@ git checkout v0.1.0
 | `l2 create <name> [--policy <protocol>]` | Create isolated system (use `--policy strict-mcp` for high-assurance agentic/MCP; `--policy ransom-hardened` for full-safety ransomware testing) |
 | `l2 put <sys> <name> ...`        | Store object |
 | `l2 get <sys> <name>`            | Retrieve object |
-| `l2 exec [--policy <protocol>] <sys> [command]` | Run inside a system (or oneshot). Bare filenames auto-dispatch. |
+| `l2 exec [--policy <protocol>] <sys> [command]` | Run inside a system (or oneshot). Bare filenames auto-dispatch. (Auto sudo for strict/ransom-hardened; L2_DATA_DIR + L2_* vars preserved.) |
 | `l2 list [name]`                 | List systems or details |
 | `l2 destroy <name>`              | Remove system and all objects |
 | `l2 sel4-setup [--fast/-f]`      | One-shot seL4/Microkit dev environment (paced output; `--fast` for CI/old hardware) |
 | `l2 trace [--policy <protocol>] [--enforce] ...` | Collect seccomp traces (Phase 1). `--analyze <log>` generates real profiles. |
-| `l2 harden --profile <name> [--apply] ...` | NSA/CISA/FBI-aligned host/container hardening for agentic era (with `--network-isolation`, seccomp gen, systemd units). `--apply` makes it operational (writes live artifacts + evidence for `audit --test`). Paced output. |
+| `l2 harden --profile <name> [--apply] ...` | NSA/CISA/FBI-aligned host/container hardening for agentic era (with `--network-isolation`, seccomp gen, systemd units). `--apply` makes it operational (writes live artifacts + evidence for `audit --test`). Paced output. | 
+| `l2 great-harden [--apply] ...` | Supreme aerospace/industrial 'great-harden' mode: extreme higher-assurance lockdown to make servers impenetrable to malware/worms/viruses. Closes logic gaps, aerospace-grade (kernel lockdown etc). Forces great policy. Paced. |
 | `l2 crypto --profile <name> [--apply] ...` | Choose/apply verified crypto profile (AES-256-XTS-Argon2id, XChaCha20-Poly1305-Argon2id, or hybrid) for system encryption via LUKS/gocryptfs + l2 isolation. Paced output. |
 | `l2 policies` / `l2 policy <name>` | Discover and inspect policy protocols (e.g. `strict-mcp`, `ransom-hardened`). |
 | `l2 audit ...`                   | View/manage tamper-evident authority audit log. |
@@ -162,7 +173,7 @@ Full surface includes the above + status, revoke, etc. All commands support `--j
 
 ## Verification (Smoke Test)
 
-These commands exercise the full v0.4.4+ surface (policies including ransom-hardened, strict-mcp, crypto, harden --apply for operational artifacts, trace with profile output, audit + ransomware containment check). The `harden --apply` + `audit --test` is the world-class north-star workflow for auditable, standards-backed agentic/MCP hardening. They should succeed:
+These commands exercise the full v0.4.4+ surface (policies including ransom-hardened, strict-mcp, great-harden, crypto, harden --apply for operational artifacts, trace with profile output, audit + ransomware + Miasma + AIO malware-cancer substrate + great-harden containment checks). The `harden --apply` + `audit --test` + `l2 great-harden` is the supreme world-class north-star workflow for auditable, standards-backed agentic/MCP/aerospace/industrial hardening. They should succeed:
 
 ```bash
 export L2_DATA_DIR=$(mktemp -d)
@@ -173,6 +184,8 @@ echo 'fake trace' > /tmp/trace.log
 l2 harden --profile strict-mcp --dry-run --fast --generate-seccomp /tmp/trace.log || true
 # The beautiful operational loop: --apply writes live units/profiles/confs + updates evidence json
 l2 harden --profile strict-mcp --fast --generate-seccomp /tmp/trace.log --apply || true
+# Supreme great-harden for aerospace/industrial (new)
+l2 great-harden --fast --apply || true
 l2 create smoke --policy strict-mcp
 l2 put smoke hello.txt --content 'hello from v0.4.4'
 l2 get smoke hello.txt | grep -q 'v0.4.4'
@@ -180,14 +193,97 @@ echo 'fake log' > /tmp/fake.log
 l2 trace --analyze /tmp/fake.log --output-profile /tmp/profile.txt
 l2 audit --tail 5
 l2 audit --verify
-l2 audit --test  # runs regular automated checks vs. latest security standards (CISA/NSA/FBI/Linux hardening + ransomware + Miasma supply-chain); now sees real --apply artifacts for strict-mcp/ransom-hardened (the world-class north-star loop)
+l2 audit --test  # runs regular automated checks vs. latest security standards (CISA/NSA/FBI/Linux hardening + ransomware + Miasma supply-chain + AIO malware-cancer substrate + great-harden aerospace); now sees real --apply artifacts for strict-mcp/ransom-hardened/great-harden (the supreme world-class north-star loop)
 l2 destroy smoke
 echo "Smoke OK"
+# (L2_DATA_DIR overrides are preserved across any sudo escalation in exec/harden/great-harden paths.)
 ```
 
 The CI runs an expanded version of this on every push to main (including fmt, clippy `-D warnings`, and the new tooling).
 
+See the Troubleshooting section below for help with `L2_DATA_DIR`, sudo escalation, old kernels, etc. when running the smoke or the resistance demos.
+
+## Troubleshooting
+
+### `L2_DATA_DIR` with `l2 exec` (and sudo escalation)
+
+`l2` respects `L2_DATA_DIR` (or `L2_DATA_DIR=/path l2 ...`) for all state (systems, objects, harden reports, audit logs, seccomp profiles, etc.). This is heavily used for clean smoke/CI/demo runs.
+
+However, `l2 exec` under strict-family policies (`strict`, `strict-mcp`, `ransom-hardened`) auto-escalates via `sudo` (to obtain privileges for `unshare` + full Landlock/no_new_privs). By default `sudo` strips most environment variables.
+
+**l2 now automatically preserves `L2_DATA_DIR` (and all `L2_*` variables) across the escalation:**
+
+```
+→ requesting root for isolated exec (namespaces + strict policy)...
+   sudo L2_DATA_DIR=/tmp/tmp.xxx /path/to/l2 exec ...
+```
+
+The sudo child therefore sees the same data dir, so `create`/`put`/`exec` under a temp dir continue to work (no more "system 'foo' not found (data dir: ~/.l2)").
+
+If you invoke `sudo l2 ...` manually, include the override on the command line:
+
+```
+L2_DATA_DIR=/tmp/my-test sudo l2 exec ...
+```
+
+See the resistance demo headers, the `ransom-hardened` policy example in this README, and SECURITY.md for typical usage with `export L2_DATA_DIR=$(mktemp -d)`.
+
+### Sudo / privilege escalation for `exec`
+
+- `l2 exec` (named systems or oneshot) under strict/ransom-hardened policies prints a notice and runs the current binary under `sudo` so that namespace isolation and strong sandboxing can be applied.
+- This works even for `cargo install`d binaries (uses `current_exe()`).
+- You will be prompted for your password (unless you have passwordless sudo configured for the user).
+- The inner run drops privileges back to the original user (via `SUDO_UID`/`SUDO_GID`) before executing your workload.
+- In non-interactive/CI environments without a TTY, sudo may fail. Workarounds:
+  - Run the whole sequence as root (not recommended for daily use).
+  - Use `L2_USE_CORE=1` (moves some state ops to the out-of-process core; isolation still happens in the CLI for now).
+  - For kernels/containers where `unshare` is unavailable, l2 falls back to direct execution (with a warning). You still get Landlock (if available), seccomp, capability bounding, `no_new_privs`, env sanitization, etc.
+
+### Old / restricted kernels and partial enforcement
+
+Many protections are best-effort on older kernels:
+
+- Landlock (FS sandbox): requires kernel ≥ 5.13 + LSM enabled. On older systems you may see "Landlock not enforced".
+- Seccomp Phase 1 enforcing: works on modern kernels; observer mode (`L2_STRICT_SECCOMP_OBSERVE=1`) is more widely available.
+- User namespaces: experimental (`L2_EXPERIMENTAL_USER_NS=1`). Full `pivot_root` + id mapping is future work.
+- In these cases the demos will still show many "BLOCKED" results thanks to the remaining controls, but some vectors (e.g. certain network or FS operations) may succeed on the host.
+
+Run `l2 policy ransom-hardened` (or `strict-mcp`) for the current guarantees on your system.
+
+### Running the resistance demos (`l2_*_resistance_demo.c`)
+
+These are intended to be compiled and executed *inside* an l2 system:
+
+```bash
+export L2_DATA_DIR=$(mktemp -d)
+l2 create test --policy ransom-hardened
+l2 put test demo.c --file docs/examples/l2_miasma_resistance_demo.c   # or the ransomware one
+l2 exec test 'gcc -static -Wall -Wextra -o sim demo.c && ./sim'
+l2 audit --test   # should PASS the relevant containment check(s)
+l2 destroy test
+```
+
+For supreme AIO substrate defense (malware-cancer): use `great-harden` policy + `l2 great-harden --fast --apply` and the `l2_malware_cancer_resistance_demo.c` (ransomware + Miasma + direct attacks on l2 state/trace/audit/crypto + ns/bpf escapes etc.).
+
+- Use `-static` to minimize the read-only paths Landlock must allow.
+- The programs deliberately attempt "bad" things and report BLOCKED vs. UNEXPECTED SUCCESS.
+- Only files you explicitly `put` into the workspace can be affected.
+- After a run, `l2 audit --test` (plus the harden json if you ran `l2 harden --profile ...` or `l2 great-harden --apply`) gives the machine-readable evidence.
+
+See the headers inside the `.c` files for exact usage and cross-references.
+
+### Other common issues
+
+- `l2 harden --apply` (or scripts) may still need manual `sudo` for some host changes (sysctls, nft, systemd units). The tool is intentionally advisory and auditable.
+- Corrupt state: `l2 audit --verify` will tell you; you can remove the `state.json` under your `L2_DATA_DIR` (you will lose existing systems).
+- `l2 sel4-setup` on slow/old machines: pass `--fast` (or set `L2_FAST=1`).
+- Binary not found after `sudo`: the escalation now uses the full path from `current_exe()`, so `cargo install`d or `./target/release/l2` both work.
+
+If you hit something else, the source of truth is the narrow terminal interface + explicit audit log. Feel free to open an issue with the exact commands + `l2 audit --tail 20` output.
+
 ## Status (v0.4.4)
+
+See the dedicated Troubleshooting subsection above for common issues (especially `L2_DATA_DIR` with sudo escalation, the resistance demos, etc.).
 
 See [STATUS.md](STATUS.md) for the full current state and [ROADMAP.md](ROADMAP.md) for direction.
 
@@ -200,6 +296,7 @@ See [STATUS.md](STATUS.md) for the full current state and [ROADMAP.md](ROADMAP.m
 - `l2 policies` / `l2 policy <name>` for discovery.
 - Stronger defaults and deeper integration between policies, crypto, host hardening, and audit (`l2 audit --test`).
 - `ransom-hardened` + `l2_ransomware_resistance_demo.c` + `l2_miasma_resistance_demo.c` + harden/audit integration for repeatable WannaCry-class + Miasma supply-chain worm containment validation.
+- `l2 great-harden` (supreme command) + great-harden policy + `l2_malware_cancer_resistance_demo.c` for aerospace/industrial: higher assurance, closes gaps, AIO "malware-cancer" (direct substrate attack) defense, impenetrable servers for critical complexes.
 
 **Ongoing:**
 - Production seL4/Microkit integration (l2-core as protection domain).

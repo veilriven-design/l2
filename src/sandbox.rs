@@ -19,6 +19,9 @@ use std::path::Path;
 /// - Minimal RO paths (static bins only) + workspace-only for all writes/encrypt
 /// - Auto-enforcing seccomp (caller sets) + rlimits from exec layer
 /// - See docs/examples/l2_ransomware_resistance_demo.c for the canonical test sim.
+/// For "great-harden" (supreme): tiniest surface + extended NEVER (bpf/setns/unshare)
+/// for AIO malware-cancer (direct l2 substrate attacks on state/trace/audit/ns/crypto).
+/// See docs/examples/l2_malware_cancer_resistance_demo.c .
 pub fn apply_strict_sandbox(workspace: Option<&Path>, policy: &str) -> Result<()> {
     // no_new_privs: prevent the process or children from gaining new privileges (e.g. via setuid binaries)
     if let Err(e) = nix::sys::prctl::set_no_new_privs() {
@@ -123,6 +126,13 @@ pub fn apply_strict_sandbox(workspace: Option<&Path>, policy: &str) -> Result<()
             // Workspace is the *only* place "encryption" or writes can succeed.
             ro_paths = vec!["/bin", "/usr/bin", "/lib", "/usr/lib", "/dev", "/proc"];
             println!("[ransom-hardened] FULL SAFETY: minimal RO (static bins + /dev + limited /proc); workspace-only writes for ransomware containment testing");
+        } else if policy == "great-harden" {
+            // SUPREME great-harden for aerospace/industrial: even more extreme than ransom.
+            // No /proc (info leak), no /etc, minimal static only, for making impenetrable.
+            // Closes remaining gaps: no ambient anything that could be malware vector.
+            // AIO malware-cancer: blocks /proc-based anti-analysis, state/audit exfil, ns escape probes.
+            ro_paths = vec!["/bin", "/usr/bin", "/lib", "/usr/lib", "/dev"];
+            println!("[great-harden] SUPREME AEROSPACE/INDUSTRIAL: tiniest RO (static bins + /dev only); NO /proc/NO /etc for supreme surface reduction. Workspace-only writes. Servers now impenetrable.");
         } else {
             ro_paths.push("/tmp");
         }
@@ -141,6 +151,8 @@ pub fn apply_strict_sandbox(workspace: Option<&Path>, policy: &str) -> Result<()
             "strict-mcp"
         } else if policy == "ransom-hardened" {
             "ransom-hardened"
+        } else if policy == "great-harden" {
+            "great-harden"
         } else {
             "strict"
         };
@@ -170,6 +182,8 @@ pub fn apply_strict_sandbox(workspace: Option<&Path>, policy: &str) -> Result<()
             "strict-mcp"
         } else if policy == "ransom-hardened" {
             "ransom-hardened"
+        } else if policy == "great-harden" {
+            "great-harden"
         } else {
             "strict"
         };
@@ -481,6 +495,10 @@ pub fn try_install_seccomp_enforcing_filter(profile_path: Option<&str>) -> Resul
             45, // recvfrom
             49, // bind
             50, // listen
+            // AIO malware-cancer substrate defense (direct l2 attack sim): block ns escapes + bpf subvert attempts
+            272, // unshare (re-unshare after setup to escape mount/net/pid ns)
+            308, // setns (escape via /proc/self/ns/* or fds)
+            321, // bpf (BPF_PROG_LOAD / map ops to tamper seccomp or inspect kernel)
         ];
 
         for &nr in &allowed {

@@ -37,6 +37,7 @@ This document tracks the data-driven curation of a minimal seccomp allowlist pri
 - Common tools: `git status`, `make`, `curl -I https://example.com`, `find . -type f | head -5`
 - Interpreters: Node/Ruby if available in the environment
 - For `ransom-hardened` (full safety): the `l2_ransomware_resistance_demo.c` (WannaCry-class) or `l2_miasma_resistance_demo.c` (Miasma supply-chain npm worm: preinstall + OIDC exfil + repack + "Miasma: The Spreading Blight" propagation) under `L2_STRICT_SECCOMP_ENFORCE=1 l2 trace --policy ransom-hardened`. Expect zero net syscalls (41/42/...), ptrace etc. — those must stay in NEVER_ALLOWED. Supply-chain worms add emphasis on blocking package cache writes (Landlock) + token exfil (env clear + no net).
+- For `great-harden` (supreme aerospace/industrial): use `l2 great-harden` + `l2 trace --policy great-harden` + `l2 exec --policy great-harden` with resistance sims or critical workloads. Even stricter: no /proc, extreme minimal, for impenetrable. Great-harden policy + full `l2 great-harden --apply` for supreme evidence. Use `l2_malware_cancer_resistance_demo.c` (AIO substrate attack sim) for full validation of extended NEVER (bpf/setns/unshare + prior).
 
 ## Collected Traces
 
@@ -73,7 +74,7 @@ syscalls:
 
 **Status**: Seeded from common knowledge + early analyzer tests. Needs real trace data.
 
-Note: This allowlist is exercised under the `strict`, `strict-mcp` (main focus for agentic/MCP), and `ransom-hardened` (full safety / ransomware + Miasma supply-chain worm testing) policy protocols. `strict-mcp` and `ransom-hardened` receive per-protocol tightening (ransom-hardened is the strictest: workspace-only + no net/ptrace etc. to stop credential exfil and npm worm spread). Profiles are data-driven from `l2 trace` under the target policy. Use the miasma and ransomware demos for validation.
+Note: This allowlist is exercised under the `strict`, `strict-mcp` (main focus for agentic/MCP), `ransom-hardened` (full safety / ransomware + Miasma supply-chain worm testing), and `great-harden` (supreme aerospace/industrial - impenetrable servers, closes gaps) policy protocols. `strict-mcp`, `ransom-hardened`, and `great-harden` receive per-protocol tightening (great-harden is supreme: tiniest surface, no /proc, full extreme for malware/worm/virus impenetrable; extended NEVER for AIO malware-cancer substrate attacks incl. bpf/setns/unshare). Profiles are data-driven from `l2 trace` under the target policy. Use the miasma, ransomware, and malware-cancer (great) for critical validation.
 
 From analyzer test run (sample log):
 - 0 (read)
@@ -134,15 +135,17 @@ Next step: Run real workloads with `l2 trace` and feed the logs through `--analy
 - Run the starter workloads using `l2 trace --policy strict-mcp` (or `ransom-hardened` for sims) with `--output-profile` for direct use.
 - Capture and parse logs (supports journalctl, dmesg, etc.).
 - Populate/curate the draft allowlist (policy-specific variants).
-- Use `l2 trace --analyze ... --output-profile ~/.l2/seccomp/strict-mcp.txt` (or ransom...) + `l2 harden --generate-seccomp` + `l2 audit --test` for closed-loop hardening.
-- `ransom-hardened` + demo.c is the validation workload for full safety (expect no net/encrypt/persist escapes).
+- Use `l2 trace --analyze ... --output-profile ~/.l2/seccomp/strict-mcp.txt` (or ransom... or great-harden) + `l2 harden --generate-seccomp` + `l2 great-harden --apply` + `l2 audit --test` for closed-loop supreme hardening.
+- `ransom-hardened` + demo.c is the validation workload for full safety (expect no net/encrypt/persist escapes). `great-harden` + `l2 great-harden` + `l2_malware_cancer_resistance_demo.c` for aerospace/industrial supreme + AIO substrate defense (expect even zero tolerance for any vector incl. direct l2 state/trace/escape attacks).
 
-The enforcing filter (Phase 1) + auto profile discovery + cap drop + per-policy Landlock + `l2 audit --test` (harden json) are now implemented and integrated with strict-mcp and ransom-hardened. See also `docs/examples/l2_ransomware_resistance_demo.c`.
+The enforcing filter (Phase 1) + auto profile discovery + cap drop + per-policy Landlock + `l2 audit --test` (harden json) + `l2 great-harden` are now implemented and integrated with strict-mcp, ransom-hardened, and great-harden. See also `docs/examples/l2_ransomware_resistance_demo.c`, `l2_miasma_resistance_demo.c`, and `l2_malware_cancer_resistance_demo.c` (AIO).
 
 ---
 
 See also:
-- `src/sandbox.rs` (observer + enforcing filter + policy dispatch for strict-mcp/ransom-hardened)
-- `ROADMAP.md`, `STATUS.md`, `SECURITY.md`
+- `src/sandbox.rs` (observer + enforcing filter + policy dispatch for strict-mcp/ransom-hardened/great-harden)
+- `ROADMAP.md`, `STATUS.md`, `SECURITY.md`, README Troubleshooting
 - `docs/PROTOTYPE_HARDENING_AND_SEL4_PLAN.md` (hardening plan)
 - `docs/examples/l2_ransomware_resistance_demo.c` (use under ransom-hardened for validation)
+- `docs/examples/l2_malware_cancer_resistance_demo.c` (AIO substrate attack sim; use under great-harden for supreme validation)
+- `l2 great-harden --help` and `l2 policy great-harden` for supreme aerospace/industrial (impenetrable mode) + AIO malware-cancer defense

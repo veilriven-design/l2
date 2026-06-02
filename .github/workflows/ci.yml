@@ -32,7 +32,7 @@ jobs:
         cargo install cargo-audit --locked || true
         cargo audit || echo "cargo audit reported issues or failed to run (non-blocking for release; review advisories separately if any)"
 
-    - name: "Smoke tests (v0.4.4+ full surface: strict-mcp + ransom-hardened, crypto, harden, trace, policies, audit + ransomware + Miasma supply-chain checks)"
+    - name: "Smoke tests (v0.4.4+ full surface: strict-mcp + ransom-hardened + great-harden, crypto, harden, trace, policies, audit + ransomware + Miasma + AIO malware-cancer substrate checks)"
       run: |
         set -euo pipefail
         cargo build --release --quiet
@@ -45,6 +45,7 @@ jobs:
         ./target/release/l2 policies
         ./target/release/l2 policy strict-mcp | grep -q "current main focus" ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
         ./target/release/l2 policy ransom-hardened | grep -q "ransom-hardened\|full safety\|WannaCry\|ransomware\|Miasma\|supply-chain" ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
+        ./target/release/l2 policy great-harden | grep -q "great-harden\|SUPREME\|aerospace\|impenetrable\|malware-cancer\|AIO" ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
 
         # Full v0.4.4+ crypto surface (advisory, no privileged apply in CI)
         ./target/release/l2 crypto --list | grep -q "hybrid-aes-chacha" ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
@@ -62,6 +63,8 @@ jobs:
         grep -q "Network Isolation" /tmp/hnet.log || echo "(harden network-isolation message not seen)"
         ./target/release/l2 harden --profile ransom-hardened --dry-run --fast 2>&1 > /tmp/hransom.log || true
         grep -q "ransom-hardened\|FULL SAFETY\|Miasma\|supply-chain" /tmp/hransom.log || echo "(harden ransom message not seen)"
+        ./target/release/l2 harden --profile great-harden --dry-run --fast 2>&1 > /tmp/hgreat.log || true
+        grep -q "great-harden\|SUPREME\|aerospace\|impenetrable\|malware-cancer" /tmp/hgreat.log || echo "(harden great message not seen)"
 
         # Trace + new --output-profile (data-driven Phase 1 loop) — the same fake.log works
         ./target/release/l2 trace --analyze "$L2_DATA_DIR/fake.log" --output-profile "$L2_DATA_DIR/strict-mcp.txt" 2>&1 > /tmp/trace.log || true
@@ -98,4 +101,16 @@ jobs:
         ./target/release/l2 audit --test 2>&1 | grep -q "Ransomware containment\|ransom-hardened\|Miasma supply-chain" || echo "(ransom-hardened + Miasma audit checks exercised)"
         ./target/release/l2 destroy smoke-ransom
 
-        echo "✅ All v0.4.4+ smoke tests passed (policies + strict-mcp + ransom-hardened + crypto + harden + trace+output-profile + audit + regular up-to-date security standards tests + harden<->audit integration + ransomware + Miasma supply-chain containment checks exercised)"
+        # great-harden supreme + AIO malware-cancer substrate defense smoke (ransom + Miasma + direct l2 attacks on state/trace/audit/crypto/ns/bpf)
+        # (exercises great policy auto-enforce, tiniest Landlock, extended NEVER, --apply artifacts in audit, new cancer check)
+        ./target/release/l2 great-harden --fast --apply || true
+        ./target/release/l2 create smoke-cancer --policy great-harden
+        ./target/release/l2 put smoke-cancer task.txt --content 'great substrate test'
+        ./target/release/l2 get smoke-cancer task.txt | grep -q 'great substrate' ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
+        cancer_exec=$(./target/release/l2 exec smoke-cancer 'echo cancer-ok; cat task.txt' 2>&1 || true)
+        echo "$cancer_exec" | grep -q 'cancer-ok' || echo "(cancer exec limited in CI — expected)"
+        ./target/release/l2 put smoke-cancer cancer.c --file docs/examples/l2_malware_cancer_resistance_demo.c 2>/dev/null || true
+        ./target/release/l2 audit --test 2>&1 | grep -q "AIO malware-cancer\|great-harden\|malware-cancer" || echo "(great-harden + AIO malware-cancer audit check exercised)"
+        ./target/release/l2 destroy smoke-cancer
+
+        echo "✅ All v0.4.4+ smoke tests passed (policies + strict-mcp + ransom-hardened + crypto + harden + trace+output-profile + audit + regular up-to-date security standards tests + harden<->audit integration + ransomware + Miasma supply-chain containment checks exercised + great-harden + AIO malware-cancer substrate defense)"

@@ -39,6 +39,7 @@
  *
  *   For the ransomware / WannaCry-class resistance version of this idea, see
  *   l2_ransomware_resistance_demo.c + `l2 ... --policy ransom-hardened`.
+ *   (Use `L2_DATA_DIR` for testing; it is preserved through sudo escalation.)
  *
  *   You will probably get a sudo prompt (l2 needs root for unshare/namespaces).
  *   On very old kernels (like X200) you may see "Landlock not enforced" and/or
@@ -57,6 +58,7 @@
  * See also docs/examples/l2_ransomware_resistance_demo.c (and --policy ransom-hardened)
  * for a dedicated WannaCry-class ransomware resistance test (mass encrypt + SMB worm +
  * persistence + priv esc, all contained to the explicit workspace only).
+ * (Recommended: `export L2_DATA_DIR=$(mktemp -d)` first; see the dedicated Troubleshooting subsection in README.md.)
  *
  * See also docs/examples/l2_miasma_resistance_demo.c (same policy) for a supply-chain
  * worm resistance test (Miasma-style: npm preinstall tampering, OIDC/GitHub/cloud
