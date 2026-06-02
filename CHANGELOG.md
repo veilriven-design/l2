@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.4.5] - 2026-06-06
+## [0.4.7] - 2026-06-06
 
 ### June 2026 Up-to-the-Minute Full Sweep of CISA/NSA Guidance
 - Performed another complete sweep (using current web/X sources) for the absolute latest CISA/NSA publications as of June 2026 (post May MCP CSI).

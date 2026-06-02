@@ -27,7 +27,7 @@ The external interface and mental model must remain the same whether the backend
 - [STATUS.md](STATUS.md) — Living snapshot of what is actually done and current focus areas
 - [SECURITY.md](SECURITY.md) — Security requirements and philosophy
 
-## Current State (as of v0.4.5)
+## Current State (as of v0.4.7)
 
 See [STATUS.md](STATUS.md) for the authoritative "Done" and "Current Focus" lists.
 
@@ -57,7 +57,7 @@ Highlights (v0.4.0+ focus on agentic/AI/MCP hardening + full-safety):
    - Mature per-protocol allowlists, analyzer tooling (`l2 trace --analyze`), user-facing awareness (`l2 policies`), and integration (e.g. auto-wiring generated seccomp profiles into runtime, harden json to audit).
    - `docs/examples/l2_ransomware_resistance_demo.c` + `l2_miasma_resistance_demo.c` + `l2_malware_cancer_resistance_demo.c` as canonical sims for proving `ransom-hardened` / `great-harden` controls against ransomware, Miasma-style supply-chain worms, and direct AIO attacks on the l2 substrate (state/trace/audit/crypto + escape vectors). `l2 great-harden` for critical infra validation.
 
-2. **Deeper crypto + host hardening operationalization** (current highest-leverage next after v0.4.5; tracked in #7)
+2. **Deeper crypto + host hardening operationalization** (current highest-leverage next after v0.4.7; tracked in #7)
    - Make generated profiles/units from `l2 crypto`/`l2 harden` directly consumable with one command (add `--apply` to `l2 harden` modeled on crypto; safe/audited application of units, profiles, nft rules, sysctls where possible; update `<profile>-latest.json` with applied evidence).
    - Close the loop so `l2 harden --profile X --apply ; l2 audit --test` is the repeatable end-to-end for standards + real state change.
    - Expand concrete steps (more distros, TPM integration, fscrypt, etc.).
