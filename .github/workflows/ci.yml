@@ -103,7 +103,7 @@ jobs:
         ./target/release/l2 audit --test 2>&1 | grep -q "Ransomware containment\|ransom-hardened\|Miasma supply-chain" || echo "(ransom-hardened + Miasma audit checks exercised)"
         ./target/release/l2 destroy smoke-ransom || true
 
-        # great-harden supreme + AIO malware-cancer substrate defense smoke (ransom + Miasma + direct l2 attacks on state/trace/audit/crypto/ns/bpf)
+        # great-harden supreme + AIO malware-cancer + crypto redteam onslaught substrate defense smoke (ransom + Miasma + direct l2 attacks on state/trace/audit/crypto/ns/bpf + full NSA-level crypto red team: KDF/sidechannel/keyexfil/misuse/RNG/hybrid/tamper/supply/l2state - contained)
         # (exercises great policy auto-enforce, tiniest Landlock, extended NEVER, --apply artifacts in audit, new cancer check)
         ./target/release/l2 great-harden --fast --apply || true
         ./target/release/l2 create smoke-cancer --policy great-harden || true
@@ -112,7 +112,9 @@ jobs:
         cancer_exec=$(./target/release/l2 exec smoke-cancer 'echo cancer-ok; cat task.txt' 2>&1 || true)
         echo "$cancer_exec" | grep -q 'cancer-ok' || echo "(cancer exec limited in CI — expected)"
         ./target/release/l2 put smoke-cancer cancer.c --file docs/examples/l2_malware_cancer_resistance_demo.c 2>/dev/null || true
+        ./target/release/l2 put smoke-cancer crypto-redteam.c --file docs/examples/l2_crypto_redteam_onslaught.c 2>/dev/null || true
         ./target/release/l2 audit --test 2>&1 | grep -q "AIO malware-cancer\|great-harden\|malware-cancer\|North-Star Containment" || echo "(great-harden + AIO malware-cancer + l2 North-Star Containment audit check exercised)"
+        ./target/release/l2 audit --test 2>&1 | grep -q "Crypto.*data-at-rest\|crypto red team\|Crypto profiles" || echo "(crypto redteam onslaught + profile evidence check exercised)"
         ./target/release/l2 destroy smoke-cancer || true
 
         echo "✅ All v0.4.4+ smoke tests passed (policies + strict-mcp + ransom-hardened + crypto + harden + trace+output-profile + audit + regular up-to-date security standards tests + harden<->audit integration + ransomware + Miasma supply-chain + great-harden + AIO malware-cancer + l2 North-Star Containment grand demo exercised)"
