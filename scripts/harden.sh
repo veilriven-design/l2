@@ -430,13 +430,13 @@ if [ "$TARGET" = "host" ]; then
         echo "      #    (grand demo: l2 create ... --policy great-harden; put l2_malware_cancer... ; exec ; audit --test)"
         echo "      # 9. For AI/ML/agentic workloads (NSA Mar 2026 AI/ML Supply Chain CSI + MCP May 2026): require SBOM + AIBOM (AI Bill of Materials) from vendors/supply chain; track data/model provenance to mitigate poisoning/drift. Use tools like syft for SBOM, custom for AI datasets."
         echo
-        type_line "      This + great-harden policy + l2 runtime sandbox = servers impenetrable to major classes of ransomware/worm/virus/substrate/AI-MCP threats (validated by malware-cancer AIO sim + North-Star Containment). Aligns to latest NSA/CISA (CPG 2.0, MCP CSI, AI supply chain, OT AI)."
-        echo "      # Validate with AIO malware-cancer sim (ransom + Miasma + direct substrate attacks on state/trace/audit/crypto/ns/bpf + git/pip/ELF/anti):"
+        type_line "      This + great-harden policy + l2 runtime sandbox = servers impenetrable to major classes of ransomware/worm/virus/substrate/AI-MCP/agentic threats (validated by malware-cancer AIO sim + North-Star Containment). Aligns to latest NSA/CISA (June 2026 sweep: CPG 2.0 GOVERN/3.H least-priv/4.A malicious-code, MCP CSI May 2026, Agentic AI Careful Adoption Apr/May 2026 [privilege/least-priv, design, behaviour, structural, accountability risks + isolation/approvals/monitoring best practices], AI supply chain, OT AI)."
+        echo "      # Validate with AIO malware-cancer sim (ransom + Miasma + direct substrate attacks on state/trace/audit/crypto/ns/bpf + git/pip/ELF/anti + MCP/agentic tool/context risks per 2026 CSIs):"
         echo "      #   export L2_DATA_DIR=\$(mktemp -d); l2 great-harden --fast --apply || true"
         echo "      #   l2 create cancer-test --policy great-harden"
         echo "      #   l2 put cancer-test cancer-sim.c --file docs/examples/l2_malware_cancer_resistance_demo.c"
         echo "      #   l2 exec cancer-test 'gcc -static ... && ./cancer-sim'  # demonstrates l2 North-Star Containment"
-        echo "      #   l2 audit --test   # verifies North-Star Containment of AIO malware-cancer"
+        echo "      #   l2 audit --test   # verifies North-Star Containment of AIO malware-cancer (incl. MCP/agentic per latest CSIs)"
     fi
 fi
 
@@ -700,21 +700,22 @@ cat > "$LATEST_JSON" << EOF
     "North-Star Containment of AIO malware-cancer (grand demo: put+exec+audit under great-harden)",
     "APPLY: live artifacts written (units, profiles, confs) + attempted enforcement"
   ],
-  "great_harden_note": "${PROFILE} is l2 great-harden supreme mode for aerospace/industrial - closes logic gaps (incl. AIO malware-cancer substrate attacks), achieves l2 North-Star Containment of ransomware+ worms+viruses+direct l2 attacks, makes impenetrable.",
+  "great_harden_note": "${PROFILE} is l2 great-harden supreme mode for aerospace/industrial - closes logic gaps (incl. AIO malware-cancer substrate attacks + agentic/MCP risks per 2026 CSIs), achieves l2 North-Star Containment of ransomware+ worms+viruses+direct l2 attacks, makes impenetrable.",
   "standards": [
     "NSA / CISA \"Securing AI Systems\" guidance",
-    "CISA Cross-Sector Cybersecurity Performance Goals (CPG 2.0, Dec 2025) incl. GOVERN, least privilege (3.H), malicious code detection, MSP risks, oversight",
-    "NSA CSI: AI/ML Supply Chain Risks and Mitigations (Mar 2026) - AIBOM/SBOM, data poisoning/provenance",
-    "NSA CSI: MCP Security Design Considerations for AI-Driven Automation (May 2026)",
-    "NSA/CISA et al: Secure Integration of AI in OT (Dec 2025) - governance, human-in-loop, fail-safes",
-    "NSA: Careful Adoption of Agentic AI Services (Apr 2026), AI Data Security (2025)",
-    "CISA Zero Trust Maturity Model (adapted for agents)",
-    "FBI alerts on AI supply chain and agentic threats",
+    "CISA Cross-Sector Cybersecurity Performance Goals (CPG 2.0, Dec 2025 / 2026) incl. GOVERN (oversight 1.B, MSP 1.E), least privilege (3.H), malicious code detection (4.A), adverse events (4.B)",
+    "NSA CSI: AI/ML Supply Chain Risks and Mitigations (Mar 2026) - AIBOM/SBOM, data/model/software/infra/hardware/third-party provenance/integrity/due-diligence",
+    "NSA CSI: MCP Security Design Considerations for AI-Driven Automation (May 2026) - auth/integrity/least-priv-context/no-ambient/monitor-audit of interactions, serialization validation, approvals, no token passthrough, task isolation (enforced via l2 strict-mcp substrate)",
+    "CISA/NSA et al: Careful Adoption of Agentic AI Services (Apr/May 2026 Five Eyes) - 5 risk categories (privilege escalation/least priv/scope creep/confused deputy, design/config flaws, behavioural misalignment, structural cascading failures, accountability opacity); best practices: isolate agents, no broad/unrestricted access, explicit approvals/human-in-loop, continuous monitoring/audit, Secure by Design",
+    "NSA/CISA et al: Secure Integration of AI in OT (Dec 2025) - governance, human-in-loop, fail-safes, data separation",
+    "CISA: AI Data Security CSI (2025)",
+    "CISA Zero Trust Maturity Model (adapted for agents/MCP)",
+    "FBI / CISA alerts on AI supply chain, agentic threats, ransomware/worms",
     "CIS Benchmarks for Linux hardening",
     "CISA Stop Ransomware / worm containment guidance (for ransom-hardened)",
-    "Supply chain (Miasma-style + AI/ML per 2026 CSI) resistance",
-    "AIO malware-cancer + l2 North-Star Containment (ransomware + Miasma + viruses + direct substrate + MCP/agentic containment under great-harden; grand demo)",
-    "l2 ${PROFILE} policy protocol + regular \`l2 audit --test\`"
+    "Supply chain (Miasma-style + AI/ML per 2026 CSIs) resistance via demos + runtime containment",
+    "AIO malware-cancer + l2 North-Star Containment (ransomware + Miasma + viruses + direct substrate + MCP/agentic tool/context containment under great-harden; grand demo: explicit put+exec+audit)",
+    "l2 ${PROFILE} policy protocol + regular \`l2 audit --test\` for CPG 2.0 / MCP CSI / Agentic AI evidence"
   ],
   "report_md": "$REPORT_FILE",
   "apply_note": "Re-run with --apply to make artifacts operational and update this evidence for audit --test"
@@ -732,7 +733,7 @@ echo "      3. Run agents with \`l2 exec --policy ${PROFILE}\`"
 echo "      4. (Beautiful part) Re-run with --apply to make it operational:  l2 harden --profile ${PROFILE} --apply"
 echo "      5. Run \`l2 audit --test\` to automatically verify standards compliance (harden reports + chain + ${PROFILE} usage etc.)"
 echo "      6. For supply-chain (Miasma) testing: l2 put ... l2_miasma_resistance_demo.c ; exec under ${PROFILE}"
-echo "      7. For supreme aerospace/industrial + AI/MCP/OT (great-harden per latest NSA MCP CSI, CPG 2.0, AI supply chain): l2 great-harden --apply ; use --policy great-harden + l2_malware_cancer... ; l2 audit --test (now covers CPG 2.0, MCP sec design, AI supply chain)"
+echo "      7. For supreme aerospace/industrial + AI/MCP/agentic/OT (great-harden per June 2026 NSA/CISA sweep incl. MCP CSI May 2026, Agentic AI CSI Apr/May 2026, CPG 2.0): l2 great-harden --apply ; use --policy great-harden + l2_malware_cancer... ; l2 audit --test (covers CPG 2.0 GOVERN/least-priv/mal-code, MCP sec design auth/integrity/isolation, Agentic 5 risks mitigation via explicit ws containment + audit)"
 
 echo
 echo "[6/6] l2 harden complete for profile '$PROFILE'."

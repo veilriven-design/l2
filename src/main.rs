@@ -1572,7 +1572,7 @@ fn run_security_audit_tests(
             .map(|(n, p, d)| serde_json::json!({"check": n, "passed": p, "detail": d}))
             .collect();
         print_json(
-            &serde_json::json!({"audit_tests": json_results, "standards": "CISA/NSA/FBI 2026 latest: CPG 2.0 (GOVERN, least priv, malicious code, MSP/oversight), NSA MCP security design for AI automation (May 2026), AI/ML supply chain risks (Mar 2026), OT AI integration principles, agentic AI careful adoption, AI data security + CISA ransomware/worm + supply-chain (Miasma) + AIO malware-cancer + l2 North-Star Containment (great-harden)"}),
+            &serde_json::json!({"audit_tests": json_results, "standards": "CISA/NSA/FBI June 2026 latest sweep: CPG 2.0 (GOVERN/oversight 1.B/MSP 1.E, least priv 3.H, malicious code 4.A, adverse events 4.B), NSA MCP CSI May 2026 (auth/integrity/least-priv-context/no-ambient/monitor-audit/approvals/anti-serialization for AI automation/tool context), CISA/NSA Five Eyes Careful Adoption of Agentic AI Services Apr/May 2026 (5 risks: privilege/least-priv/scope-creep, design/config, behaviour misalignment, structural cascading, accountability opacity + best practices: isolate to explicit ws, no broad access, human oversight via explicit exec, continuous audit/monitoring), NSA AI/ML Supply Chain Mar 2026 (AIBOM/SBOM/provenance), OT AI principles, AI data sec + CISA ransomware/worm + Miasma supply-chain + AIO malware-cancer + l2 North-Star Containment (great-harden substrate)"}),
         );
     }
 
@@ -2635,7 +2635,7 @@ fn main() -> Result<()> {
             println!("Available policy protocols:\n");
             println!("  default         - Pragmatic balance (current default behavior)");
             println!("  strict          - Strong isolation + seccomp (Landlock + no_new_privs)");
-            println!("  strict-mcp      - **Current main focus** (NSA MCP May 2026 security design for AI automation: substrate isolation for secure MCP tool/context interactions)");
+            println!("  strict-mcp      - **Current main focus** (NSA MCP CSI May 2026 + CISA/NSA Agentic AI Careful Adoption Apr/May 2026: substrate isolation for secure MCP tool/context/agent interactions; least-priv, no ambient, audit of calls per MCP/Agentic guidance)");
             println!("                    High-assurance protocol for agentic/AI/MCP workloads.");
             println!("                    Builds on 'strict' with:");
             println!("                      • Stronger seccomp enforcing by default");
@@ -2643,9 +2643,9 @@ fn main() -> Result<()> {
             println!("                      • Designed to pair with output from `l2 harden --profile strict-mcp`");
             println!("  ransom-hardened - **Full safety protocol** for ransomware/malicious code testing (aligns to CISA ransomware + NSA 2026 AI/ML supply chain containment)");
             println!("                    (WannaCry-class resistance). Strictest posture + auto-enforce.");
-            println!("  great-harden    - **SUPREME** for aerospace, industrial, critical infrastructure (l2 great-harden; aligns NSA/CISA OT AI integration principles Dec 2025, CPG 2.0, agentic AI careful adoption Apr 2026)");
-            println!("                    Makes servers IMPENETRABLE to malware/worms/viruses. Higher assurance, closes logic gaps.");
-            println!("                    Extreme: kernel lockdown, full ro, no dynamic, great policy (ransom superset).");
+            println!("  great-harden    - **SUPREME** for aerospace, industrial, critical infrastructure (l2 great-harden; aligns NSA/CISA OT AI Dec 2025 + Agentic AI Careful Adoption Apr/May 2026 + MCP CSI May 2026 + CPG 2.0 June 2026 sweep)");
+            println!("                    Makes servers IMPENETRABLE to malware/worms/viruses + agentic/MCP risks (privilege esc, tool poisoning, context leaks, escapes). Higher assurance, closes logic gaps.");
+            println!("                    Extreme: kernel lockdown, full ro, no dynamic, great policy (ransom superset) + explicit ws for MCP/agents per latest CSIs.");
             println!(
                 "\nUse `l2 policy <name>` for detailed information (e.g. `l2 policy strict-mcp` or `l2 policy ransom-hardened` or `l2 policy great-harden`)."
             );
@@ -2683,16 +2683,17 @@ fn main() -> Result<()> {
                         println!("strict-mcp — High-Assurance MCP/Agent Policy Protocol");
                         println!("======================================================");
                         println!();
-                        println!("This is the current main focus of l2 hardening work.");
+                        println!("This is the current main focus of l2 hardening work (June 2026 NSA/CISA sweep).");
                         println!();
                         println!("Description:");
-                        println!("  A strict-family policy protocol tailored for the agentic/AI/MCP era.");
+                        println!("  A strict-family policy protocol tailored for the agentic/AI/MCP era per NSA MCP CSI (May 2026) + CISA/NSA Agentic AI Careful Adoption (Apr/May 2026).");
                         println!(
                             "  It provides strong isolation while being practical for systems that"
                         );
                         println!(
                             "  dynamically invoke tools, MCP servers, and external processes."
                         );
+                        println!("  Enforces MCP/Agentic recs: no ambient creds, least-priv explicit ws, full audit of interactions, no escape vectors.");
                         println!();
                         println!("Key characteristics:");
                         println!("  • Builds directly on the 'strict' isolation baseline");
