@@ -58,13 +58,13 @@ generate_seccomp_profile() {
         return 1
     fi
 
-    echo
+    echo || true
     type_line "=== Generated Seccomp Profile (strict-mcp style) ==="
-    echo
-    echo "# For systemd units:"
-    echo "SystemCallFilter=@basic @file-system @process @signal @network @timer"
-    echo "# Plus these from your trace (minimal allowlist):"
-    echo "SystemCallFilter=$(echo "$syscalls" | tr '\n' ' ')"
+    echo || true
+    echo "# For systemd units:" || true
+    echo "SystemCallFilter=@basic @file-system @process @signal @network @timer" || true
+    echo "# Plus these from your trace (minimal allowlist):" || true
+    echo "SystemCallFilter=$(echo "$syscalls" | tr '\n' ' ')" || true
 
     echo
     echo "# For our custom l2 enforcing filter (copy into sandbox.rs or a config):"
@@ -79,21 +79,21 @@ generate_seccomp_profile() {
     type_line "Combine with experimental user-ns (L2_EXPERIMENTAL_USER_NS=1) + C core (L2_USE_CORE=1) for deeper integration testing."
 
     # Write usable profile files for direct consumption by l2 (auto-discover + L2_SECCOMP_PROFILE)
-    local prof_dir="${HOME}/.l2/seccomp"
+    local prof_dir="$L2_BASE/seccomp"
     mkdir -p "$prof_dir" 2>/dev/null || true
     local raw_profile="$prof_dir/strict-mcp-from-trace.txt"
     # One number per line (or space sep) - both work with the loader in sandbox.rs
     echo "$syscalls" | tr ' ' '\n' | sort -n | uniq > "$raw_profile" || true
     if [ -s "$raw_profile" ]; then
-        echo
+        echo || true
         type_line "Wrote loadable profile for l2 strict-mcp enforcement:"
-        echo "  $raw_profile"
-        echo "  Example usage (auto-discovered by strict-mcp in many cases):"
-        echo "    L2_STRICT_SECCOMP_ENFORCE=1 l2 exec --policy strict-mcp ./your-mcp-tool"
-        echo "  Or explicitly:"
-        echo "    L2_SECCOMP_PROFILE=$raw_profile L2_STRICT_SECCOMP_ENFORCE=1 l2 exec --policy strict-mcp ..."
-        echo
-        echo "  (Also consider copying/symlinking to /etc/l2/ for host-wide use)"
+        echo "  $raw_profile" || true
+        echo "  Example usage (auto-discovered by strict-mcp in many cases):" || true
+        echo "    L2_STRICT_SECCOMP_ENFORCE=1 l2 exec --policy strict-mcp ./your-mcp-tool" || true
+        echo "  Or explicitly:" || true
+        echo "    L2_SECCOMP_PROFILE=$raw_profile L2_STRICT_SECCOMP_ENFORCE=1 l2 exec --policy strict-mcp ..." || true
+        echo || true
+        echo "  (Also consider copying/symlinking to /etc/l2/ for host-wide use)" || true
     fi
 }
 
@@ -137,6 +137,12 @@ reveal_lines() {
 # -----------------------------------------------------------------------------
 # Main
 # -----------------------------------------------------------------------------
+if [ -n "${L2_DATA_DIR:-}" ]; then
+    L2_BASE="$L2_DATA_DIR"
+else
+    L2_BASE="${HOME}/.l2"
+fi
+
 echo "=== l2 harden ==="
 type_line "High-assurance hardening for the agentic / AI / MCP era"
 type_line "Profile: $PROFILE   Target: $TARGET"
@@ -164,7 +170,7 @@ echo
 # Handle --generate-seccomp (very useful standalone)
 if [ -n "$GENERATE_SECCOMP" ]; then
     generate_seccomp_profile "$GENERATE_SECCOMP"
-    echo
+    echo || true
     type_line "Seccomp profile generation complete."
     exit 0
 fi
@@ -336,15 +342,15 @@ if [ "$TARGET" = "host" ]; then
 
     # Network isolation (very important for MCP - agents should not have free outbound)
     if $NETWORK_ISOLATION; then
-        echo
+        echo || true
         type_line "      === Network Isolation (enabled via --network-isolation) ==="
         type_line "      For strict-mcp workloads, outbound network should be heavily restricted."
-        echo
+        echo || true
         type_line "      Example (nftables) - drop all outbound for l2-agent user:"
-        echo "      nft add table inet l2-agent-isolation"
-        echo "      nft add chain inet l2-agent-isolation output { type filter hook output priority 0 \\; policy drop \\; }"
-        echo "      nft add rule inet l2-agent-isolation output skuid l2-agent counter drop"
-        echo
+        echo "      nft add table inet l2-agent-isolation" || true
+        echo "      nft add chain inet l2-agent-isolation output { type filter hook output priority 0 \\; policy drop \\; }" || true
+        echo "      nft add rule inet l2-agent-isolation output skuid l2-agent counter drop" || true
+        echo || true
         type_line "      Then allow only specific destinations your MCP tools actually need."
         type_line "      This is one of the highest-leverage controls for agentic systems."
     fi
@@ -357,10 +363,10 @@ if [ "$TARGET" = "host" ]; then
     fi
 fi
 
-echo
-echo "[4/6] Generating hardening report..."
+echo || true
+echo "[4/6] Generating hardening report..." || true
 
-REPORT_DIR="${HOME}/.l2/harden-reports"
+REPORT_DIR="$L2_BASE/harden-reports"
 mkdir -p "$REPORT_DIR"
 REPORT_FILE="$REPORT_DIR/$(date +%Y%m%d-%H%M%S)-${PROFILE}-${TARGET}.md"
 
@@ -484,9 +490,9 @@ l2 audit --test
 This report is a living artifact. Re-run `l2 harden` after major system or workload changes.
 ENDOFREPORT
 
-echo "      Rich report written to: $REPORT_FILE"
+echo "      Rich report written to: $REPORT_FILE" || true
 
-echo "      Report written to: $REPORT_FILE"
+echo "      Report written to: $REPORT_FILE" || true
 
 # -----------------------------------------------------------------------------
 # Machine-readable harden report artifact (for `l2 audit --test` integration)
@@ -496,7 +502,7 @@ echo "      Report written to: $REPORT_FILE"
 # Written for both real runs and --dry-run (so CI/smoke always sees it).
 # Location chosen as ~/.l2/harden/ (alongside the human .md in harden-reports/).
 # -----------------------------------------------------------------------------
-HARDEN_DIR="${HOME}/.l2/harden"
+HARDEN_DIR="$L2_BASE/harden"
 mkdir -p "$HARDEN_DIR" 2>/dev/null || true
 LATEST_JSON="$HARDEN_DIR/${PROFILE}-latest.json"
 cat > "$LATEST_JSON" << EOF
@@ -542,12 +548,12 @@ echo
 echo "[6/6] l2 harden complete for profile '$PROFILE'."
 
 if ! $DRY_RUN; then
-    echo
-    echo "Remember: This is a living protocol. The threat landscape for agentic systems"
-    echo "evolves quickly. Keep your allowlists, policies, and host hardening up to date."
-    echo
-    echo "Next verification step: l2 audit --test   # confirms harden + strict-mcp meet the listed standards"
+    echo || true
+    echo "Remember: This is a living protocol. The threat landscape for agentic systems" || true
+    echo "evolves quickly. Keep your allowlists, policies, and host hardening up to date." || true
+    echo || true
+    echo "Next verification step: l2 audit --test   # confirms harden + strict-mcp meet the listed standards" || true
 fi
 
-echo
-echo "=== l2 harden finished ==="
+echo || true
+echo "=== l2 harden finished ===" || true

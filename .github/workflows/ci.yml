@@ -43,33 +43,36 @@ jobs:
         ./target/release/l2 --help >/dev/null
         ./target/release/l2 --version >/dev/null || true
         ./target/release/l2 policies
-        ./target/release/l2 policy strict-mcp | grep -q "current main focus"
+        ./target/release/l2 policy strict-mcp | grep -q "current main focus" ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
 
         # Full v0.4+ crypto surface (advisory, no privileged apply in CI)
-        ./target/release/l2 crypto --list | grep -q "hybrid-aes-chacha"
-        ./target/release/l2 crypto --profile aes256-xts-argon2id --fast 2>&1 | grep -q "Cryptography profiles"
+        ./target/release/l2 crypto --list | grep -q "hybrid-aes-chacha" ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
+        ./target/release/l2 crypto --profile aes256-xts-argon2id --fast 2>&1 | grep -q "Cryptography profiles" ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
 
         # Major harden tooling (NSA/CISA path) — dry + seccomp generation (no host mutation)
-        ./target/release/l2 harden --profile strict-mcp --dry-run --fast --generate-seccomp /dev/null 2>&1 | grep -q "l2 harden complete"
-        ./target/release/l2 harden --profile strict-mcp --dry-run --fast --network-isolation 2>&1 | grep -q "Network Isolation"
-
-        # Trace + new --output-profile (data-driven Phase 1 loop)
+        # Create fake trace early so --generate-seccomp can use a real file (the old /dev/null
+        # was rejected by [ -f ] + set -e in the script, and "l2 harden complete" was never printed
+        # in the generate branch anyway; the generate path prints "Seccomp profile generation complete.").
         echo '[audit] syscall=0 nr=59' > "$L2_DATA_DIR/fake.log"
         echo '[more] nr=1' >> "$L2_DATA_DIR/fake.log"
-        ./target/release/l2 trace --analyze "$L2_DATA_DIR/fake.log" --output-profile "$L2_DATA_DIR/strict-mcp.txt" 2>&1 | grep -q "Wrote loadable seccomp profile"
+        ./target/release/l2 harden --profile strict-mcp --dry-run --fast --generate-seccomp "$L2_DATA_DIR/fake.log" 2>&1 | grep -q "Seccomp profile generation complete" ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
+        ./target/release/l2 harden --profile strict-mcp --dry-run --fast --network-isolation 2>&1 | grep -q "Network Isolation" ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
+
+        # Trace + new --output-profile (data-driven Phase 1 loop) — the same fake.log works
+        ./target/release/l2 trace --analyze "$L2_DATA_DIR/fake.log" --output-profile "$L2_DATA_DIR/strict-mcp.txt" 2>&1 | grep -q "Wrote loadable seccomp profile" ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
         test -s "$L2_DATA_DIR/strict-mcp.txt"
 
         # Strict + strict-mcp lifecycle + audit (core of high-assurance path)
         ./target/release/l2 create smoke-mcp --policy strict-mcp
         ./target/release/l2 list smoke-mcp
         ./target/release/l2 put smoke-mcp task.txt --content 'mcp workload test'
-        ./target/release/l2 get smoke-mcp task.txt | grep -q 'mcp workload'
+        ./target/release/l2 get smoke-mcp task.txt | grep -q 'mcp workload' ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
         ./target/release/l2 audit --tail 10 --json >/dev/null || true
 
         # Regular audit tests (up-to-date standards automatically checked/implemented via strict-mcp + harden integration)
         # harden --dry-run writes ~/.l2/harden/strict-mcp-latest.json; audit --test now consumes it for reliable "Harden reports" PASS
         ./target/release/l2 audit --test 2>&1 | grep -q "✅ PASS" || echo "(audit tests partial on CI env - expected)"
-        ./target/release/l2 audit --test 2>&1 | grep -q "harden/strict-mcp-latest.json" || echo "(harden json report path exercised)"
+        ./target/release/l2 audit --test 2>&1 | grep -q "Harden reports for strict-mcp" || echo "(harden reports check exercised)"
 
         # Exec under strict-mcp (sandbox path exercised even if unshare limited in CI)
         exec_out=$(./target/release/l2 exec smoke-mcp 'echo mcp-ok; cat task.txt' 2>&1 || true)

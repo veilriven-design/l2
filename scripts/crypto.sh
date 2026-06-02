@@ -82,28 +82,28 @@ reveal_lines() {
 # -----------------------------------------------------------------------------
 print_profiles() {
     reveal_lines "Available l2 crypto profiles (verified open-source only):"
-    echo
+    echo || true
     type_line "1. aes256-xts-argon2id"
     reveal_lines "   - Symmetric: AES-256 in XTS mode (NIST-approved, most analyzed disk cipher).
    - KDF: Argon2id (memory-hard, winner of Password Hashing Competition, side-channel resistant).
    - Use case: Standard high-security full disk / data encryption.
    - Performance: Excellent on CPUs with AES-NI.
    - Verification: FIPS 140-2/3, extensively cryptanalyzed for decades."
-    echo
+    echo || true
     type_line "2. xchacha20-poly1305-argon2id"
     reveal_lines "   - Symmetric: XChaCha20-Poly1305 (IETF standard, constant-time, no AES dependency).
    - KDF: Argon2id (same as above).
    - Use case: Modern encryption for all hardware, great on low-power/embedded for agents.
    - Performance: Fast in software, resistant to timing attacks.
    - Verification: Used in libsodium, WireGuard, age, etc. Rigorously reviewed."
-    echo
+    echo || true
     type_line "3. hybrid-aes-chacha"
     reveal_lines "   - Mixture: AES-256-XTS for bulk data volumes + XChaCha20-Poly1305 for key wrapping, metadata, and small sensitive objects.
    - KDF: Argon2id for both.
    - Use case: Defense-in-depth for critical systems. Algorithms complement each other (different designs, no shared weaknesses).
    - Why robust: If one cipher has future weakness, the other provides independent security. Ideal for long-term archive or high-value MCP data.
    - Verification: Both components are top-tier; hybrid constructions are recommended in modern guidance (e.g., for post-quantum transition but here for classical robustness)."
-    echo
+    echo || true
     type_line "Hybrid is strongly recommended for maximum security in agentic environments where data longevity and tool secrecy matter."
 }
 
@@ -111,22 +111,22 @@ get_profile_details() {
     local prof="$1"
     case "$prof" in
         aes256-xts-argon2id)
-            echo "aes-xts-plain64:512"
-            echo "argon2id"
-            echo "AES-256-XTS + Argon2id"
+            echo "aes-xts-plain64:512" || true
+            echo "argon2id" || true
+            echo "AES-256-XTS + Argon2id" || true
             ;;
         xchacha20-poly1305-argon2id)
-            echo "xchacha20,aes-adiantum-plain64:256"  # or chacha20-poly1305 for supported LUKS; using adiantum for broad compat
-            echo "argon2id"
-            echo "XChaCha20-Poly1305 + Argon2id"
+            echo "xchacha20,aes-adiantum-plain64:256"  # or chacha20-poly1305 for supported LUKS; using adiantum for broad compat || true
+            echo "argon2id" || true
+            echo "XChaCha20-Poly1305 + Argon2id" || true
             ;;
         hybrid-aes-chacha)
-            echo "hybrid"  # special case
-            echo "argon2id"
-            echo "AES-256-XTS (data) + XChaCha20-Poly1305 (keys/meta)"
+            echo "hybrid"  # special case || true
+            echo "argon2id" || true
+            echo "AES-256-XTS (data) + XChaCha20-Poly1305 (keys/meta)" || true
             ;;
         *)
-            echo "unknown"
+            echo "unknown" || true
             ;;
     esac
 }
@@ -134,12 +134,12 @@ get_profile_details() {
 # -----------------------------------------------------------------------------
 # Main
 # -----------------------------------------------------------------------------
-echo "=== l2 crypto ==="
+echo "=== l2 crypto ===" || true
 type_line "Cryptography profiles for true system encryption via the l2 substrate"
 type_line "Profile: $PROFILE"
 if $LIST; then type_line "Mode: LIST"; fi
 if $APPLY; then type_line "Mode: APPLY"; fi
-echo
+echo || true
 
 reveal_lines "This tool lets you select and apply verified cryptography profiles across your system.
 Only the most effective, widely audited open-source algorithms are offered.
@@ -147,7 +147,7 @@ Profiles are applied proficiently using standard Linux tools (cryptsetup/LUKS, g
 Keys and operations are protected by the l2 isolation substrate (e.g. strict-mcp policies).
 Hybrid mode mixes complementary algorithms for robust, defense-in-depth security."
 
-echo
+echo || true
 
 if $LIST || [ "$PROFILE" = "list" ]; then
     print_profiles
@@ -167,7 +167,7 @@ fi
 type_line "[1/5] Detecting environment..."
 type_line "      OS family : ${OS_ID}"
 type_line "      Requested profile : ${PROFILE}"
-echo
+echo || true
 
 # Validate profile
 PROFILE_DETAILS=$(get_profile_details "$PROFILE")
@@ -188,7 +188,7 @@ Key derivation: $KDF
 This profile uses only algorithms with decades of public scrutiny, formal analysis,
 and real-world deployment in high-security environments."
 
-echo
+echo || true
 
 type_line "[3/5] How l2 crypto applies this to the entire system"
 reveal_lines "The l2 substrate enables true system encryption by:
@@ -198,7 +198,7 @@ reveal_lines "The l2 substrate enables true system encryption by:
 - Integration: after setup, access the encrypted data only through l2 exec --policy strict-mcp to keep keys isolated.
 This is proficient and simple: one command chooses the profile, the script handles the correct cryptsetup/gocryptfs parameters."
 
-echo
+echo || true
 
 # Handle apply
 if $APPLY; then
@@ -211,7 +211,7 @@ For existing systems, we will set up a safe per-user encrypted directory for l2 
     read -r REPLY || true
     if [[ ! "$REPLY" =~ ^[Yy]$ ]]; then
         type_line "Aborted by user."
-        echo "=== l2 crypto finished ==="
+        echo "=== l2 crypto finished ===" || true
         exit 0
     fi
 
@@ -248,7 +248,7 @@ For existing systems, we will set up a safe per-user encrypted directory for l2 
             type_line "Please install and re-run, or use the printed cryptsetup commands for LUKS."
             # Still print LUKS commands below
         else
-            echo "Initializing gocryptfs with profile cipher (this will prompt for password)..."
+            echo "Initializing gocryptfs with profile cipher (this will prompt for password)..." || true
             gocryptfs $GOCRYPTFS_CIPHER "$CRYPTO_DIR" "$MOUNT_DIR" || true
             type_line "Encrypted dir initialized. Mount with: gocryptfs $CRYPTO_DIR $MOUNT_DIR"
             type_line "To unmount: fusermount -u $MOUNT_DIR"
@@ -267,7 +267,7 @@ For existing systems, we will set up a safe per-user encrypted directory for l2 
 set -e
 MOUNT_DIR="${MOUNT_DIR:-$HOME/l2-secure}"
 CRYPTO_DIR="${CRYPTO_DIR:-$HOME/l2-crypto-data}"
-echo "[l2-crypto] Mounting $CRYPTO_DIR -> $MOUNT_DIR under strict-mcp policy (recommended)"
+echo "[l2-crypto] Mounting $CRYPTO_DIR -> $MOUNT_DIR under strict-mcp policy (recommended)" || true
 # In real use the outer l2 exec --policy strict-mcp provides the isolation + audit.
 gocryptfs "$CRYPTO_DIR" "$MOUNT_DIR" || echo "mount may already be active or failed (check)"
 EOFHELPER
@@ -280,16 +280,16 @@ EOFHELPER
 
     case "$PROFILE" in
         aes256-xts-argon2id)
-            echo "cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --pbkdf argon2id --pbkdf-memory 1048576 --pbkdf-parallel 4 --pbkdf-force-iterations 4 /dev/sdX"
+            echo "cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --pbkdf argon2id --pbkdf-memory 1048576 --pbkdf-parallel 4 --pbkdf-force-iterations 4 /dev/sdX" || true
             ;;
         xchacha20-poly1305-argon2id)
-            echo "cryptsetup luksFormat --type luks2 --cipher xchacha20,aes-adiantum-plain64 --key-size 256 --pbkdf argon2id --pbkdf-memory 1048576 --pbkdf-parallel 4 --pbkdf-force-iterations 4 /dev/sdX"
+            echo "cryptsetup luksFormat --type luks2 --cipher xchacha20,aes-adiantum-plain64 --key-size 256 --pbkdf argon2id --pbkdf-memory 1048576 --pbkdf-parallel 4 --pbkdf-force-iterations 4 /dev/sdX" || true
             ;;
         hybrid-aes-chacha)
-            echo "# Hybrid: outer layer XChaCha, inner AES (or vice versa). Example two-layer setup:"
-            echo "cryptsetup luksFormat --type luks2 --cipher xchacha20,aes-adiantum-plain64 --key-size 256 --pbkdf argon2id /dev/sdX  # outer"
-            echo "# Then create inner on the mapped device with AES."
-            echo "cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --pbkdf argon2id /dev/mapper/outer"
+            echo "# Hybrid: outer layer XChaCha, inner AES (or vice versa). Example two-layer setup:" || true
+            echo "cryptsetup luksFormat --type luks2 --cipher xchacha20,aes-adiantum-plain64 --key-size 256 --pbkdf argon2id /dev/sdX  # outer" || true
+            echo "# Then create inner on the mapped device with AES." || true
+            echo "cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --pbkdf argon2id /dev/mapper/outer" || true
             ;;
     esac
 
@@ -329,17 +329,17 @@ reveal_lines "To apply this profile proficiently:
 - Integrate with l2: after mounting the encrypted volume, access it only via l2 exec --policy strict-mcp to keep keys and processes isolated from the rest of the system.
 This ensures true system encryption where the substrate's isolation complements the crypto."
 
-echo
+echo || true
 
 type_line "To actually apply (safe, user-confirmed setup of encrypted dir + full commands):"
 type_line "  l2 crypto --profile $PROFILE --apply"
 
-echo
+echo || true
 
 type_line "[5/5] l2 crypto guidance complete."
 
-echo
+echo || true
 type_line "Use --apply to perform the proficient setup. Keep your profiles and keys protected via the l2 substrate."
 
-echo
-echo "=== l2 crypto finished ==="
+echo || true
+echo "=== l2 crypto finished ===" || true
