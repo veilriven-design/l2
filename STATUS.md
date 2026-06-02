@@ -1,6 +1,6 @@
 # Status
 
-**v0.4.1 released** — Builds on v0.4.0 with deeper C substrate integration (host.c + core.c + L2P ties), experimental user-ns exploration, major `put` UX (auto local files + --file), exec fixes for safe "gcc mycode.c" patterns with --type code objects, unshare fallback for old kernels (X200 etc.), the canonical `docs/examples/l2_safe_execution_demo.c`, trace/harden polish, and broad robustness/UX work. See CHANGELOG.md for details. v0.4.0 remains the big crypto/harden milestone; v0.3.9 and earlier tags preserved.
+**v0.4.2 in prep** — `l2 harden` + `l2 audit --test` integration: harden emits machine-readable `~/.l2/harden/<profile>-latest.json` (with standards list) that the automated audit tests consume for PASS after running harden; added post-harden hint and docs/CI updates for the "harden then audit --test" as the regular verification flow for NSA/CISA/etc. standards. See CHANGELOG.md. Builds on v0.4.1 (deeper C, user-ns, put UX, safe demo C, etc.). v0.4.1 tag preserved.
 - New `l2 harden` command + `scripts/harden.sh` (modeled after sel4-setup with paced typewriter output). Applies NSA/CISA/FBI-aligned concrete hardening steps for the agentic era.
 - `strict-mcp` policy protocol is now the main focus: diverges from `strict` with aggressive defaults (enforcing seccomp on by default, tighter posture).
 - Full integration: `l2 trace --policy strict-mcp` + `--analyze`, `l2 harden --generate-seccomp`, and the runtime enforcing filter can directly load generated minimal profiles.

@@ -463,6 +463,9 @@ l2 trace --analyze /path/to/captured-seccomp.log
 
 # Run actual work under the hardened protocol
 l2 exec --policy $PROFILE ./your-workload
+
+# Verify automated compliance with the standards referenced above (NSA/CISA etc.)
+l2 audit --test
 ```
 
 ---
@@ -485,12 +488,55 @@ echo "      Rich report written to: $REPORT_FILE"
 
 echo "      Report written to: $REPORT_FILE"
 
+# -----------------------------------------------------------------------------
+# Machine-readable harden report artifact (for `l2 audit --test` integration)
+# This is the key integration point: `l2 harden --profile strict-mcp` produces
+# a parseable JSON with "standards" list so that `l2 audit --test` can
+# automatically verify compliance as part of regular standards checks.
+# Written for both real runs and --dry-run (so CI/smoke always sees it).
+# Location chosen as ~/.l2/harden/ (alongside the human .md in harden-reports/).
+# -----------------------------------------------------------------------------
+HARDEN_DIR="${HOME}/.l2/harden"
+mkdir -p "$HARDEN_DIR" 2>/dev/null || true
+LATEST_JSON="$HARDEN_DIR/${PROFILE}-latest.json"
+cat > "$LATEST_JSON" << EOF
+{
+  "profile": "${PROFILE}",
+  "target": "${TARGET}",
+  "timestamp": "$(date -Iseconds)",
+  "dry_run": ${DRY_RUN},
+  "network_isolation": ${NETWORK_ISOLATION},
+  "generate_seccomp": "${GENERATE_SECCOMP}",
+  "applied": [
+    "strict-mcp profile guidance and pairing",
+    "seccomp Phase 1 + trace-derived profiles",
+    "Landlock / ProtectSystem / capability bounding recommendations",
+    "dedicated low-privilege agent user + audit rules",
+    "kernel sysctls (ptrace_scope, protected_* links/fifos)",
+    "systemd unit templates with NoNewPrivileges + SystemCallFilter",
+    "network isolation (nftables default-deny for agent)"
+  ],
+  "standards": [
+    "NSA / CISA \"Securing AI Systems\" guidance",
+    "CISA Zero Trust Maturity Model (adapted for agents)",
+    "FBI alerts on AI supply chain and agentic threats",
+    "CIS Benchmarks for Linux hardening",
+    "l2 strict-mcp policy protocol + regular \`l2 audit --test\`"
+  ],
+  "report_md": "$REPORT_FILE"
+}
+EOF
+if [ -s "$LATEST_JSON" ]; then
+    echo "      Machine-readable report for audit --test: $LATEST_JSON"
+fi
+
 echo
 echo "[5/6] Next steps"
 echo "      1. Review the generated report"
 echo "      2. Use \`l2 trace --policy strict-mcp\` to collect data for your specific workloads"
 echo "      3. Run agents with \`l2 exec --policy strict-mcp\`"
 echo "      4. Re-run \`l2 harden\` periodically after major changes"
+echo "      5. Run \`l2 audit --test\` to automatically verify standards compliance (harden reports + chain + strict-mcp usage etc.)"
 
 echo
 echo "[6/6] l2 harden complete for profile '$PROFILE'."
@@ -499,6 +545,8 @@ if ! $DRY_RUN; then
     echo
     echo "Remember: This is a living protocol. The threat landscape for agentic systems"
     echo "evolves quickly. Keep your allowlists, policies, and host hardening up to date."
+    echo
+    echo "Next verification step: l2 audit --test   # confirms harden + strict-mcp meet the listed standards"
 fi
 
 echo

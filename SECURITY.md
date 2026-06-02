@@ -90,6 +90,7 @@ Prepares the runtime so that `strict-mcp` + crypto deliver on their guarantees. 
 **Automatic artifacts**:
 
 - Rich advisory report written to `~/.l2/harden-reports/` (timestamped, includes commands, rationale, next-steps).
+- Machine-readable standards report: `~/.l2/harden/<profile>-latest.json` (profile, timestamp, "applied" list, full "standards" array from NSA/CISA/FBI/CIS + l2 strict-mcp). This is consumed by `l2 audit --test` so that running `l2 harden --profile strict-mcp` followed by `l2 audit --test` automatically verifies compliance as a regular, repeatable check.
 - Full hardened systemd unit template (print + file) with comments tying it to the chosen profile/strict-mcp/trace. Includes all the Protect*/Restrict*/SystemCallFilter/etc. plus a note: "Recommended next: l2 trace ... ; l2 exec --policy strict-mcp ...".
 - Paced typewriter output for every long guidance section so the operator can read along.
 

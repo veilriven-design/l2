@@ -1,11 +1,11 @@
-# l2 — Minimal High-Assurance System Substrate (v0.4.1)
+# l2 — Minimal High-Assurance System Substrate (v0.4.2)
 
 Terminal-first CLI for creating, using, and destroying strongly isolated execution contexts. Narrow surface. Built for high-assurance with seL4 as the root of trust.
 
 **Linux prototype** — ready for immediate use and validation (with powerful hardening and crypto).  
 **seL4/Microkit** — the production/high-assurance path.
 
-**v0.4.1 highlights (continuing v0.4.0):** deeper C integration + L2P ties, experimental user-ns support, `l2 put` UX ( `--file` + auto local-file read when name matches cwd), exec validation fixes for compilers + code objects, unshare fallback for old kernels, the `docs/examples/l2_safe_execution_demo.c` (canonical example of safe contained execution vs. unprotected host), trace/harden analyzer + script polish, and many robustness/UX wins. See full details in CHANGELOG.md.
+**v0.4.2 highlights:** integration of `l2 harden` (strict-mcp) with regular `l2 audit --test` — harden now emits `~/.l2/harden/strict-mcp-latest.json` (standards + applied) which audit --test consumes for automatic PASS after `l2 harden --profile strict-mcp`; post-harden hint "l2 audit --test"; docs/CI updated for the combined regular verification flow. Builds on v0.4.1: deeper C integration + L2P ties, experimental user-ns support, `l2 put` UX ( `--file` + auto local-file read when name matches cwd), exec validation fixes for compilers + code objects, unshare fallback for old kernels, the `docs/examples/l2_safe_execution_demo.c` (canonical example of safe contained execution vs. unprotected host), trace/harden analyzer + script polish, and many robustness/UX wins. See full details in CHANGELOG.md.
 
 See the dedicated **[Crypto & Hardening](#crypto--hardening-v040)** section (collapsible) and [SECURITY.md](SECURITY.md) for full v0.4.0 crypto/hardening/strict-mcp details, plus [ROADMAP.md](ROADMAP.md) and [STATUS.md](STATUS.md).
 
@@ -176,6 +176,7 @@ echo 'fake log' > /tmp/fake.log
 l2 trace --analyze /tmp/fake.log --output-profile /tmp/profile.txt
 l2 audit --tail 5
 l2 audit --verify
+l2 audit --test  # runs regular automated checks vs. latest security standards (CISA/NSA/FBI/Linux hardening); automatically tied to strict-mcp + l2 harden artifacts (run `l2 harden --profile strict-mcp` then this for full PASS)
 l2 destroy smoke
 echo "Smoke OK"
 ```
