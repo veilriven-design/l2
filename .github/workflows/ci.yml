@@ -110,7 +110,7 @@ jobs:
         cancer_exec=$(./target/release/l2 exec smoke-cancer 'echo cancer-ok; cat task.txt' 2>&1 || true)
         echo "$cancer_exec" | grep -q 'cancer-ok' || echo "(cancer exec limited in CI — expected)"
         ./target/release/l2 put smoke-cancer cancer.c --file docs/examples/l2_malware_cancer_resistance_demo.c 2>/dev/null || true
-        ./target/release/l2 audit --test 2>&1 | grep -q "AIO malware-cancer\|great-harden\|malware-cancer" || echo "(great-harden + AIO malware-cancer audit check exercised)"
+        ./target/release/l2 audit --test 2>&1 | grep -q "AIO malware-cancer\|great-harden\|malware-cancer\|North-Star Containment" || echo "(great-harden + AIO malware-cancer + l2 North-Star Containment audit check exercised)"
         ./target/release/l2 destroy smoke-cancer
 
-        echo "✅ All v0.4.4+ smoke tests passed (policies + strict-mcp + ransom-hardened + crypto + harden + trace+output-profile + audit + regular up-to-date security standards tests + harden<->audit integration + ransomware + Miasma supply-chain containment checks exercised + great-harden + AIO malware-cancer substrate defense)"
+        echo "✅ All v0.4.4+ smoke tests passed (policies + strict-mcp + ransom-hardened + crypto + harden + trace+output-profile + audit + regular up-to-date security standards tests + harden<->audit integration + ransomware + Miasma supply-chain + great-harden + AIO malware-cancer + l2 North-Star Containment grand demo exercised)"

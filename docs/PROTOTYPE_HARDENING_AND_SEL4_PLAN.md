@@ -40,8 +40,8 @@ Recent progress on this thread (trace + hardening UX):
 - `l2 trace --policy strict-mcp` (and `ransom-hardened`) with `--enforce` and auto-paced output.
 - `l2 crypto` for selecting/applying verified profiles (including hybrid) system-wide.
 - `l2 harden --profile strict-mcp` (and `ransom-hardened`) with NSA/CISA/FBI-aligned (and ransomware-specific) concrete steps, network isolation, auto systemd units, seccomp generation, and json artifacts for `l2 audit --test`.
-- `docs/examples/l2_ransomware_resistance_demo.c` + `l2_miasma_resistance_demo.c` + `l2_malware_cancer_resistance_demo.c` + full `ransom-hardened` / `great-harden` substrate path for ransomware + Miasma supply-chain worm + AIO malware-cancer (direct l2 substrate attack: state/trace/audit/crypto + ns/bpf escapes) containment validation.
-- **NEW `l2 great-harden`**: supreme aerospace/industrial mode for higher assurance, advanced hardening, closing logic gaps, making servers impenetrable (great-harden policy + extreme lockdown + AIO substrate defense preps).
+- `docs/examples/l2_ransomware_resistance_demo.c` + `l2_miasma_resistance_demo.c` + `l2_malware_cancer_resistance_demo.c` + full `ransom-hardened` / `great-harden` substrate path for ransomware + Miasma supply-chain worm + viruses + AIO malware-cancer (direct l2 substrate attack: state/trace/audit/crypto + ns/bpf escapes + git/pip/ELF) + l2 North-Star Containment grand demo containment validation.
+- **NEW `l2 great-harden`**: supreme aerospace/industrial mode for higher assurance, advanced hardening, closing logic gaps, making servers impenetrable, achieving l2 North-Star Containment (great-harden policy + extreme lockdown + AIO substrate defense preps + grand demo).
 - Improved runtime messaging, `sandbox::print_seccomp_trace_reminder()`, and policy-aware Landlock/seccomp (ransom-hardened is strictest).
 - Better guidance on recommended first workloads and practical capture commands. See also the demo .c headers.
 

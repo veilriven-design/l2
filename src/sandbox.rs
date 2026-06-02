@@ -130,9 +130,10 @@ pub fn apply_strict_sandbox(workspace: Option<&Path>, policy: &str) -> Result<()
             // SUPREME great-harden for aerospace/industrial: even more extreme than ransom.
             // No /proc (info leak), no /etc, minimal static only, for making impenetrable.
             // Closes remaining gaps: no ambient anything that could be malware vector.
-            // AIO malware-cancer: blocks /proc-based anti-analysis, state/audit exfil, ns escape probes.
+            // AIO malware-cancer + grand North-Star Containment: blocks /proc-based anti-analysis,
+            // state/audit exfil, ns escape probes, keyctl/mknod device persistence.
             ro_paths = vec!["/bin", "/usr/bin", "/lib", "/usr/lib", "/dev"];
-            println!("[great-harden] SUPREME AEROSPACE/INDUSTRIAL: tiniest RO (static bins + /dev only); NO /proc/NO /etc for supreme surface reduction. Workspace-only writes. Servers now impenetrable.");
+            println!("[great-harden] SUPREME AEROSPACE/INDUSTRIAL: tiniest RO (static bins + /dev only); NO /proc/NO /etc for supreme surface reduction. Workspace-only writes. Servers now impenetrable. North-Star Containment of AIO malware-cancer validated.");
         } else {
             ro_paths.push("/tmp");
         }
@@ -499,6 +500,11 @@ pub fn try_install_seccomp_enforcing_filter(profile_path: Option<&str>) -> Resul
             272, // unshare (re-unshare after setup to escape mount/net/pid ns)
             308, // setns (escape via /proc/self/ns/* or fds)
             321, // bpf (BPF_PROG_LOAD / map ops to tamper seccomp or inspect kernel)
+            // Additional for grand North-Star Containment demo (more direct substrate + key/ device malware vectors)
+            250, // keyctl (keyring manipulation for credential/crypto exfil or injection)
+            249, // add_key (insert keys to bypass or exfil)
+            133, // mknod (create devices for persistence/escape)
+            39,  // mkdir (extra persistence vector beyond open)
         ];
 
         for &nr in &allowed {

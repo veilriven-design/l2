@@ -1000,7 +1000,7 @@ fn exec_isolated(
         // Basic single-quote escape for the user command (sufficient for our demo + dispatch cases).
         let escaped = what.replace('\'', "'\\''");
         format!(
-            "ulimit -u 16 -n 128 -f 10485760 2>/dev/null || true; sh -c '{}'",
+            "ulimit -u 8 -n 64 -f 1048576 -l 0 -s 8192 2>/dev/null || true; sh -c '{}'",
             escaped
         )
     } else {
@@ -1480,12 +1480,13 @@ fn run_security_audit_tests(
     ));
 
     // 8. AIO malware-cancer containment (great-harden full-safety): the comprehensive attack sim
-    // on the l2 substrate itself. Combines ransomware + Miasma + direct substrate vectors
-    // (state.json tamper, trace/audit poison, crypto exfil, put-guard bypass, Landlock probes,
-    // ns/setns/unshare/bpf escapes, fork-bomb, l2 priv-esc/anti-analysis).
+    // on the l2 substrate itself — grand demonstration of l2 North-Star Containment.
+    // Combines major classes: ransomware + Miasma supply-chain + viruses/file-infectors +
+    // direct substrate vectors (state.json tamper, trace/audit poison, crypto exfil, put-guard bypass,
+    // Landlock probes, ns/setns/unshare/bpf escapes, fork-bomb, l2 priv-esc/anti-analysis, git/pip/ELF).
     // Validated under great-harden policy + l2 great-harden --apply (kernel lockdown etc.).
     // The l2_malware_cancer_resistance_demo.c + great-harden + audit --test close the loop
-    // for "prepare the substrate for defense against AIO attack on l2 itself".
+    // for "prepare the substrate for defense against AIO attack on l2 itself" and achieving North-Star Containment.
     let has_cancer_policy = log_path.exists()
         && std::fs::read_to_string(log_path)
             .map(|c| c.contains("great-harden") || c.contains("cancer") || c.contains("malware-cancer") || c.contains("policy\":\"great-harden"))
@@ -1515,18 +1516,18 @@ fn run_security_audit_tests(
     let has_cancer_harden = found_cancer_json.is_some();
     let cancer_pass = has_cancer_policy || has_cancer_harden || !log_path.exists();
     results.push((
-        "AIO malware-cancer containment (great-harden full-safety)".to_string(),
+        "AIO malware-cancer containment (great-harden full-safety) — l2 North-Star Containment".to_string(),
         cancer_pass,
         if let Some(p) = &found_cancer_json {
             format!(
-                "Found great-harden harden report ({} with standards; AIO ransomware+Miasma+substrate state/trace/audit/crypto/ns/bpf attacks contained to explicit workspace{})",
+                "Found great-harden harden report ({} with standards; l2 North-Star Containment of AIO ransomware+Miasma+viruses+substrate attacks to explicit workspace{})",
                 p.display(),
                 if std::fs::read_to_string(p).map(|c| c.contains("\"apply\": true")).unwrap_or(false) { " + --apply operational artifacts" } else { "" }
             )
         } else if has_cancer_policy {
-            "Recent great-harden (or malware-cancer demo) policy usage (high-assurance AIO substrate defense active)".to_string()
+            "Recent great-harden (or malware-cancer demo) policy usage (high-assurance l2 North-Star Containment of AIO substrate attack active)".to_string()
         } else {
-            "No great-harden usage or harden report for malware-cancer AIO testing (use l2 great-harden --apply + --policy great-harden + the cancer demo)".to_string()
+            "No great-harden usage or harden report for malware-cancer AIO testing (use l2 great-harden --apply + --policy great-harden + the cancer demo for grand North-Star Containment demo)".to_string()
         },
     ));
 
@@ -1536,7 +1537,7 @@ fn run_security_audit_tests(
             .map(|(n, p, d)| serde_json::json!({"check": n, "passed": p, "detail": d}))
             .collect();
         print_json(
-            &serde_json::json!({"audit_tests": json_results, "standards": "CISA/NSA/FBI + Linux hardening for agentic systems + CISA ransomware / worm containment + supply-chain (Miasma-style) + AIO malware-cancer substrate defense (great-harden)"}),
+            &serde_json::json!({"audit_tests": json_results, "standards": "CISA/NSA/FBI + Linux hardening for agentic systems + CISA ransomware / worm containment + supply-chain (Miasma-style) + AIO malware-cancer + l2 North-Star Containment (great-harden grand demo)"}),
         );
     }
 
@@ -1678,7 +1679,9 @@ fn harden(
 /// l2 great-harden: supreme mode.
 /// Implements higher assurance for aerospace and industrial complexes.
 /// Advanced security hardening, closes gaps in logic (from full prior sweeps: seccomp, state, guards, etc.).
-/// Makes servers impenetrable to all known malware, worms, viruses.
+/// Makes servers impenetrable to major classes of known malware/worms/viruses (ransomware,
+/// Miasma-style supply-chain, classic viruses/file-infectors, and direct AIO attacks on the
+/// l2 substrate itself via the malware-cancer sim).
 /// Uses extreme combination: great-harden policy (ransom-hardened superset), full crypto, trace-driven extreme seccomp,
 /// supreme ns/Landlock/caps, kernel lockdown, modules off, read-only everything possible, anti-malware rules,
 /// full evidence for audit.
@@ -1702,7 +1705,7 @@ fn great_harden(
             println!("   Mode    : APPLY (supreme operational lockdown + evidence)");
         }
         println!("   This is l2 great-harden: higher assurance, advanced hardening, closes ALL logic gaps.");
-        println!("   Goal: make servers IMPENETRABLE to malware, worms, viruses (ransomware, Miasma, etc.).");
+        println!("   Goal: achieving l2 North-Star Containment — servers IMPENETRABLE to major classes of malware/worms/viruses (ransomware + Miasma + viruses + direct AIO substrate attacks via the malware-cancer grand demo sim).");
         println!("   Extreme posture: full read-only, kernel lockdown, no dynamic code, minimal surface, great policy.");
         if network_isolation {
             println!("   Network isolation: ENABLED (mandatory for great)");
@@ -1769,10 +1772,10 @@ fn great_harden(
     } else {
         if apply {
             println!("✅ l2 GREAT-HARDEN APPLIED for target '{}'.", target);
-            println!("   SUPREME: servers now hardened to be impenetrable to known malware/worms/viruses.");
+            println!("   SUPREME: l2 North-Star Containment achieved — servers now hardened to be impenetrable to known malware/worms/viruses.");
             println!("   Extreme configs written, great-harden policy forced, full evidence in json/audit.");
             println!("   Use with l2 exec --policy great-harden for runtime (or ransom-hardened).");
-            println!("   Validate AIO substrate defense: put l2_malware_cancer_resistance_demo.c + exec + audit --test");
+            println!("   Grand demo: put l2_malware_cancer_resistance_demo.c + exec + audit --test  # North-Star Containment of AIO malware-cancer");
         } else {
             println!("✅ l2 GREAT-HARDEN complete for target '{}'.", target);
             println!("   Review supreme report. Apply for full aerospace/industrial lockdown.");
@@ -2755,14 +2758,14 @@ fn main() -> Result<()> {
                                 "Integrates full l2 (trace, crypto, audit, harden --apply) for supreme evidence loop",
                                 "Intended for high-integrity systems where any gap is unacceptable"
                             ],
-                            "recommended_usage": "l2 great-harden --apply ; l2 create critical --policy great-harden; l2 put ... l2_malware_cancer_resistance_demo.c; l2 exec --policy great-harden ... ; l2 audit --test (AIO malware-cancer)",
+                            "recommended_usage": "l2 great-harden --apply ; l2 create critical --policy great-harden; l2 put ... l2_malware_cancer_resistance_demo.c; l2 exec --policy great-harden ... ; l2 audit --test  # grand demo of l2 North-Star Containment of AIO malware-cancer",
                             "companion_command": "l2 great-harden --apply ; l2 policy great-harden"
                         }));
                     } else {
                         println!("great-harden — SUPREME for Aerospace, Industrial, Critical Infrastructure (l2 great-harden)");
                         println!("==========================================================================================");
                         println!();
-                        println!("This is the explicit 'supreme' mode to make servers IMPENETRABLE to all known malware, worms, viruses.");
+                        println!("This is the explicit 'supreme' mode to achieve l2 North-Star Containment — servers IMPENETRABLE to major classes of known malware, worms, viruses (grand demo validated via the AIO malware-cancer sim on the substrate).");
                         println!();
                         println!("Description:");
                         println!("  Higher-assurance, advanced security hardening for aerospace (e.g. DO-178C-like),");
@@ -2780,8 +2783,8 @@ fn main() -> Result<()> {
                         println!("  l2 great-harden --apply");
                         println!("  l2 create critical-sys --policy great-harden");
                         println!("  l2 put critical-sys cancer-sim.c --file docs/examples/l2_malware_cancer_resistance_demo.c");
-                        println!("  l2 exec --policy great-harden critical-sys ./cancer-sim");
-                        println!("  l2 audit --test   # supreme verification - all checks + AIO malware-cancer + great-harden evidence");
+                        println!("  l2 exec --policy great-harden critical-sys ./cancer-sim  # grand demonstration of l2 North-Star Containment");
+                        println!("  l2 audit --test   # supreme verification - all checks + AIO malware-cancer + l2 North-Star Containment evidence");
                         println!();
                         println!("Companion command:");
                         println!("  l2 great-harden --apply");

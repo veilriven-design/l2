@@ -294,7 +294,7 @@ case "$PROFILE" in
         ;;
     great-harden)
         echo "      → great-harden: SUPREME aerospace/industrial/critical infrastructure mode (l2 great-harden)"
-        echo "      → Makes servers IMPENETRABLE to all known malware, worms, viruses."
+        echo "      → Makes servers IMPENETRABLE to major classes of known malware/worms/viruses (ransomware + Miasma + viruses + AIO malware-cancer substrate attacks)."
         echo "      → Extreme: combines ransom-hardened + strict-mcp + aerospace (kernel lockdown, modules disabled, full ro root, no dynamic code, extreme caps/seccomp/Landlock, verified paths)."
         echo "      → Closes all logic gaps from prior sweeps. Use for high-assurance where standard hardening misses."
         echo "      → Forces great-harden policy (ransom-hardened superset). Pair with l2 exec --policy great-harden."
@@ -406,6 +406,8 @@ if [ "$TARGET" = "host" ]; then
         echo "      fs.protected_fifos = 2"
         echo "      fs.protected_regular = 2"
         echo "      kernel.perf_event_paranoid = 3"
+        echo "      fs.suid_dumpable = 0"
+        echo "      kernel.core_pattern = /dev/null"
         echo "      SYSCTL"
         echo "      sysctl -p /etc/sysctl.d/99-l2-great-harden.conf"
         echo "      # 4. Full audit for industrial (more rules)"
@@ -413,20 +415,27 @@ if [ "$TARGET" = "host" ]; then
         echo "      -w /usr/bin/ -p x -k l2-great-tools"
         echo "      -w /etc/ -p wa -k l2-great-config"
         echo "      -w /boot/ -p wa -k l2-great-boot"
+        echo "      -w /root/.l2/ -p wa -k l2-northstar-state   # North-Star Containment: protect substrate state/audit for malware-cancer"
+        echo "      -w /tmp/l2-ws- -p wa -k l2-northstar-ws"
         echo "      AUDIT"
         echo "      augenrules --load"
         echo "      # 5. Full ro root example (bind mounts, ProtectSystem=strict in units)"
         echo "      # See generated unit; for full: mount -o remount,ro / ; etc (careful)"
         echo "      # 6. No USB/storage for air-gap like: "
         echo "      echo 'blacklist usb_storage' > /etc/modprobe.d/l2-great-no-usb.conf || true"
-        echo "      # 7. Enforce great-harden policy for critical procs via units or l2 exec --policy great-harden"
+        echo "      echo 'blacklist firewire_core' >> /etc/modprobe.d/l2-great-no-usb.conf || true"
+        echo "      # 7. l2-specific North-Star Containment hardening (protect state/audit for malware-cancer sims)"
+        echo "      echo 'blacklist bluetooth' > /etc/modprobe.d/l2-great-no-bt.conf || true"
+        echo "      # 8. Enforce great-harden policy for critical procs via units or l2 exec --policy great-harden"
+        echo "      #    (grand demo: l2 create ... --policy great-harden; put l2_malware_cancer... ; exec ; audit --test)"
         echo
-        type_line "      This + great-harden policy + l2 runtime sandbox = servers impenetrable to known threats."
-        echo "      # Validate with AIO malware-cancer sim (ransom + Miasma + direct substrate attacks on state/trace/audit/crypto/ns/bpf):"
+        type_line "      This + great-harden policy + l2 runtime sandbox = servers impenetrable to major classes of ransomware/worm/virus/substrate threats (validated by malware-cancer AIO sim)."
+        echo "      # Validate with AIO malware-cancer sim (ransom + Miasma + direct substrate attacks on state/trace/audit/crypto/ns/bpf + git/pip/ELF/anti):"
         echo "      #   export L2_DATA_DIR=\$(mktemp -d); l2 great-harden --fast --apply || true"
         echo "      #   l2 create cancer-test --policy great-harden"
         echo "      #   l2 put cancer-test cancer-sim.c --file docs/examples/l2_malware_cancer_resistance_demo.c"
-        echo "      #   l2 exec cancer-test 'gcc -static ... && ./cancer-sim'; l2 audit --test"
+        echo "      #   l2 exec cancer-test 'gcc -static ... && ./cancer-sim'  # demonstrates l2 North-Star Containment"
+        echo "      #   l2 audit --test   # verifies North-Star Containment of AIO malware-cancer"
     fi
 fi
 
@@ -680,10 +689,11 @@ cat > "$LATEST_JSON" << EOF
     "systemd unit templates with NoNewPrivileges + SystemCallFilter",
     "network isolation (nftables default-deny for agent)",
     "supply-chain (Miasma npm worm + credential exfil + repack) resistance",
-    "AIO malware-cancer substrate defense (state/trace/audit/crypto tamper, ns/bpf/setns/unshare escapes, fork/priv-esc on l2)",
+    "AIO malware-cancer substrate defense (state/trace/audit/crypto tamper, ns/bpf/setns/unshare escapes, fork/priv-esc on l2, git/pip/ELF/anti)",
+    "North-Star Containment of AIO malware-cancer (grand demo: put+exec+audit under great-harden)",
     "APPLY: live artifacts written (units, profiles, confs) + attempted enforcement"
   ],
-  "great_harden_note": "${PROFILE} is l2 great-harden supreme mode for aerospace/industrial - closes logic gaps (incl. AIO malware-cancer substrate attacks on state/audit/trace/ns/bpf), makes impenetrable.",
+  "great_harden_note": "${PROFILE} is l2 great-harden supreme mode for aerospace/industrial - closes logic gaps (incl. AIO malware-cancer substrate attacks), achieves l2 North-Star Containment of ransomware+ worms+viruses+direct l2 attacks, makes impenetrable.",
   "standards": [
     "NSA / CISA \"Securing AI Systems\" guidance",
     "CISA Zero Trust Maturity Model (adapted for agents)",
@@ -691,7 +701,7 @@ cat > "$LATEST_JSON" << EOF
     "CIS Benchmarks for Linux hardening",
     "CISA Stop Ransomware / worm containment guidance (for ransom-hardened)",
     "Supply chain (Miasma-style npm worm + credential exfil + repack resistance)",
-    "AIO malware-cancer (ransomware + Miasma + direct l2 substrate attack resistance under great-harden)",
+    "AIO malware-cancer + l2 North-Star Containment (ransomware + Miasma + viruses + direct substrate attack resistance under great-harden; grand demo via put/exec/audit)",
     "l2 ${PROFILE} policy protocol + regular \`l2 audit --test\`"
   ],
   "report_md": "$REPORT_FILE",

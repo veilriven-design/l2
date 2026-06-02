@@ -169,21 +169,24 @@ It delivers **higher assurance and advanced security hardening**:
 - Closes logic gaps from exhaustive prior sweeps (seccomp BPF correctness, state persistence, input guards, priv drop, C safety, TOCTOU, etc.).
 - Supreme posture: tiniest Landlock RO (static only, no /proc no /etc), full NEVER seccomp + great-harden policy (ransom-hardened superset + no net, extreme rlimits), full cap drop, always enforcing.
 - Integrates everything: `l2 trace --policy great-harden`, `l2 crypto`, `l2 great-harden --apply` for units/configs, `l2 audit --test` (new great-harden checks + evidence).
-- Goal: servers IMPENETRABLE to all known malware, worms, viruses (ransomware, Miasma-style supply chain, etc.).
+- Goal: achieving l2 North-Star Containment — servers IMPENETRABLE to major classes of known malware, worms, viruses (ransomware, Miasma-style supply chain, viruses, direct AIO substrate attacks via the malware-cancer grand demo).
 - **AIO "malware-cancer"**: The named comprehensive attack simulation on the l2 substrate itself (ransomware + Miasma + direct substrate attacks: state.json/audit/trace/crypto tamper + exfil, put/guard bypass, Landlock probes, namespace/setns/unshare/bpf escapes, fork-bomb under rlimits, l2-process priv-esc + anti-analysis). Prepared + defended by great-harden (extended NEVER seccomp for bpf/setns/unshare + tiniest Landlock no-/proc + HOME=ws sanitization + host lockdown from --apply). Use the dedicated `docs/examples/l2_malware_cancer_resistance_demo.c` for validation.
 
-**Typical use for critical systems (with AIO substrate defense validation):**
+**Typical use for critical systems (grand demonstration of l2 North-Star Containment):**
 ```bash
 export L2_DATA_DIR=$(mktemp -d)
-l2 great-harden --apply   # supreme lockdown (kernel, ro, units, evidence)
+l2 great-harden --apply   # supreme lockdown (kernel, ro, units, evidence) — prepare l2 North-Star Containment
 l2 create critical --policy great-harden
 l2 put critical cancer-sim.c --file docs/examples/l2_malware_cancer_resistance_demo.c
-l2 exec --policy great-harden critical 'gcc -static -Wall -Wextra -o cancer-sim cancer-sim.c && ./cancer-sim'
-l2 audit --test   # PASS on great-harden + AIO malware-cancer containment (full substrate defense)
+l2 exec --policy great-harden critical 'gcc -static -Wall -Wextra -o cancer-sim cancer-sim.c && ./cancer-sim'  # grand demo of l2 North-Star Containment
+l2 audit --test   # PASS on great-harden + AIO malware-cancer containment (l2 North-Star Containment verified — full substrate defense)
 l2 destroy critical
 ```
 
-The `great-harden` policy + command + malware-cancer sim give repeatable, auditable, supreme validation for high-assurance complexes that the substrate itself is defended against AIO attacks.
+The `great-harden` policy + command + malware-cancer sim give the grand, repeatable, auditable demonstration of l2 North-Star Containment for high-assurance complexes: the substrate itself is defended against AIO attacks on ransomware + worms + viruses + direct l2 mechanisms.
+
+### North-Star Containment verbiage
+Commands, docs, and sim output use "l2 North-Star Containment" (or "achieving l2 North-Star Containment", "grand demonstration of l2 North-Star Containment of AIO malware-cancer") to describe the posture where only explicit terminal `put` + `exec --policy great-harden` authority can affect anything, with full evidence via `audit --test`.
 
 See `l2 great-harden --help`, `l2 policy great-harden`, README Troubleshooting, `scripts/harden.sh` (great-harden case), and the cancer demo header.
 

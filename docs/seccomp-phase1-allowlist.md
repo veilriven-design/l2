@@ -37,7 +37,7 @@ This document tracks the data-driven curation of a minimal seccomp allowlist pri
 - Common tools: `git status`, `make`, `curl -I https://example.com`, `find . -type f | head -5`
 - Interpreters: Node/Ruby if available in the environment
 - For `ransom-hardened` (full safety): the `l2_ransomware_resistance_demo.c` (WannaCry-class) or `l2_miasma_resistance_demo.c` (Miasma supply-chain npm worm: preinstall + OIDC exfil + repack + "Miasma: The Spreading Blight" propagation) under `L2_STRICT_SECCOMP_ENFORCE=1 l2 trace --policy ransom-hardened`. Expect zero net syscalls (41/42/...), ptrace etc. — those must stay in NEVER_ALLOWED. Supply-chain worms add emphasis on blocking package cache writes (Landlock) + token exfil (env clear + no net).
-- For `great-harden` (supreme aerospace/industrial): use `l2 great-harden` + `l2 trace --policy great-harden` + `l2 exec --policy great-harden` with resistance sims or critical workloads. Even stricter: no /proc, extreme minimal, for impenetrable. Great-harden policy + full `l2 great-harden --apply` for supreme evidence. Use `l2_malware_cancer_resistance_demo.c` (AIO substrate attack sim) for full validation of extended NEVER (bpf/setns/unshare + prior).
+- For `great-harden` (supreme aerospace/industrial): use `l2 great-harden` + `l2 trace --policy great-harden` + `l2 exec --policy great-harden` with resistance sims or critical workloads. Even stricter: no /proc, extreme minimal, for impenetrable. Great-harden policy + full `l2 great-harden --apply` for supreme evidence and l2 North-Star Containment. Use `l2_malware_cancer_resistance_demo.c` (AIO substrate attack sim + grand demo) for full validation of extended NEVER (bpf/setns/unshare/keyctl/mknod + prior).
 
 ## Collected Traces
 
@@ -74,7 +74,7 @@ syscalls:
 
 **Status**: Seeded from common knowledge + early analyzer tests. Needs real trace data.
 
-Note: This allowlist is exercised under the `strict`, `strict-mcp` (main focus for agentic/MCP), `ransom-hardened` (full safety / ransomware + Miasma supply-chain worm testing), and `great-harden` (supreme aerospace/industrial - impenetrable servers, closes gaps) policy protocols. `strict-mcp`, `ransom-hardened`, and `great-harden` receive per-protocol tightening (great-harden is supreme: tiniest surface, no /proc, full extreme for malware/worm/virus impenetrable; extended NEVER for AIO malware-cancer substrate attacks incl. bpf/setns/unshare). Profiles are data-driven from `l2 trace` under the target policy. Use the miasma, ransomware, and malware-cancer (great) for critical validation.
+Note: This allowlist is exercised under the `strict`, `strict-mcp` (main focus for agentic/MCP), `ransom-hardened` (full safety / ransomware + Miasma supply-chain worm testing), and `great-harden` (supreme aerospace/industrial - impenetrable servers, closes gaps) policy protocols. `strict-mcp`, `ransom-hardened`, and `great-harden` receive per-protocol tightening (great-harden is supreme: tiniest surface, no /proc, full extreme for malware/worm/virus impenetrable; extended NEVER for AIO malware-cancer + l2 North-Star Containment grand demo incl. bpf/setns/unshare/keyctl/mknod). Profiles are data-driven from `l2 trace` under the target policy. Use the miasma, ransomware, and malware-cancer (great) for the grand North-Star Containment validation.
 
 From analyzer test run (sample log):
 - 0 (read)

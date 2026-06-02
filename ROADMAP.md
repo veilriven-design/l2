@@ -42,14 +42,14 @@ Highlights (v0.4.0+ focus on agentic/AI/MCP hardening + full-safety):
 - Landlock + no_new_privs + seccomp baseline (Phase 0 observer complete; Phase 1 enforcing active for strict-family policies including ransom-hardened).
 - Append-only authority audit log + `l2 audit` subcommand (incl. ransomware check).
 - Basic out-of-process `l2-core` binary speaking L2P over stdio (architecture prep).
-- `docs/examples/l2_ransomware_resistance_demo.c` + `l2_miasma_resistance_demo.c` + `l2_malware_cancer_resistance_demo.c` + dedicated `ransom-hardened` / `great-harden` protocols + harden/audit for repeatable ransomware + Miasma supply-chain worm + AIO malware-cancer (direct l2 substrate attack) containment testing. **NEW `l2 great-harden`** + great-harden policy for supreme aerospace/industrial (impenetrable, closes logic gaps, substrate defense).
+- `docs/examples/l2_ransomware_resistance_demo.c` + `l2_miasma_resistance_demo.c` + `l2_malware_cancer_resistance_demo.c` + dedicated `ransom-hardened` / `great-harden` protocols + harden/audit for repeatable ransomware + Miasma supply-chain worm + viruses + AIO malware-cancer (direct l2 substrate attack) containment testing — the **grand demonstration of l2 North-Star Containment**. **NEW `l2 great-harden`** + great-harden policy for supreme aerospace/industrial (impenetrable, closes logic gaps, substrate defense, North-Star Containment).
 
 ## Prioritized Work
 
 ### Now (Highest Leverage)
 
 1. **Agentic/AI/MCP hardening track (v0.4.0+ main focus) + great-harden for aerospace/industrial**
-   - `l2 crypto` + `strict-mcp` + `ransom-hardened` + `l2 harden` + `l2 audit --test` + **NEW `l2 great-harden`** as a complete operational path (incl. ransomware containment validation + Miasma supply-chain worm resistance via dedicated demo + AIO malware-cancer substrate defense sim + supreme higher-assurance for aerospace/industrial - closes logic gaps, makes servers impenetrable).
+   - `l2 crypto` + `strict-mcp` + `ransom-hardened` + `l2 harden` + `l2 audit --test` + **NEW `l2 great-harden`** as a complete operational path (incl. ransomware containment validation + Miasma supply-chain worm resistance via dedicated demo + AIO malware-cancer + viruses substrate defense sim + supreme higher-assurance for aerospace/industrial - closes logic gaps, achieves l2 North-Star Containment, makes servers impenetrable; the grand demo).
    - Continue maturing: more aggressive defaults in crypto/harden, per-protocol divergence (e.g. network denial, tool-specific rules in strict-mcp; full safety in ransom-hardened; supreme extreme in great-harden), expanded automated application in `l2 harden` (see #7 for direct consumability of artifacts via --apply etc., more distros, direct profile application).
    - `l2 trace --policy strict-mcp` (and ransom-hardened for sims, great-harden for critical) remains the primary data collection tool (observer + enforcing by default); feed into `l2 harden --generate-seccomp`.
    - `l2 harden --profile strict-mcp` (or `ransom-hardened` or `great-harden`) prepares hosts/containers per NSA/CISA/FBI guidance (and ransomware-specific, aerospace supreme) for the agentic era.

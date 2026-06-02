@@ -5,7 +5,7 @@ Terminal-first CLI for creating, using, and destroying strongly isolated executi
 **Linux prototype** — ready for immediate use and validation (with powerful hardening and crypto).  
 **seL4/Microkit** — the production/high-assurance path.
 
-**v0.4.4 highlights + Miasma defenses + great-harden + AIO malware-cancer:** `ransom-hardened` full-safety policy protocol for ransomware/malicious workload containment testing (WannaCry-class) and supply-chain worms (Miasma: Red Hat npm credential-stealing worm with preinstall, OIDC/GitHub exfil, tarball repack, "Miasma: The Spreading Blight" propagation); new self-contained `docs/examples/l2_ransomware_resistance_demo.c` + `l2_miasma_resistance_demo.c` (only succeed inside explicit l2 ws); `l2 harden --profile ransom-hardened` + `l2 audit --test` integration (Ransomware + Miasma containment checks, --apply for operational artifacts); dedicated harden profile. **NEW: `l2 great-harden`** for aerospace & industrial - supreme higher-assurance mode that makes servers impenetrable to all known malware/worms/viruses, closes logic gaps, aerospace-grade extreme hardening (kernel lockdown, full ro, no dynamic, great policy). **AIO "malware-cancer" attack sim** (`docs/examples/l2_malware_cancer_resistance_demo.c`): named comprehensive attack on the l2 substrate (ransom + Miasma + direct: state/trace/audit/crypto tamper, ns/bpf/setns/unshare escapes, fork/priv-esc on l2); prepared + validated under great-harden. All additive, preserves prior guarantees. Builds on v0.4.3 security sweep. See full details in CHANGELOG.md.
+**v0.4.4 highlights + Miasma defenses + great-harden + AIO malware-cancer + l2 North-Star Containment:** `ransom-hardened` full-safety policy protocol for ransomware/malicious workload containment testing (WannaCry-class) and supply-chain worms (Miasma: Red Hat npm credential-stealing worm with preinstall, OIDC/GitHub exfil, tarball repack, "Miasma: The Spreading Blight" propagation); new self-contained `docs/examples/l2_ransomware_resistance_demo.c` + `l2_miasma_resistance_demo.c` (only succeed inside explicit l2 ws); `l2 harden --profile ransom-hardened` + `l2 audit --test` integration (Ransomware + Miasma containment checks, --apply for operational artifacts); dedicated harden profile. **NEW: `l2 great-harden`** for aerospace & industrial - supreme higher-assurance mode that makes servers impenetrable to all known malware/worms/viruses, closes logic gaps, aerospace-grade extreme hardening (kernel lockdown, full ro, no dynamic, great policy). **AIO "malware-cancer" attack sim** (`docs/examples/l2_malware_cancer_resistance_demo.c`): named comprehensive attack on the l2 substrate (ransom + Miasma + viruses + direct: state/trace/audit/crypto tamper, ns/bpf/setns/unshare escapes, fork/priv-esc on l2, git/pip/ELF/anti); prepared + validated under great-harden for the **grand demonstration of l2 North-Star Containment**. All additive, preserves prior guarantees. Builds on v0.4.3 security sweep. See full details in CHANGELOG.md.
 
 See the dedicated **[Crypto & Hardening](#crypto--hardening-v040)** section (collapsible) and [SECURITY.md](SECURITY.md) for full v0.4.0+ crypto/hardening/strict-mcp/ransom-hardened details, plus [ROADMAP.md](ROADMAP.md) and [STATUS.md](STATUS.md).
 
@@ -272,6 +272,24 @@ For supreme AIO substrate defense (malware-cancer): use `great-harden` policy + 
 
 See the headers inside the `.c` files for exact usage and cross-references.
 
+### The Grand Demonstration of l2 North-Star Containment (malware-cancer AIO sim)
+
+For the ultimate "what l2 does" show — the single AIO program that hits ransomware + supply-chain worms + viruses + direct attacks on the l2 substrate itself, all contained:
+
+```bash
+export L2_DATA_DIR=$(mktemp -d)
+l2 great-harden --fast --apply || true   # prepare the North-Star Containment posture (kernel lockdown, extreme sysctls, units, no-usb, audit for state/ws)
+l2 create cancer-test --policy great-harden
+l2 put cancer-test cancer-sim.c --file docs/examples/l2_malware_cancer_resistance_demo.c
+l2 exec cancer-test 'gcc -static -Wall -Wextra -o cancer-sim cancer-sim.c && ./cancer-sim'  # grand demo of l2 North-Star Containment
+l2 audit --test   # verifies North-Star Containment of AIO malware-cancer (PASS with great-harden json + apply artifacts)
+l2 destroy cancer-test
+```
+
+Inside the ws (only files you `put`), the sim "ransom"s, "infects", drops notes, etc. — everywhere else is BLOCKED by the substrate (Landlock ws-only + tiniest RO + no /proc/no /etc, seccomp Phase 1 ENFORCING with extended NEVER for net/ptrace/bpf/setns/unshare/keyctl/mknod, env sanitization + HOME=ws, caps/no_new_privs, rlimits, host great-harden --apply lockdown). The audit --test + harden json is the machine-readable evidence of North-Star Containment.
+
+This is the repeatable, auditable, beautiful north-star workflow for aerospace/industrial/critical systems.
+
 ### Other common issues
 
 - `l2 harden --apply` (or scripts) may still need manual `sudo` for some host changes (sysctls, nft, systemd units). The tool is intentionally advisory and auditable.
@@ -296,7 +314,7 @@ See [STATUS.md](STATUS.md) for the full current state and [ROADMAP.md](ROADMAP.m
 - `l2 policies` / `l2 policy <name>` for discovery.
 - Stronger defaults and deeper integration between policies, crypto, host hardening, and audit (`l2 audit --test`).
 - `ransom-hardened` + `l2_ransomware_resistance_demo.c` + `l2_miasma_resistance_demo.c` + harden/audit integration for repeatable WannaCry-class + Miasma supply-chain worm containment validation.
-- `l2 great-harden` (supreme command) + great-harden policy + `l2_malware_cancer_resistance_demo.c` for aerospace/industrial: higher assurance, closes gaps, AIO "malware-cancer" (direct substrate attack) defense, impenetrable servers for critical complexes.
+- `l2 great-harden` (supreme command) + great-harden policy + `l2_malware_cancer_resistance_demo.c` for aerospace/industrial: higher assurance, closes gaps, AIO "malware-cancer" (direct substrate attack) defense, **grand demonstration of l2 North-Star Containment**, impenetrable servers for critical complexes.
 
 **Ongoing:**
 - Production seL4/Microkit integration (l2-core as protection domain).
