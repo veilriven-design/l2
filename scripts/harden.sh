@@ -715,6 +715,7 @@ cat > "$LATEST_JSON" << EOF
     "CISA Stop Ransomware / worm containment guidance (for ransom-hardened)",
     "Supply chain (Miasma-style + AI/ML per 2026 CSIs) resistance via demos + runtime containment",
     "AIO malware-cancer + l2 North-Star Containment (ransomware + Miasma + viruses + direct substrate + MCP/agentic tool/context containment under great-harden; grand demo: explicit put+exec+audit)",
+    "Verified crypto profiles (hybrid-aes-chacha etc + Argon2) + l2 substrate for data-at-rest encryption and key protection (NSA AI Data Sec, CPG at-rest)",
     "l2 ${PROFILE} policy protocol + regular \`l2 audit --test\` for CPG 2.0 / MCP CSI / Agentic AI evidence"
   ],
   "report_md": "$REPORT_FILE",

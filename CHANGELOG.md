@@ -8,6 +8,17 @@
 - l2 already provided the core (explicit ws-only authority via put/exec, Landlock+seccomp NEVER+unshare+cap drop+no_new_privs+env_clear+rlimits for MCP/agent isolation/no ambient, audit chain for accountability/monitoring, great-harden --apply for host lockdown, demos for supply/ransom/substrate attacks, --test for evidence). Sweep added explicit mappings, updated language in policy descs, harden standards/comments, docs.
 - No behavior change; docs/code now reference "June 2026 sweep" + exact risk categories/best practices from the new CSIs. Strengthens claim that l2 is the minimal north-star substrate for agentic/MCP/AI/OT per latest.
 
+### Cryptography Improvements and Polish (prepare prepare prepare)
+- Expanded/polished `l2 crypto`: 3 verified profiles (aes256-xts-argon2id, xchacha20-poly1305-argon2id, hybrid-aes-chacha for defense-in-depth); --apply now respects L2_DATA_DIR, writes crypto/crypto-latest.json evidence (for audit --test), non-interactive in --fast/--json, better network-isolation notes.
+- Script now supports --json (structured output for list/apply), improved LUKS/gocryptfs guidance, MCP-aware helpers.
+- Rust CLI: passes --json to script, conditional prints, better json path for evidence.
+- Audit --test: new check "Crypto profiles for data-at-rest (verified algos + l2 substrate key protection)" (consumes json, reports apply); updated standards json + len assert.
+- CI smoke: enhanced crypto tests (json list, hybrid guidance, tolerated).
+- Demos: cancer resistance demo updated with polished crypto vectors (contained encrypt/exfil of keys/profiles only in ws; host crypto protected); summary and headers note v0.4.7 crypto improvements.
+- Docs: README crypto section, SECURITY.md, STATUS, CHANGELOG, demo headers updated with hybrid rationale, L2_DATA_DIR support, audit evidence, NSA AI Data Sec / CPG at-rest / MCP key protection mappings.
+- Integration: crypto evidence now in great-harden/harden standards; recommended in agentic/MCP flows (keys only via strict-mcp exec); pairs with great-harden for data at rest in critical infra.
+- "prepare prepare prepare": full UX polish (paced + json), evidence loop closed with audit, demos exercise crypto containment, standards alignment explicit, no new surfaces, ready for grand North-Star demos.
+
 ### Alignment to Latest NSA/CISA Guidance (as of 2026, to the hour)
 - Full sweep and update of l2 to meet NSA and CISA recommendations current as of the latest 2026 publications (CPG 2.0, AI/ML supply chain CSI, MCP security design for AI automation, OT AI integration, agentic AI, etc.). l2 substrate now explicitly documents and aligns to these for agentic/AI/MCP/critical infrastructure use.
 - Full sweep against CISA Cross-Sector CPGs 2.0 (Dec 2025: GOVERN, least priv 3.H, malicious code detection, MSP/oversight risks, NIST CSF 2.0 alignment), NSA CSI AI/ML Supply Chain Risks & Mitigations (Mar 2026: poisoning, AIBOM/SBOM, provenance), NSA MCP Security Design Considerations for AI-Driven Automation (May 2026 - l2 strict-mcp is the secure substrate), NSA/CISA OT AI Integration Principles (Dec 2025: governance, human-in-loop, fail-safes, separate AI data), Agentic AI Careful Adoption (Apr 2026), AI Data Security.

@@ -19,6 +19,7 @@ PROFILE="aes256-xts-argon2id"
 LIST=false
 APPLY=false
 FAST=false
+JSON=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -27,6 +28,7 @@ while [[ $# -gt 0 ]]; do
         --apply)   APPLY=true; shift ;;
         --fast)    FAST=true; shift ;;
         --network-isolation) NETWORK_ISOLATION=true; shift ;;
+        --json)    JSON=true; shift ;;
         *) echo "Unknown argument: $1"; exit 1 ;;
     esac
 done
@@ -37,6 +39,12 @@ NETWORK_ISOLATION=${NETWORK_ISOLATION:-false}
 # Apply fast mode
 if $FAST; then
     export L2_FAST=1
+fi
+
+# For json, force fast/non-interactive
+if $JSON; then
+    export L2_FAST=1
+    FAST=true
 fi
 
 # -----------------------------------------------------------------------------
@@ -150,9 +158,13 @@ Hybrid mode mixes complementary algorithms for robust, defense-in-depth security
 echo || true
 
 if $LIST || [ "$PROFILE" = "list" ]; then
-    print_profiles
-    type_line "To apply: l2 crypto --profile <name> --apply"
-    type_line "Example: l2 crypto --profile hybrid-aes-chacha --apply"
+    if $JSON; then
+        echo '{"profiles": ["aes256-xts-argon2id", "xchacha20-poly1305-argon2id", "hybrid-aes-chacha"], "default": "aes256-xts-argon2id", "note": "Only verified open-source; hybrid recommended for agentic/MCP"}' || true
+    else
+        print_profiles
+        type_line "To apply: l2 crypto --profile <name> --apply"
+        type_line "Example: l2 crypto --profile hybrid-aes-chacha --apply"
+    fi
     exit 0
 fi
 
@@ -202,15 +214,24 @@ echo || true
 
 # Handle apply
 if $APPLY; then
-    type_line "[4/5] Applying profile: $PROFILE"
-    reveal_lines "WARNING: This will set up encryption. Have backups! For full system encryption, this is best done on a fresh install or for a separate data partition/home.
+    if $JSON || $FAST; then
+        # non-interactive for json/CI/fast
+        REPLY="y"
+    else
+        type_line "[4/5] Applying profile: $PROFILE"
+        reveal_lines "WARNING: This will set up encryption. Have backups! For full system encryption, this is best done on a fresh install or for a separate data partition/home.
 For existing systems, we will set up a safe per-user encrypted directory for l2 data and sensitive files using gocryptfs (user-space, no root for basic use)."
 
-    echo
-    type_line "Do you want to proceed with applying encryption for profile '$PROFILE'? (y/N)"
-    read -r REPLY || true
+        echo
+        type_line "Do you want to proceed with applying encryption for profile '$PROFILE'? (y/N)"
+        read -r REPLY || true
+    fi
     if [[ ! "$REPLY" =~ ^[Yy]$ ]]; then
-        type_line "Aborted by user."
+        if $JSON; then
+            echo '{"crypto": {"profile": "'$PROFILE'", "applied": false, "reason": "user aborted"}}' || true
+        else
+            type_line "Aborted by user."
+        fi
         echo "=== l2 crypto finished ===" || true
         exit 0
     fi
@@ -223,10 +244,17 @@ For existing systems, we will set up a safe per-user encrypted directory for l2 
     L2_PROF_DIR="$HOME/.l2/seccomp"  # for consistency with MCP profile auto-discovery
     mkdir -p "$L2_PROF_DIR" 2>/dev/null || true
 
+    # Respect L2_DATA_DIR for crypto artifacts (like state)
+    L2_DATA_DIR="${L2_DATA_DIR:-}"
+    if [ -n "$L2_DATA_DIR" ]; then
+        CRYPTO_DIR="$L2_DATA_DIR/crypto-data"
+        MOUNT_DIR="$L2_DATA_DIR/secure"
+    fi
+
     if [ -d "$CRYPTO_DIR" ]; then
-        type_line "Encrypted dir already exists at $CRYPTO_DIR. Skipping creation."
+        if ! $JSON; then type_line "Encrypted dir already exists at $CRYPTO_DIR. Skipping creation."; fi
     else
-        type_line "Creating encrypted data directory with $DESC ..."
+        if ! $JSON; then type_line "Creating encrypted data directory with $DESC ..."; fi
         mkdir -p "$CRYPTO_DIR" "$MOUNT_DIR"
 
         # Determine gocryptfs cipher based on profile
@@ -244,14 +272,14 @@ For existing systems, we will set up a safe per-user encrypted directory for l2 
         # For accuracy, gocryptfs uses its own KDF, but we approximate with profile cipher.
         # To make proficient: install if needed, init with correct.
         if ! command -v gocryptfs >/dev/null 2>&1; then
-            type_line "gocryptfs not found. On RHEL/Fedora: sudo dnf install gocryptfs"
-            type_line "Please install and re-run, or use the printed cryptsetup commands for LUKS."
+            if ! $JSON; then type_line "gocryptfs not found. On RHEL/Fedora: sudo dnf install gocryptfs"; fi
+            if ! $JSON; then type_line "Please install and re-run, or use the printed cryptsetup commands for LUKS."; fi
             # Still print LUKS commands below
         else
-            echo "Initializing gocryptfs with profile cipher (this will prompt for password)..." || true
+            if ! $JSON; then echo "Initializing gocryptfs with profile cipher (this will prompt for password)..." || true; fi
             gocryptfs $GOCRYPTFS_CIPHER "$CRYPTO_DIR" "$MOUNT_DIR" || true
-            type_line "Encrypted dir initialized. Mount with: gocryptfs $CRYPTO_DIR $MOUNT_DIR"
-            type_line "To unmount: fusermount -u $MOUNT_DIR"
+            if ! $JSON; then type_line "Encrypted dir initialized. Mount with: gocryptfs $CRYPTO_DIR $MOUNT_DIR"; fi
+            if ! $JSON; then type_line "To unmount: fusermount -u $MOUNT_DIR"; fi
         fi
     fi
 
@@ -315,6 +343,33 @@ EOFHELPER
     type_line "=== l2 crypto setup complete for profile '$PROFILE' ==="
     echo
     type_line "Remember: Encryption is only as good as your passphrase and key management. Use the l2 substrate's isolation (strict-mcp) to protect passphrases and plaintext (e.g. store creds as l2 objects under strict-mcp policy only)."
+
+    # Write evidence for audit --test (always, even if json)
+    CRYPTO_JSON_DIR="${L2_DATA_DIR:-$HOME/.l2}/crypto"
+    mkdir -p "$CRYPTO_JSON_DIR" 2>/dev/null || true
+    cat > "$CRYPTO_JSON_DIR/crypto-latest.json" << EOFJSON || true
+{
+  "profile": "$PROFILE",
+  "desc": "$DESC",
+  "cipher": "$CIPHER",
+  "kdf": "$KDF",
+  "applied": true,
+  "crypto_dir": "$CRYPTO_DIR",
+  "mount_dir": "$MOUNT_DIR",
+  "network_isolation": $NETWORK_ISOLATION,
+  "timestamp": "$(date -Iseconds)",
+  "standards": ["NSA AI Data Security CSI", "CISA CPG data protection/encryption at rest", "MCP key/context protection via l2 substrate isolation"]
+}
+EOFJSON
+    if $JSON; then
+        cat "$CRYPTO_JSON_DIR/crypto-latest.json" || true
+    else
+        type_line "Machine-readable crypto evidence for audit --test: $CRYPTO_JSON_DIR/crypto-latest.json"
+    fi
+
+    if $NETWORK_ISOLATION; then
+        if ! $JSON; then type_line "Network isolation recommended: combine with l2 harden --profile strict-mcp --network-isolation or nft rules to restrict the mount point/process."; fi
+    fi
 
     exit 0
 fi

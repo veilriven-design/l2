@@ -121,10 +121,10 @@ Use with `--policy strict-mcp` on create/exec/trace/etc.
 
 ```bash
 l2 crypto --list
-l2 crypto --profile hybrid-aes-chacha --apply --network-isolation
+l2 crypto --profile hybrid-aes-chacha --apply --network-isolation --fast
 ```
 
-Only battle-tested, verified open-source algos (AES-256-XTS NIST, XChaCha20-Poly1305 IETF, Argon2id PHC). Hybrid mixes complementary designs for defense-in-depth. Applies proficiently via LUKS2/gocryptfs; `--apply` is confirmed + paced; generates units; keys protected via `l2 exec --policy strict-mcp`.
+Only battle-tested, verified open-source algos (AES-256-XTS NIST, XChaCha20-Poly1305 IETF, Argon2id PHC). Hybrid mixes complementary designs for defense-in-depth. Applies proficiently via LUKS2/gocryptfs; `--apply` is confirmed + paced; generates units + crypto-latest.json evidence (for `l2 audit --test`); respects L2_DATA_DIR; keys protected via `l2 exec --policy strict-mcp`. (v0.4.7+ polish: --json, audit check, L2_DATA_DIR, network notes.)
 
 ### `l2 harden` — Concrete Host Hardening
 
@@ -165,7 +165,7 @@ git checkout v0.1.0
 | `l2 trace [--policy <protocol>] [--enforce] ...` | Collect seccomp traces (Phase 1). `--analyze <log>` generates real profiles. |
 | `l2 harden --profile <name> [--apply] ...` | NSA/CISA/FBI-aligned host/container hardening for agentic era (with `--network-isolation`, seccomp gen, systemd units). `--apply` makes it operational (writes live artifacts + evidence for `audit --test`). Paced output. | 
 | `l2 great-harden [--apply] ...` | Supreme aerospace/industrial 'great-harden' mode: extreme higher-assurance lockdown to make servers impenetrable to malware/worms/viruses. Closes logic gaps, aerospace-grade (kernel lockdown etc). Forces great policy. Paced. |
-| `l2 crypto --profile <name> [--apply] ...` | Choose/apply verified crypto profile (AES-256-XTS-Argon2id, XChaCha20-Poly1305-Argon2id, or hybrid) for system encryption via LUKS/gocryptfs + l2 isolation. Paced output. |
+| `l2 crypto --profile <name> [--apply] ...` | Choose/apply verified crypto profile (AES-256-XTS-Argon2id, XChaCha20-Poly1305-Argon2id, or hybrid) for system encryption via LUKS/gocryptfs + l2 isolation. Paced output. (v0.4.7+ polished: L2_DATA_DIR, json evidence + audit check, --json, crypto-latest.json). |
 | `l2 policies` / `l2 policy <name>` | Discover and inspect policy protocols (e.g. `strict-mcp`, `ransom-hardened`). |
 | `l2 audit ...`                   | View/manage tamper-evident authority audit log. |
 

@@ -58,7 +58,7 @@ Users choose a profile; only battle-tested algorithms with strong standardizatio
 
 - `aes256-xts-argon2id`: AES-256-XTS (NIST-approved LUKS disk encryption standard, FIPS-aligned, extensively analyzed) + Argon2id (PHC winner, memory-hard KDF resistant to GPU/ASIC attacks). Default for performance + standards compliance where AES-NI is available.
 - `xchacha20-poly1305-argon2id`: XChaCha20-Poly1305 (IETF RFC 8439 constant-time AEAD, no AES dependency, excellent side-channel resistance and performance on any hardware) + Argon2id. Ideal for heterogeneous or older CPUs.
-- `hybrid-aes-chacha`: Defense-in-depth mixture. Applies complementary designs to different subsets (e.g., AES-256-XTS for bulk data volumes, XChaCha20-Poly1305 for keys/metadata). Example layered construction printed by the tool: outer LUKS/XChaCha + inner AES-XTS, or dual gocryptfs layers. Reduces risk from any single primitive or implementation.
+- `hybrid-aes-chacha`: Defense-in-depth mixture. Applies complementary designs to different subsets (e.g., AES-256-XTS for bulk data volumes, XChaCha20-Poly1305 for keys/metadata). Example layered construction printed by the tool: outer LUKS/XChaCha + inner AES-XTS, or dual gocryptfs layers. Reduces risk from any single primitive or implementation. (v0.4.7+ polished: evidence json, L2_DATA_DIR support, --json, integrated in audit --test as "Crypto profiles for data-at-rest".)
 
 **Proficient, simple application to the entire system (or l2 state)**:
 
@@ -73,6 +73,8 @@ Users choose a profile; only battle-tested algorithms with strong standardizatio
 The result is true system encryption that leverages the l2 substrate for key custody and operation isolation — simple and proficient for users while using only proven primitives.
 
 Paced output (type_line / reveal_lines helpers, active on TTY unless L2_FAST) lets users follow along exactly as with sel4-setup and harden.
+
+v0.4.7+ improvements/polish ("prepare prepare prepare"): --apply respects L2_DATA_DIR and writes `crypto/crypto-latest.json` (consumed by `l2 audit --test` for evidence + standards); full --json support (structured for CI/automation); network-isolation notes + recommendations; crypto check added to audit tests (9th check); CI smoke enhanced for json/hybrid; demos (cancer) updated to explicitly test contained crypto encrypt/exfil (ransom + key material only in ws; host crypto protected); docs (README/SECURITY/CHANGELOG) + harden standards updated with mappings to NSA AI Data Security, CPG at-rest, MCP key protection. Crypto now fully part of the North-Star Containment evidence loop and great-harden for critical/agentic systems.
 
 ### `l2 harden` — NSA/CISA/FBI-Aligned Concrete Host & Container Hardening
 

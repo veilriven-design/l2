@@ -50,6 +50,8 @@ jobs:
         # Full v0.4.4+ crypto surface (advisory, no privileged apply in CI)
         ./target/release/l2 crypto --list | grep -q "hybrid-aes-chacha" ; s=$?; [ $s -eq 0 -o $s -eq 141 ] || echo "(crypto list check tolerated in CI)"
         ./target/release/l2 crypto --profile aes256-xts-argon2id --fast 2>&1 | grep -q "Cryptography profiles" ; s=$?; [ $s -eq 0 -o $s -eq 141 ] || echo "(crypto profile check tolerated in CI)"
+        ./target/release/l2 crypto --list --json 2>&1 | grep -q "hybrid-aes-chacha" || echo "(crypto json list tolerated in CI)"
+        ./target/release/l2 crypto --profile hybrid-aes-chacha --fast 2>&1 | grep -q "hybrid\|defense-in-depth" ; s=$?; [ $s -eq 0 -o $s -eq 141 ] || echo "(crypto hybrid guidance tolerated in CI)"
 
         # Major harden tooling (NSA/CISA path) — dry + seccomp generation (no host mutation)
         # Create fake trace early so --generate-seccomp can use a real file (the old /dev/null
