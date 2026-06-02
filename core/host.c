@@ -21,7 +21,7 @@
  * - Real in-memory object storage (put/get functional for prototype).
  * - Uses l2_memcpy_safe() from common/safe.c for all copies.
  * - Strict bounds, explicit zeroing on destroy, better errors.
- * - Policy string (including "ransom-hardened" full-safety for ransomware testing)
+ * - Policy string (including "ransom-hardened" full-safety for ransomware testing and Miasma supply-chain worm resistance)
  *   is stored and passed through for future seL4/Microkit dispatch. In a capability
  *   system this would translate to granting only the narrow rights needed for a
  *   contained malicious workload (ws cap + no net cap etc.).

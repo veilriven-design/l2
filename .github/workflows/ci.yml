@@ -32,7 +32,7 @@ jobs:
         cargo install cargo-audit --locked || true
         cargo audit || echo "cargo audit reported issues or failed to run (non-blocking for release; review advisories separately if any)"
 
-    - name: "Smoke tests (v0.4.4+ full surface: strict-mcp + ransom-hardened, crypto, harden, trace, policies, audit + ransomware check)"
+    - name: "Smoke tests (v0.4.4+ full surface: strict-mcp + ransom-hardened, crypto, harden, trace, policies, audit + ransomware + Miasma supply-chain checks)"
       run: |
         set -euo pipefail
         cargo build --release --quiet
@@ -44,7 +44,7 @@ jobs:
         ./target/release/l2 --version >/dev/null || true
         ./target/release/l2 policies
         ./target/release/l2 policy strict-mcp | grep -q "current main focus" ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
-        ./target/release/l2 policy ransom-hardened | grep -q "ransom-hardened\|full safety\|WannaCry\|ransomware" ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
+        ./target/release/l2 policy ransom-hardened | grep -q "ransom-hardened\|full safety\|WannaCry\|ransomware\|Miasma\|supply-chain" ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
 
         # Full v0.4.4+ crypto surface (advisory, no privileged apply in CI)
         ./target/release/l2 crypto --list | grep -q "hybrid-aes-chacha" ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
@@ -61,7 +61,7 @@ jobs:
         ./target/release/l2 harden --profile strict-mcp --dry-run --fast --network-isolation 2>&1 > /tmp/hnet.log || true
         grep -q "Network Isolation" /tmp/hnet.log || echo "(harden network-isolation message not seen)"
         ./target/release/l2 harden --profile ransom-hardened --dry-run --fast 2>&1 > /tmp/hransom.log || true
-        grep -q "ransom-hardened\|FULL SAFETY" /tmp/hransom.log || echo "(harden ransom message not seen)"
+        grep -q "ransom-hardened\|FULL SAFETY\|Miasma\|supply-chain" /tmp/hransom.log || echo "(harden ransom message not seen)"
 
         # Trace + new --output-profile (data-driven Phase 1 loop) — the same fake.log works
         ./target/release/l2 trace --analyze "$L2_DATA_DIR/fake.log" --output-profile "$L2_DATA_DIR/strict-mcp.txt" 2>&1 > /tmp/trace.log || true
@@ -88,13 +88,14 @@ jobs:
         ./target/release/l2 destroy smoke-mcp
 
         # ransom-hardened full-safety policy + basic lifecycle (exercises new protocol + auto-enforce path + audit check + harden json)
-        # (full demo binary run is in docs/; here we just validate the policy surface + new audit check)
+        # (full demo binary run is in docs/; here we just validate the policy surface + new audit checks for ransomware + Miasma)
         ./target/release/l2 create smoke-ransom --policy ransom-hardened
         ./target/release/l2 put smoke-ransom task.txt --content 'ransom test workload'
         ./target/release/l2 get smoke-ransom task.txt | grep -q 'ransom test' ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
         ransom_exec=$(./target/release/l2 exec smoke-ransom 'echo ransom-ok; cat task.txt' 2>&1 || true)
         echo "$ransom_exec" | grep -q 'ransom-ok' || echo "(ransom exec limited in CI — expected)"
-        ./target/release/l2 audit --test 2>&1 | grep -q "Ransomware containment\|ransom-hardened" || echo "(ransom-hardened audit check exercised)"
+        ./target/release/l2 put smoke-ransom miasma.c --file docs/examples/l2_miasma_resistance_demo.c 2>/dev/null || true
+        ./target/release/l2 audit --test 2>&1 | grep -q "Ransomware containment\|ransom-hardened\|Miasma supply-chain" || echo "(ransom-hardened + Miasma audit checks exercised)"
         ./target/release/l2 destroy smoke-ransom
 
-        echo "✅ All v0.4.4+ smoke tests passed (policies + strict-mcp + ransom-hardened + crypto + harden + trace+output-profile + audit + regular up-to-date security standards tests + harden<->audit integration + ransomware containment checks exercised)"
+        echo "✅ All v0.4.4+ smoke tests passed (policies + strict-mcp + ransom-hardened + crypto + harden + trace+output-profile + audit + regular up-to-date security standards tests + harden<->audit integration + ransomware + Miasma supply-chain containment checks exercised)"

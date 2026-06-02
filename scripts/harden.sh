@@ -4,7 +4,8 @@
 # Companion to l2 policy protocols (strict-mcp for agents; ransom-hardened for ransomware/malicious testing).
 # Applies measures aligned with NSA, CISA, and FBI guidance adapted for
 # modern agentic, AI, and MCP (Model Context Protocol / tool-using agents) workloads.
-# ransom-hardened profile adds worm/encrypt/persistence blocks for WannaCry-class containment testing.
+# ransom-hardened profile adds worm/encrypt/persistence blocks for WannaCry-class containment testing
+# and supply-chain (Miasma npm preinstall + credential exfil + "Miasma: The Spreading Blight" propagation).
 #
 # This is a major priority for the l2 system-substrate.
 
@@ -356,6 +357,7 @@ if [ "$TARGET" = "host" ]; then
         echo || true
         type_line "      === Network Isolation (enabled via --network-isolation) ==="
         type_line "      For strict-mcp workloads, outbound network should be heavily restricted."
+        type_line "      Also critical to block Miasma-style credential exfil, OIDC theft, and worm C2/propagation."
         echo || true
         type_line "      Example (nftables) - drop all outbound for l2-agent user:"
         echo "      nft add table inet l2-agent-isolation" || true
@@ -623,6 +625,7 @@ cat > "$LATEST_JSON" << EOF
     "kernel sysctls (ptrace_scope, protected_* links/fifos)",
     "systemd unit templates with NoNewPrivileges + SystemCallFilter",
     "network isolation (nftables default-deny for agent)",
+    "supply-chain (Miasma npm worm + credential exfil + repack) resistance",
     "APPLY: live artifacts written (units, profiles, confs) + attempted enforcement"
   ],
   "standards": [
@@ -631,6 +634,7 @@ cat > "$LATEST_JSON" << EOF
     "FBI alerts on AI supply chain and agentic threats",
     "CIS Benchmarks for Linux hardening",
     "CISA Stop Ransomware / worm containment guidance (for ransom-hardened)",
+    "Supply chain (Miasma-style npm worm + credential exfil + repack resistance)",
     "l2 ${PROFILE} policy protocol + regular \`l2 audit --test\`"
   ],
   "report_md": "$REPORT_FILE",
@@ -648,6 +652,7 @@ echo "      2. Use \`l2 trace --policy ${PROFILE}\` to collect data for your spe
 echo "      3. Run agents with \`l2 exec --policy ${PROFILE}\`"
 echo "      4. (Beautiful part) Re-run with --apply to make it operational:  l2 harden --profile ${PROFILE} --apply"
 echo "      5. Run \`l2 audit --test\` to automatically verify standards compliance (harden reports + chain + ${PROFILE} usage etc.)"
+echo "      6. For supply-chain (Miasma) testing: l2 put ... l2_miasma_resistance_demo.c ; exec under ${PROFILE}"
 
 echo
 echo "[6/6] l2 harden complete for profile '$PROFILE'."

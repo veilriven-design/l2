@@ -36,7 +36,7 @@ This document tracks the data-driven curation of a minimal seccomp allowlist pri
 - Rust compilation (very useful): `cargo build --quiet` inside a system with a small Rust project
 - Common tools: `git status`, `make`, `curl -I https://example.com`, `find . -type f | head -5`
 - Interpreters: Node/Ruby if available in the environment
-- For `ransom-hardened` (full safety): the `l2_ransomware_resistance_demo.c` (or any "bad" encryptor/worm sim) under `L2_STRICT_SECCOMP_ENFORCE=1 l2 trace --policy ransom-hardened`. Expect zero net syscalls (41/42/...), ptrace etc. — those must stay in NEVER_ALLOWED.
+- For `ransom-hardened` (full safety): the `l2_ransomware_resistance_demo.c` (WannaCry-class) or `l2_miasma_resistance_demo.c` (Miasma supply-chain npm worm: preinstall + OIDC exfil + repack + "Miasma: The Spreading Blight" propagation) under `L2_STRICT_SECCOMP_ENFORCE=1 l2 trace --policy ransom-hardened`. Expect zero net syscalls (41/42/...), ptrace etc. — those must stay in NEVER_ALLOWED. Supply-chain worms add emphasis on blocking package cache writes (Landlock) + token exfil (env clear + no net).
 
 ## Collected Traces
 
@@ -73,7 +73,7 @@ syscalls:
 
 **Status**: Seeded from common knowledge + early analyzer tests. Needs real trace data.
 
-Note: This allowlist is exercised under the `strict`, `strict-mcp` (main focus for agentic/MCP), and `ransom-hardened` (full safety / ransomware testing) policy protocols. `strict-mcp` and `ransom-hardened` receive per-protocol tightening (ransom-hardened is the strictest: workspace-only + no net/ptrace etc.). Profiles are data-driven from `l2 trace` under the target policy.
+Note: This allowlist is exercised under the `strict`, `strict-mcp` (main focus for agentic/MCP), and `ransom-hardened` (full safety / ransomware + Miasma supply-chain worm testing) policy protocols. `strict-mcp` and `ransom-hardened` receive per-protocol tightening (ransom-hardened is the strictest: workspace-only + no net/ptrace etc. to stop credential exfil and npm worm spread). Profiles are data-driven from `l2 trace` under the target policy. Use the miasma and ransomware demos for validation.
 
 From analyzer test run (sample log):
 - 0 (read)

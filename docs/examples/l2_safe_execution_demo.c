@@ -58,6 +58,12 @@
  * for a dedicated WannaCry-class ransomware resistance test (mass encrypt + SMB worm +
  * persistence + priv esc, all contained to the explicit workspace only).
  *
+ * See also docs/examples/l2_miasma_resistance_demo.c (same policy) for a supply-chain
+ * worm resistance test (Miasma-style: npm preinstall tampering, OIDC/GitHub/cloud
+ * credential theft + exfil to attacker repos marked "Miasma: The Spreading Blight",
+ * tarball repack + fake Sigstore, self-propagation via global npm caches, all
+ * contained to the explicit workspace only).
+ *
  * The l2 substrate makes "bad" code much less dangerous because the terminal
  * operator is the only source of authority, and every boundary is explicitly
  * mediated and auditable.

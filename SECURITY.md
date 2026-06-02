@@ -8,7 +8,7 @@ The terminal operator working through the narrow `l2` CLI/TUI is the only source
 
 - Adversaries may have code execution on the host operating system.
 - MCP servers and other workloads running inside l2 may be malicious or compromised.
-- Supply chain attacks against build tools, dependencies, or the host are in scope.
+- Supply chain attacks against build tools, dependencies, or the host are in scope (e.g. Miasma-style npm credential-stealing worms that use preinstall hooks, OIDC/GitHub token theft, tarball repackaging, and self-propagating exfil to attacker repos).
 - Physical access and sophisticated side-channel or fault-injection attacks are out of scope for the initial design (future hardware platforms such as CHERI may change this).
 - The goal is strong containment: a successful compromise of one workload inside l2 should not allow escape to other workloads or to the host except through explicitly authorized, narrow, auditable channels.
 
@@ -120,7 +120,7 @@ The `normalize_policy` path and audit logs record the chosen protocol. `strict-m
 
 ### ransom-hardened (Full Safety Protocol for Ransomware / Malicious Workload Testing)
 
-`ransom-hardened` is the "full safety" policy protocol designed specifically for preparing and validating l2 against ransomware-class threats (worm propagation, mass file encryption, persistence, lateral movement, priv esc — the behaviors that made WannaCry so damaging).
+`ransom-hardened` is the "full safety" policy protocol designed specifically for preparing and validating l2 against ransomware-class threats (worm propagation, mass file encryption, persistence, lateral movement, priv esc — the behaviors that made WannaCry so damaging) **and modern supply-chain worms** such as Miasma (npm preinstall tampering, OIDC + cloud credential theft + exfil to "Miasma: The Spreading Blight" GitHub repos, tarball repack + Sigstore bypass simulation, self-propagation via package caches).
 
 It is the strictest practical posture on the current Linux prototype:
 - Minimal Landlock RO surface (static test binaries + /dev + limited /proc) + **workspace is the *only* writable location**.
@@ -139,13 +139,19 @@ l2 exec wc-test 'gcc -static -Wall -Wextra -o wc-sim wc-sim.c && ./wc-sim'
 # setuid, ptrace etc. were blocked (Landlock EACCES / seccomp KILL / EPERM).
 l2 audit --test   # PASS on the ransomware containment check + harden report
 l2 destroy wc-test
+
+# Similarly for Miasma supply-chain worm:
+l2 put wc-test miasma-sim.c --file docs/examples/l2_miasma_resistance_demo.c
+l2 exec wc-test 'gcc -static ... && ./miasma-sim'
+# Only ws files "poisoned"; no credential exfil, no npm cache tampering, no GitHub "Miasma: The Spreading Blight" propagation.
+l2 audit --test   # PASS on the Miasma supply-chain check
 ```
 
 The included `l2_ransomware_resistance_demo.c` is a self-contained educational sim of exactly the behaviors (killswitch, SMB scan+connect+bind, mass encrypt+rename of common extensions, ransom note, cron/bashrc/systemd persistence, priv esc, fork spread). It only succeeds on the explicit workspace — proving the substrate.
 
 This directly supports "prepare the l2 program for a full safety protocol" and future real WannaCry (or Linux port/equiv) testing. The combination of policy + demo + harden artifact + `l2 audit --test` gives a repeatable, evidence-based, standards-backed (CISA ransomware guidance + NSA/CISA/FBI) validation that malicious encryptors/worms are contained to the narrow authority the terminal operator explicitly granted.
 
-See `docs/examples/l2_ransomware_resistance_demo.c` (header has full run instructions) and the ransom-hardened case in `scripts/harden.sh`.
+See `docs/examples/l2_ransomware_resistance_demo.c` and `docs/examples/l2_miasma_resistance_demo.c` (headers have full run instructions) and the ransom-hardened case in `scripts/harden.sh`.
 
 ### Trace Collection → Profile Generation → Enforcing (`l2 trace`)
 
@@ -174,7 +180,7 @@ This is the practical realization of "collect traces, curate allowlist, wire enf
 - Every policy choice, boundary crossing, crypto apply step, and harden recommendation is logged in the tamper-evident audit trail.
 - Paced tools, `--fast` escape hatch, explicit confirmations, and dry-run/advisory modes keep the experience usable on real (including old/low-RAM) hardware without compromising the model.
 
-The net result is a practical, verifiable high-assurance path: explicit protocols → substrate isolation → host hardening → verified crypto → data-driven minimal seccomp → full audit, all while preserving the narrow terminal interface and "no ambient authority" core properties. These features directly operationalize CISA Secure by Design/Default, NSA hardening guidance, and joint CISA/NSA/FBI recommendations for least-privilege, supply-chain-aware, auditable agentic systems.
+The net result is a practical, verifiable high-assurance path: explicit protocols → substrate isolation → host hardening → verified crypto → data-driven minimal seccomp → full audit, all while preserving the narrow terminal interface and "no ambient authority" core properties. These features directly operationalize CISA Secure by Design/Default, NSA hardening guidance, and joint CISA/NSA/FBI recommendations for least-privilege, supply-chain-aware (Miasma-style npm worms), auditable agentic systems.
 
 See `CHANGELOG.md`, the scripts (`scripts/crypto.sh`, `scripts/harden.sh`), `src/main.rs` (Crypto/Harden/Trace subcommands + normalize_policy), and `src/sandbox.rs` (enforcing filter + strict-mcp / ransom-hardened Landlock divergence) for implementation specifics. All v0.4.0+ work stays within the original threat model and design principles.
 

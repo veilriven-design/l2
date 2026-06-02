@@ -5,7 +5,7 @@ Terminal-first CLI for creating, using, and destroying strongly isolated executi
 **Linux prototype** — ready for immediate use and validation (with powerful hardening and crypto).  
 **seL4/Microkit** — the production/high-assurance path.
 
-**v0.4.4 highlights:** `ransom-hardened` full-safety policy protocol for ransomware/malicious workload containment testing (WannaCry-class); new self-contained `docs/examples/l2_ransomware_resistance_demo.c` (SMB propagation, mass encrypt+.WNCRY, persistence, priv esc — only succeeds inside explicit l2 ws); `l2 harden --profile ransom-hardened` + `l2 audit --test` "Ransomware containment" integration (plus CI); dedicated harden profile with 139/445 blocks + ransomware guidance. All additive, preserves prior guarantees. Builds on v0.4.3 security sweep (seccomp BPF fix, L2_USE_CORE persistence, oneshot/put guards, etc.). See full details in CHANGELOG.md.
+**v0.4.4 highlights + Miasma defenses:** `ransom-hardened` full-safety policy protocol for ransomware/malicious workload containment testing (WannaCry-class) and supply-chain worms (Miasma: Red Hat npm credential-stealing worm with preinstall, OIDC/GitHub exfil, tarball repack, "Miasma: The Spreading Blight" propagation); new self-contained `docs/examples/l2_ransomware_resistance_demo.c` + `l2_miasma_resistance_demo.c` (only succeed inside explicit l2 ws); `l2 harden --profile ransom-hardened` + `l2 audit --test` integration (Ransomware + Miasma containment checks, --apply for operational artifacts); dedicated harden profile. All additive, preserves prior guarantees. Builds on v0.4.3 security sweep. See full details in CHANGELOG.md.
 
 See the dedicated **[Crypto & Hardening](#crypto--hardening-v040)** section (collapsible) and [SECURITY.md](SECURITY.md) for full v0.4.0+ crypto/hardening/strict-mcp/ransom-hardened details, plus [ROADMAP.md](ROADMAP.md) and [STATUS.md](STATUS.md).
 
@@ -103,7 +103,7 @@ l2 policy strict-mcp
 
 - `strict`: Strong baseline (Landlock + no_new_privs + seccomp).
 - `strict-mcp`: Current flagship — stricter defaults for agentic/MCP/tool workloads (seccomp enforcing auto-on, tighter Landlock). Pair with `l2 harden --profile strict-mcp`.
-- `ransom-hardened`: Full safety for ransomware/malicious code testing (WannaCry-class). Auto-enforce + minimal ws-only surface. See `l2 policy ransom-hardened`, the demo in docs/examples/, and SECURITY.md.
+- `ransom-hardened`: Full safety for ransomware/malicious code testing (WannaCry-class) and supply-chain worms (Miasma npm credential exfil + propagation). Auto-enforce + minimal ws-only surface. See `l2 policy ransom-hardened`, the demos in docs/examples/ (ransomware + miasma), and SECURITY.md.
 
 Use with `--policy strict-mcp` on create/exec/trace/etc.
 
@@ -180,7 +180,7 @@ echo 'fake log' > /tmp/fake.log
 l2 trace --analyze /tmp/fake.log --output-profile /tmp/profile.txt
 l2 audit --tail 5
 l2 audit --verify
-l2 audit --test  # runs regular automated checks vs. latest security standards (CISA/NSA/FBI/Linux hardening + ransomware); now sees real --apply artifacts for strict-mcp/ransom-hardened (the world-class north-star loop)
+l2 audit --test  # runs regular automated checks vs. latest security standards (CISA/NSA/FBI/Linux hardening + ransomware + Miasma supply-chain); now sees real --apply artifacts for strict-mcp/ransom-hardened (the world-class north-star loop)
 l2 destroy smoke
 echo "Smoke OK"
 ```
@@ -199,7 +199,7 @@ See [STATUS.md](STATUS.md) for the full current state and [ROADMAP.md](ROADMAP.m
 - Paced typewriter output in setup/hardening/crypto tools.
 - `l2 policies` / `l2 policy <name>` for discovery.
 - Stronger defaults and deeper integration between policies, crypto, host hardening, and audit (`l2 audit --test`).
-- `ransom-hardened` + `l2_ransomware_resistance_demo.c` + harden/audit integration for repeatable WannaCry-class containment validation.
+- `ransom-hardened` + `l2_ransomware_resistance_demo.c` + `l2_miasma_resistance_demo.c` + harden/audit integration for repeatable WannaCry-class + Miasma supply-chain worm containment validation.
 
 **Ongoing:**
 - Production seL4/Microkit integration (l2-core as protection domain).

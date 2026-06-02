@@ -8,6 +8,7 @@
 - Script enhancements for apply (ransom-hardened specific blocks too), better json evidence, "APPLY SUCCESS" messaging, prepared apply scripts in $L2_BASE/harden/applied/.
 - `audit --test` now surfaces "+ --apply operational artifacts" in PASS details when present.
 - Updated smoke, README, table, SECURITY/ROADMAP docs to showcase the complete, auditable, applied agentic hardening workflow as the repeatable pattern for major cyber problems (MCP tool abuse, ransomware containment, host prep for AI agents, supply-chain resistant execution).
+- **Miasma supply-chain defenses**: New `docs/examples/l2_miasma_resistance_demo.c` (self-contained sim of npm preinstall tampering, OIDC/GitHub/cloud credential theft + exfil to "Miasma: The Spreading Blight" repos, tarball repack + Sigstore sim, self-propagation, persistence hooks). Only ws files affected under ransom-hardened. Added "Miasma supply-chain worm containment" check to `l2 audit --test`. Updated harden script guidance + json standards. Cross-refs in safe/ransomware demos, seccomp-allowlist, CI smoke, all docs. Full verification that supply-chain worms (like the 2026 Red Hat Miasma attack) are contained to explicit `put` + `exec` authority.
 - All additive, narrow, explicit authority, paced UX preserved. No new surfaces.
 
 ## [0.4.4] - 2026-06-05

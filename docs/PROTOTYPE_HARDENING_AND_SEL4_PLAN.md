@@ -40,7 +40,7 @@ Recent progress on this thread (trace + hardening UX):
 - `l2 trace --policy strict-mcp` (and `ransom-hardened`) with `--enforce` and auto-paced output.
 - `l2 crypto` for selecting/applying verified profiles (including hybrid) system-wide.
 - `l2 harden --profile strict-mcp` (and `ransom-hardened`) with NSA/CISA/FBI-aligned (and ransomware-specific) concrete steps, network isolation, auto systemd units, seccomp generation, and json artifacts for `l2 audit --test`.
-- `docs/examples/l2_ransomware_resistance_demo.c` + full `ransom-hardened` substrate path for containment validation.
+- `docs/examples/l2_ransomware_resistance_demo.c` + `l2_miasma_resistance_demo.c` + full `ransom-hardened` substrate path for ransomware + Miasma supply-chain worm containment validation.
 - Improved runtime messaging, `sandbox::print_seccomp_trace_reminder()`, and policy-aware Landlock/seccomp (ransom-hardened is strictest).
 - Better guidance on recommended first workloads and practical capture commands. See also the demo .c headers.
 
