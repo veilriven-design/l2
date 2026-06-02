@@ -396,6 +396,35 @@ fn drop_privileges_if_sudo() {
     }
 }
 
+/// Setup a minimal safe environment for isolated command execution.
+/// Deduplicated from the main unshare path and two direct fallback paths
+/// (polish for maintainability and consistency in high-assurance env sanitization).
+/// Called for both successful isolation and fallback direct exec (which still
+/// inherits prior Landlock/seccomp/caps/no_new_privs from parent).
+fn setup_minimal_l2_env(cmd: &mut Command, workspace: Option<&PathBuf>) {
+    if let Some(ws) = workspace {
+        cmd.current_dir(ws);
+    }
+    cmd.env_clear();
+    cmd.env(
+        "PATH",
+        "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    );
+    cmd.env(
+        "HOME",
+        workspace
+            .as_ref()
+            .map(|w| w.display().to_string())
+            .unwrap_or_else(|| "/tmp".to_string()),
+    );
+    cmd.env("USER", "l2");
+    cmd.env("LOGNAME", "l2");
+    cmd.env(
+        "TERM",
+        std::env::var("TERM").unwrap_or_else(|_| "dumb".to_string()),
+    );
+}
+
 /// Heuristic validation: if the exec command appears to reference a file that
 /// was `put` into the system (e.g. `./task`, `sh task.rs`, `cat ./foo.txt`),
 /// verify it actually exists in the stored objects. This gives a clear,
@@ -871,7 +900,7 @@ fn exec_isolated(
     // or proper /etc/subuid setup + newuidmap/newgidmap for unprivileged user ns.
     // WARNING: This is exploration only — full support (id maps, pivot_root, etc.)
     // is future work. Can break on some kernels/distros. Use only for testing strict-mcp.
-    // See sandbox.rs TODO and docs/PROTOTYPE_HARDENING_AND_SEL4_PLAN.md.
+    // See docs/PROTOTYPE_HARDENING_AND_SEL4_PLAN.md for user-ns future work.
     if std::env::var_os("L2_EXPERIMENTAL_USER_NS").is_some() {
         unshare_args.push("--user");
         eprintln!(
@@ -884,32 +913,12 @@ fn exec_isolated(
     cmd.args(&unshare_args);
     cmd.args(["sh", "-c", what]);
 
-    if let Some(ws) = &workspace {
-        cmd.current_dir(ws);
-    }
-
     // Hardening + smoother UX: do not leak host environment variables (API keys,
     // SSH agents, tokens, locale quirks, etc.) into isolated workloads.
     // Especially important for strict-mcp / agentic / MCP server use cases.
     // Provide a minimal safe environment so most tools still work.
-    cmd.env_clear();
-    cmd.env(
-        "PATH",
-        "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-    );
-    cmd.env(
-        "HOME",
-        workspace
-            .as_ref()
-            .map(|w| w.display().to_string())
-            .unwrap_or_else(|| "/tmp".to_string()),
-    );
-    cmd.env("USER", "l2");
-    cmd.env("LOGNAME", "l2");
-    cmd.env(
-        "TERM",
-        std::env::var("TERM").unwrap_or_else(|_| "dumb".to_string()),
-    );
+    // (Deduped into helper for polish/consistency across unshare + fallbacks.)
+    setup_minimal_l2_env(&mut cmd, workspace.as_ref());
 
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
 
@@ -959,27 +968,8 @@ fn exec_isolated(
 
                 let mut direct = Command::new("sh");
                 direct.arg("-c").arg(what);
-                if let Some(ws) = &workspace {
-                    direct.current_dir(ws);
-                }
-                direct.env_clear();
-                direct.env(
-                    "PATH",
-                    "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-                );
-                direct.env(
-                    "HOME",
-                    workspace
-                        .as_ref()
-                        .map(|w| w.display().to_string())
-                        .unwrap_or_else(|| "/tmp".to_string()),
-                );
-                direct.env("USER", "l2");
-                direct.env("LOGNAME", "l2");
-                direct.env(
-                    "TERM",
-                    std::env::var("TERM").unwrap_or_else(|_| "dumb".to_string()),
-                );
+                // Use deduped helper (polish).
+                setup_minimal_l2_env(&mut direct, workspace.as_ref());
                 direct.stdout(Stdio::piped()).stderr(Stdio::piped());
 
                 match direct.output() {
@@ -1029,27 +1019,8 @@ fn exec_isolated(
 
             let mut direct = Command::new("sh");
             direct.arg("-c").arg(what);
-            if let Some(ws) = &workspace {
-                direct.current_dir(ws);
-            }
-            direct.env_clear();
-            direct.env(
-                "PATH",
-                "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-            );
-            direct.env(
-                "HOME",
-                workspace
-                    .as_ref()
-                    .map(|w| w.display().to_string())
-                    .unwrap_or_else(|| "/tmp".to_string()),
-            );
-            direct.env("USER", "l2");
-            direct.env("LOGNAME", "l2");
-            direct.env(
-                "TERM",
-                std::env::var("TERM").unwrap_or_else(|_| "dumb".to_string()),
-            );
+            // Use deduped helper (polish).
+            setup_minimal_l2_env(&mut direct, workspace.as_ref());
             direct.stdout(Stdio::piped()).stderr(Stdio::piped());
 
             match direct.output() {

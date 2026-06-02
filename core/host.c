@@ -28,7 +28,7 @@
  * Still a prototype: full persistence, real isolation primitives (namespaces
  * here, caps on seL4), and complete L2P-speaking C binary remain future work.
  * User-ns / mount ns exploration is happening in the Rust host prototype
- * (see src/sandbox.rs TODO + nix sched feature).
+ * (see docs/PROTOTYPE_HARDENING_AND_SEL4_PLAN.md for user-ns + nix sched future).
  */
 
 #include "sys.h"
@@ -161,7 +161,9 @@ l2_result_t l2_sys_list(l2_sys_t sys, char *buf, size_t buf_size, size_t *out_co
         if (sys->objects[i].used) {
             size_t n = strlen(sys->objects[i].name) + 1;
             if (written + n > buf_size) break;
-            memcpy(buf + written, sys->objects[i].name, n);
+            if (!l2_memcpy_safe(buf + written, buf_size - written, sys->objects[i].name, n, n)) {
+                break;
+            }
             written += n;
             count++;
         }

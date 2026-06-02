@@ -22,7 +22,7 @@ pub fn apply_strict_sandbox(workspace: Option<&Path>, policy: &str) -> Result<()
     // Capability bounding set drop (NSA/CISA-grade least privilege for strict + strict-mcp).
     // Drops all caps from the bounding set. Combined with no_new_privs this prevents
     // regaining privileges. Effective even if some caps were present at start.
-    // This was a TODO in the hardening plan; now implemented for MCP/agent workloads.
+    // (Implemented as part of high-assurance hardening for MCP/agent workloads.)
     drop_capability_bounding_set();
 
     // Additional strict/MCP hardening:
