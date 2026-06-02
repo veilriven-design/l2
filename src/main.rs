@@ -915,6 +915,28 @@ fn exec_isolated(
                      This is expected on very old kernels or when running in restricted environments."
                 );
 
+                // Drop root privileges if we were escalated via sudo. This closes the
+                // "back door" where fallback direct execution could run as UID 0 and
+                // write to /etc etc. even when unshare/Landlock couldn't be used.
+                // The workload runs as the original user, so host FS writes outside
+                // workspace are denied by normal permissions.
+                if nix::unistd::Uid::effective().is_root() {
+                    if let Ok(uid_str) = std::env::var("SUDO_UID") {
+                        if let Ok(uid) = uid_str.parse::<u32>() {
+                            if uid != 0 {
+                                let _ = nix::unistd::setuid(nix::unistd::Uid::from_raw(uid));
+                            }
+                        }
+                    }
+                    if let Ok(gid_str) = std::env::var("SUDO_GID") {
+                        if let Ok(gid) = gid_str.parse::<u32>() {
+                            if gid != 0 {
+                                let _ = nix::unistd::setgid(nix::unistd::Gid::from_raw(gid));
+                            }
+                        }
+                    }
+                }
+
                 let mut direct = Command::new("sh");
                 direct.arg("-c").arg(what);
                 if let Some(ws) = &workspace {
@@ -979,6 +1001,28 @@ fn exec_isolated(
                 "[warning] Could not run unshare ({}). Falling back to direct execution with parent process protections.",
                 e
             );
+
+            // Drop root privileges if we were escalated via sudo. This closes the
+            // "back door" where fallback direct execution could run as UID 0 and
+            // write to /etc etc. even when unshare/Landlock couldn't be used.
+            // The workload runs as the original user, so host FS writes outside
+            // workspace are denied by normal permissions.
+            if nix::unistd::Uid::effective().is_root() {
+                if let Ok(uid_str) = std::env::var("SUDO_UID") {
+                    if let Ok(uid) = uid_str.parse::<u32>() {
+                        if uid != 0 {
+                            let _ = nix::unistd::setuid(nix::unistd::Uid::from_raw(uid));
+                        }
+                    }
+                }
+                if let Ok(gid_str) = std::env::var("SUDO_GID") {
+                    if let Ok(gid) = gid_str.parse::<u32>() {
+                        if gid != 0 {
+                            let _ = nix::unistd::setgid(nix::unistd::Gid::from_raw(gid));
+                        }
+                    }
+                }
+            }
 
             let mut direct = Command::new("sh");
             direct.arg("-c").arg(what);
