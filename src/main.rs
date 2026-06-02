@@ -49,7 +49,10 @@ enum Commands {
         r#type: String,
         #[arg(long, help = "Inline content")]
         content: Option<String>,
-        #[arg(long, help = "Read content from this local file (mutually exclusive with --content)")]
+        #[arg(
+            long,
+            help = "Read content from this local file (mutually exclusive with --content)"
+        )]
         file: Option<String>,
     },
     Get {
@@ -378,7 +381,6 @@ fn validate_exec_target_references_real_object(
         return;
     }
 
-    let mut prev_was_interpreter = false;
     for (i, tok) in tokens.iter().enumerate() {
         let candidate = tok
             .trim_start_matches("./")
@@ -386,7 +388,6 @@ fn validate_exec_target_references_real_object(
             .to_string();
 
         if candidate.is_empty() || candidate.starts_with('/') || candidate.contains("..") {
-            prev_was_interpreter = false;
             continue;
         }
 
@@ -433,25 +434,18 @@ fn validate_exec_target_references_real_object(
                     .trim_start_matches(".\\")
                     .to_string();
                 if c.starts_with('/') || c.contains("..") || c.is_empty() {
-                    prev_was_interpreter = true;
                     continue;
                 }
-                prev_was_interpreter = true;
                 c
             } else {
-                prev_was_interpreter = true;
                 continue;
             }
         } else if !tok.starts_with("./") && tok.contains('/') {
             // Looks like an absolute or complex path that isn't one of our objects
-            prev_was_interpreter = false;
             continue;
         } else {
-            prev_was_interpreter = false;
             candidate
         };
-
-        let target_from_tool_arg = prev_was_interpreter;
 
         // UX improvement: only treat as "possible missing object" if it looks like
         // a filename (has . or / or is reasonably long). Bare words after echo/ls etc
@@ -498,7 +492,12 @@ fn validate_exec_target_references_real_object(
             // of a --type code object; only bare "foo.c" or "./foo.c" (without tool) is
             // the "direct run source" mistake we want to catch.
             let is_direct_exec = !is_interpreter && (tok.starts_with("./") || !tok.contains('/'));
-            let has_compiler = tokens[..i].iter().any(|t| matches!(*t, "cc" | "gcc" | "g++" | "clang" | "clang++" | "c++" | "rustc"));
+            let has_compiler = tokens[..i].iter().any(|t| {
+                matches!(
+                    *t,
+                    "cc" | "gcc" | "g++" | "clang" | "clang++" | "c++" | "rustc"
+                )
+            });
 
             if is_direct_exec && obj.r#type == "code" && !has_compiler {
                 let mut msg = format!(
@@ -904,7 +903,10 @@ fn exec_isolated(
             // with EPERM even under sudo. Fall back to direct execution so the workload can still
             // run (it will still inherit Landlock/seccomp/caps/no_new_privs/env sanitization from
             // the parent l2 process if they were applied).
-            if err.contains("Operation not permitted") || err.contains("unshare failed") || err.contains("unshare spawn failed") {
+            if err.contains("Operation not permitted")
+                || err.contains("unshare failed")
+                || err.contains("unshare spawn failed")
+            {
                 eprintln!(
                     "[warning] Full namespace isolation via unshare not available.\n\
                      Falling back to direct execution of the command.\n\
@@ -919,14 +921,23 @@ fn exec_isolated(
                     direct.current_dir(ws);
                 }
                 direct.env_clear();
-                direct.env("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin");
+                direct.env(
+                    "PATH",
+                    "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                );
                 direct.env(
                     "HOME",
-                    workspace.as_ref().map(|w| w.display().to_string()).unwrap_or_else(|| "/tmp".to_string()),
+                    workspace
+                        .as_ref()
+                        .map(|w| w.display().to_string())
+                        .unwrap_or_else(|| "/tmp".to_string()),
                 );
                 direct.env("USER", "l2");
                 direct.env("LOGNAME", "l2");
-                direct.env("TERM", std::env::var("TERM").unwrap_or_else(|_| "dumb".to_string()));
+                direct.env(
+                    "TERM",
+                    std::env::var("TERM").unwrap_or_else(|_| "dumb".to_string()),
+                );
                 direct.stdout(Stdio::piped()).stderr(Stdio::piped());
 
                 match direct.output() {
@@ -975,14 +986,23 @@ fn exec_isolated(
                 direct.current_dir(ws);
             }
             direct.env_clear();
-            direct.env("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin");
+            direct.env(
+                "PATH",
+                "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+            );
             direct.env(
                 "HOME",
-                workspace.as_ref().map(|w| w.display().to_string()).unwrap_or_else(|| "/tmp".to_string()),
+                workspace
+                    .as_ref()
+                    .map(|w| w.display().to_string())
+                    .unwrap_or_else(|| "/tmp".to_string()),
             );
             direct.env("USER", "l2");
             direct.env("LOGNAME", "l2");
-            direct.env("TERM", std::env::var("TERM").unwrap_or_else(|_| "dumb".to_string()));
+            direct.env(
+                "TERM",
+                std::env::var("TERM").unwrap_or_else(|_| "dumb".to_string()),
+            );
             direct.stdout(Stdio::piped()).stderr(Stdio::piped());
 
             match direct.output() {
