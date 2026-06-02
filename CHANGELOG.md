@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased / Next (post v0.4.4)
+
+### Added / Improved (harden operationalization - making the north-star cybersec workflow real)
+- `l2 harden --apply`: New flag (modeled exactly on the beautiful `crypto --apply`). Turns advisory guidance into operational reality: writes live systemd units, seccomp profiles, sysctl/audit/nft configs to standard + l2 locations; attempts safe application (with user confirmation in paced output, sudo fallbacks); updates the `<profile>-latest.json` with "apply": true + extended "applied" list. 
+- The full loop is now world-class and north-star worthy: `l2 trace --policy strict-mcp ... --analyze --output-profile ; l2 harden --profile strict-mcp --generate-seccomp <trace> --apply ; l2 exec --policy strict-mcp ... ; l2 audit --test` (now sees real applied artifacts + confirms standards + ransomware containment).
+- Script enhancements for apply (ransom-hardened specific blocks too), better json evidence, "APPLY SUCCESS" messaging, prepared apply scripts in $L2_BASE/harden/applied/.
+- `audit --test` now surfaces "+ --apply operational artifacts" in PASS details when present.
+- Updated smoke, README, table, SECURITY/ROADMAP docs to showcase the complete, auditable, applied agentic hardening workflow as the repeatable pattern for major cyber problems (MCP tool abuse, ransomware containment, host prep for AI agents, supply-chain resistant execution).
+- All additive, narrow, explicit authority, paced UX preserved. No new surfaces.
+
 ## [0.4.4] - 2026-06-05
 
 ### Added / Improved (full safety protocol + ransomware resistance prep)

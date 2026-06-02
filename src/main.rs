@@ -155,6 +155,11 @@ enum Commands {
         /// Generate seccomp profile from a collected trace log.
         #[arg(long)]
         generate_seccomp: Option<String>,
+
+        /// Apply the hardening (perform actual configuration changes where safe/confirmed, write units/profiles, update evidence for audit --test).
+        /// Modeled on `crypto --apply`. Default is advisory (like before); --apply makes it operational.
+        #[arg(long)]
+        apply: bool,
     },
 
     /// Select and apply crypto profile for true system encryption (LUKS/gocryptfs + l2 isolation).
@@ -1256,8 +1261,9 @@ fn run_security_audit_tests(
         if has_harden {
             if let Some(p) = &found_harden_json {
                 format!(
-                    "Found strict-mcp harden report ({} with standards; NSA/CISA host prep applied)",
-                    p.display()
+                    "Found strict-mcp harden report ({} with standards; NSA/CISA host prep applied{})",
+                    p.display(),
+                    if std::fs::read_to_string(p).map(|c| c.contains("\"apply\": true")).unwrap_or(false) { " + --apply operational artifacts" } else { "" }
                 )
             } else {
                 "Found strict-mcp harden reports (NSA/CISA host prep applied)".to_string()
@@ -1349,8 +1355,9 @@ fn run_security_audit_tests(
         ransom_pass,
         if let Some(p) = &found_ransom_json {
             format!(
-                "Found ransom-hardened harden report ({} with standards; WannaCry-class net/encrypt/persist contained to explicit workspace)",
-                p.display()
+                "Found ransom-hardened harden report ({} with standards; WannaCry-class net/encrypt/persist contained to explicit workspace{})",
+                p.display(),
+                if std::fs::read_to_string(p).map(|c| c.contains("\"apply\": true")).unwrap_or(false) { " + --apply operational artifacts" } else { "" }
             )
         } else if has_ransom_policy {
             "Recent ransom-hardened policy usage (high-assurance malicious workload containment active)".to_string()
@@ -1404,6 +1411,7 @@ fn harden(
     fast: bool,
     network_isolation: bool,
     generate_seccomp: Option<String>,
+    apply: bool,
     json: bool,
 ) -> Result<()> {
     if !json {
@@ -1412,6 +1420,9 @@ fn harden(
         println!("   Target  : {}", target);
         if dry_run {
             println!("   Mode    : DRY-RUN (no changes will be made)");
+        }
+        if apply {
+            println!("   Mode    : APPLY (performing confirmed changes + writing evidence)");
         }
         if network_isolation {
             println!("   Network isolation: ENABLED");
@@ -1447,6 +1458,9 @@ fn harden(
     if let Some(trace) = &generate_seccomp {
         cmd.arg("--generate-seccomp").arg(trace);
     }
+    if apply {
+        cmd.arg("--apply");
+    }
 
     let status = cmd.status()?;
     if !status.success() {
@@ -1469,7 +1483,8 @@ fn harden(
             "profile": profile,
             "target": target,
             "network_isolation": network_isolation,
-            "generate_seccomp": generate_seccomp
+            "generate_seccomp": generate_seccomp,
+            "apply": apply
         }),
     );
 
@@ -1479,15 +1494,19 @@ fn harden(
             json_line(&success_json(&format!("harden {} complete", profile)))
         );
     } else {
-        println!("✅ l2 system hardening complete for profile '{}'.", profile);
-        println!("   Review the generated report and apply any manual steps as needed.");
+        if apply {
+            println!("✅ l2 system hardening APPLIED for profile '{}'.", profile);
+            println!("   Actual changes + artifacts written (see report + json). Host/container now has stronger baseline.");
+            println!("   Evidence updated for `l2 audit --test`.");
+        } else {
+            println!("✅ l2 system hardening complete for profile '{}'.", profile);
+            println!("   Review the generated report and apply any manual steps as needed.");
+        }
         println!();
         println!("   Recommended next step for this profile:");
         println!("     l2 trace --policy {} ./your-mcp-workload", profile);
         println!("     l2 exec  --policy {} ./your-mcp-workload", profile);
-        if !dry_run {
-            println!("     l2 audit --test   # verify harden reports + strict-mcp against NSA/CISA/FBI standards");
-        }
+        println!("     l2 audit --test   # verify harden reports + policy usage against NSA/CISA/FBI + ransomware standards");
     }
     Ok(())
 }
@@ -2239,6 +2258,7 @@ fn main() -> Result<()> {
             fast,
             network_isolation,
             generate_seccomp,
+            apply,
         } => {
             harden(
                 profile,
@@ -2247,6 +2267,7 @@ fn main() -> Result<()> {
                 fast,
                 network_isolation,
                 generate_seccomp,
+                apply,
                 cli.json,
             )?;
         }

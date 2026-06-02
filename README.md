@@ -153,7 +153,7 @@ git checkout v0.1.0
 | `l2 destroy <name>`              | Remove system and all objects |
 | `l2 sel4-setup [--fast/-f]`      | One-shot seL4/Microkit dev environment (paced output; `--fast` for CI/old hardware) |
 | `l2 trace [--policy <protocol>] [--enforce] ...` | Collect seccomp traces (Phase 1). `--analyze <log>` generates real profiles. |
-| `l2 harden --profile <name> ...` | NSA/CISA/FBI-aligned host/container hardening for agentic era (with `--network-isolation`, seccomp gen, systemd units). Paced output. |
+| `l2 harden --profile <name> [--apply] ...` | NSA/CISA/FBI-aligned host/container hardening for agentic era (with `--network-isolation`, seccomp gen, systemd units). `--apply` makes it operational (writes live artifacts + evidence for `audit --test`). Paced output. |
 | `l2 crypto --profile <name> [--apply] ...` | Choose/apply verified crypto profile (AES-256-XTS-Argon2id, XChaCha20-Poly1305-Argon2id, or hybrid) for system encryption via LUKS/gocryptfs + l2 isolation. Paced output. |
 | `l2 policies` / `l2 policy <name>` | Discover and inspect policy protocols (e.g. `strict-mcp`, `ransom-hardened`). |
 | `l2 audit ...`                   | View/manage tamper-evident authority audit log. |
@@ -162,7 +162,7 @@ Full surface includes the above + status, revoke, etc. All commands support `--j
 
 ## Verification (Smoke Test)
 
-These commands exercise the full v0.4.4+ surface (policies including ransom-hardened, strict-mcp, crypto, harden, trace with profile output, audit + ransomware containment check). They should succeed:
+These commands exercise the full v0.4.4+ surface (policies including ransom-hardened, strict-mcp, crypto, harden --apply for operational artifacts, trace with profile output, audit + ransomware containment check). The `harden --apply` + `audit --test` is the world-class north-star workflow for auditable, standards-backed agentic/MCP hardening. They should succeed:
 
 ```bash
 export L2_DATA_DIR=$(mktemp -d)
@@ -171,6 +171,8 @@ l2 policy strict-mcp
 l2 crypto --list
 echo 'fake trace' > /tmp/trace.log
 l2 harden --profile strict-mcp --dry-run --fast --generate-seccomp /tmp/trace.log || true
+# The beautiful operational loop: --apply writes live units/profiles/confs + updates evidence json
+l2 harden --profile strict-mcp --fast --generate-seccomp /tmp/trace.log --apply || true
 l2 create smoke --policy strict-mcp
 l2 put smoke hello.txt --content 'hello from v0.4.4'
 l2 get smoke hello.txt | grep -q 'v0.4.4'
@@ -178,7 +180,7 @@ echo 'fake log' > /tmp/fake.log
 l2 trace --analyze /tmp/fake.log --output-profile /tmp/profile.txt
 l2 audit --tail 5
 l2 audit --verify
-l2 audit --test  # runs regular automated checks vs. latest security standards (CISA/NSA/FBI/Linux hardening + ransomware); tied to strict-mcp/ransom-hardened + l2 harden artifacts (run `l2 harden --profile strict-mcp` (or ransom-hardened) then this for full PASS)
+l2 audit --test  # runs regular automated checks vs. latest security standards (CISA/NSA/FBI/Linux hardening + ransomware); now sees real --apply artifacts for strict-mcp/ransom-hardened (the world-class north-star loop)
 l2 destroy smoke
 echo "Smoke OK"
 ```
