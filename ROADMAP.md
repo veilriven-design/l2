@@ -50,17 +50,19 @@ Highlights (v0.4.0+ focus on agentic/AI/MCP hardening + full-safety):
 
 1. **Agentic/AI/MCP hardening track (v0.4.0+ main focus)**
    - `l2 crypto` + `strict-mcp` + `ransom-hardened` + `l2 harden` + `l2 audit --test` as a complete operational path (incl. ransomware containment validation).
-   - Continue maturing: more aggressive defaults in crypto/harden, per-protocol divergence (e.g. network denial, tool-specific rules in strict-mcp; full safety in ransom-hardened), expanded automated application in `l2 harden` (more distros, direct profile application).
+   - Continue maturing: more aggressive defaults in crypto/harden, per-protocol divergence (e.g. network denial, tool-specific rules in strict-mcp; full safety in ransom-hardened), expanded automated application in `l2 harden` (see #7 for direct consumability of artifacts via --apply etc., more distros, direct profile application).
    - `l2 trace --policy strict-mcp` (and ransom-hardened for sims) remains the primary data collection tool (observer + enforcing by default); feed into `l2 harden --generate-seccomp`.
    - `l2 harden --profile strict-mcp` (or `ransom-hardened`) prepares hosts/containers per NSA/CISA/FBI guidance (and ransomware-specific) for the agentic era.
    - `strict-mcp` is the flagship policy protocol for normal use (stronger defaults than `strict`, integrates crypto profiles and host hardening); `ransom-hardened` for explicit malicious code testing.
    - Mature per-protocol allowlists, analyzer tooling (`l2 trace --analyze`), user-facing awareness (`l2 policies`), and integration (e.g. auto-wiring generated seccomp profiles into runtime, harden json to audit).
    - `docs/examples/l2_ransomware_resistance_demo.c` as canonical sim for proving `ransom-hardened` controls.
 
-2. **Deeper crypto + host hardening operationalization**
-   - Make generated profiles/units from `l2 crypto`/`l2 harden` directly consumable with one command.
+2. **Deeper crypto + host hardening operationalization** (current highest-leverage next after v0.4.4; tracked in #7)
+   - Make generated profiles/units from `l2 crypto`/`l2 harden` directly consumable with one command (add `--apply` to `l2 harden` modeled on crypto; safe/audited application of units, profiles, nft rules, sysctls where possible; update `<profile>-latest.json` with applied evidence).
+   - Close the loop so `l2 harden --profile X --apply ; l2 audit --test` is the repeatable end-to-end for standards + real state change.
    - Expand concrete steps (more distros, TPM integration, fscrypt, etc.).
-   - Policy-aware differences in the runtime (Landlock, seccomp, namespaces) for `strict-mcp` vs. `strict`.
+   - Policy-aware differences in the runtime (Landlock, seccomp, namespaces) for `strict-mcp` vs. `strict` (and ransom-hardened).
+   - See new GitHub #7 for details + constraints (keep narrow, explicit authority, no new surfaces).
 
 2. **Mature the L2P / core split**
    - Expand the operations implemented over the wire in `host/core.rs`.

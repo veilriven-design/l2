@@ -34,7 +34,7 @@ See [ROADMAP.md](../ROADMAP.md) for the current overall priorities. The sections
 
 Phase 1 enforcing is now active for strict-family policies (especially `strict-mcp`, the current main focus). The filter supports loading external trace-derived minimal profiles (generated via `l2 trace --analyze` + `l2 harden --generate-seccomp` or `l2 crypto` flows).
 
-**Current highest-priority concrete work:** Mature the `l2 crypto` + `strict-mcp` + `ransom-hardened` + `l2 harden` + `l2 audit --test` path (per the v0.4.4 roadmap). Continue trace collection under `strict-mcp` (and ransom-hardened for sims), curation of allowlists (policy-aware, incl. ransomware), expansion of concrete host hardening steps, and end-to-end validation with the resistance demo.
+**Current highest-priority concrete work:** Mature the `l2 crypto` + `strict-mcp` + `ransom-hardened` + `l2 harden` + `l2 audit --test` path, with immediate next being direct consumability/operationalization of harden artifacts (add --apply + safe automated application of generated units/profiles; see GitHub #7 and ROADMAP). Continue trace collection under `strict-mcp` (and ransom-hardened for sims), curation of allowlists (policy-aware, incl. ransomware), expansion of concrete host hardening steps, and end-to-end validation with the resistance demo.
 
 Recent progress on this thread (trace + hardening UX):
 - `l2 trace --policy strict-mcp` (and `ransom-hardened`) with `--enforce` and auto-paced output.

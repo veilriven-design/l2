@@ -45,7 +45,7 @@ l2 is the minimal high-assurance Latticra substrate:
 
 ## Current Focus
 
-1. **Agentic/AI/MCP hardening track (v0.4.0+ main focus)**: `l2 crypto` + `strict-mcp` + `ransom-hardened` + `l2 harden` + `l2 audit --test` as a complete, operational high-assurance path (incl. ransomware containment validation). Further per-protocol divergence, more aggressive defaults in crypto/harden, deeper integration of generated seccomp profiles into runtime, and expanded concrete steps in `l2 harden` (more distros, automated unit/profile application).
+1. **Agentic/AI/MCP hardening track (v0.4.0+ main focus; next: #7)**: `l2 crypto` + `strict-mcp` + `ransom-hardened` + `l2 harden` + `l2 audit --test` as a complete, operational high-assurance path (incl. ransomware containment validation). Further per-protocol divergence, more aggressive defaults in crypto/harden, deeper integration of generated seccomp profiles into runtime, and expanded concrete steps + direct consumability in `l2 harden` (more distros, automated unit/profile application, --apply for real state changes; see GitHub #7).
 
    **New: ransom-hardened (full safety) policy + WannaCry-class resistance prep**: Explicit `ransom-hardened` protocol (auto-enforcing, minimal Landlock ws-only, rlimits, dedicated harden profile + audit check "Ransomware containment"). Includes self-contained educational sim `docs/examples/l2_ransomware_resistance_demo.c` (SMB 445/killswitch, mass encrypt+.WNCRY, persistence, priv esc — only ws files succeed). `l2 create ... --policy ransom-hardened ; ... exec ... ; l2 audit --test` now exercises full substrate for ransomware resistance. Prepares for real testing "when ready". See SECURITY.md and the demo header.
 
@@ -56,6 +56,7 @@ l2 is the minimal high-assurance Latticra substrate:
    - Crypto: --apply produces MCP-aware helper script, stronger integration guidance for protecting l2 state + keys under strict-mcp (and ransom-hardened for testing).
    - `l2 harden --profile ransom-hardened` + `ransom-hardened-latest.json` + "Ransomware containment" check in `l2 audit --test`.
    - Audit events now emitted for `l2 crypto` and `l2 harden` invocations.
+   - **Next immediate (GitHub #7)**: Direct consumability for harden artifacts (`l2 harden --apply` etc.) so guidance becomes audited, repeatable applied state (units, profiles, rules). Matches the "make generated ... directly consumable" item.
 
 2. Better host isolation (seccomp-bpf, capability dropping, tighter Landlock policies, user+mount ns) — Landlock baseline v0.2.0. Phase 0 complete: real `SECCOMP_RET_LOG` + `FLAG_LOG` observer now works (`L2_STRICT_SECCOMP_OBSERVE=1`). Kernel audit logs for strict workloads are available. Phase 1 enforcing active and exercised by strict-mcp + ransom-hardened. See `src/sandbox.rs` + docs/PROTOTYPE_HARDENING_AND_SEL4_PLAN.md for usage. Ready for trace collection → profiles. (Now heavily exercised by `strict-mcp`, `ransom-hardened`, and crypto tooling.)
 
