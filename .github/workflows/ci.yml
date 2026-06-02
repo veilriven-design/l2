@@ -32,7 +32,7 @@ jobs:
         cargo install cargo-audit --locked || true
         cargo audit || echo "cargo audit reported issues or failed to run (non-blocking for release; review advisories separately if any)"
 
-    - name: Smoke tests (v0.4+ full surface: strict-mcp, crypto, harden, trace, policies, audit)
+    - name: "Smoke tests (v0.4+ full surface: strict-mcp, crypto, harden, trace, policies, audit)"
       run: |
         set -euo pipefail
         cargo build --release --quiet
@@ -58,6 +58,7 @@ jobs:
         echo '[more] nr=1' >> "$L2_DATA_DIR/fake.log"
         ./target/release/l2 harden --profile strict-mcp --dry-run --fast --generate-seccomp "$L2_DATA_DIR/fake.log" 2>&1 | grep -q "Seccomp profile generation complete" ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
         ./target/release/l2 harden --profile strict-mcp --dry-run --fast --network-isolation 2>&1 | grep -q "Network Isolation" ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
+        ./target/release/l2 harden --profile ransom-hardened --dry-run --fast 2>&1 | grep -q "ransom-hardened\|FULL SAFETY" ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
 
         # Trace + new --output-profile (data-driven Phase 1 loop) — the same fake.log works
         ./target/release/l2 trace --analyze "$L2_DATA_DIR/fake.log" --output-profile "$L2_DATA_DIR/strict-mcp.txt" 2>&1 | grep -q "Wrote loadable seccomp profile" ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
@@ -82,7 +83,7 @@ jobs:
 
         ./target/release/l2 destroy smoke-mcp
 
-        # ransom-hardened full-safety policy + basic lifecycle (exercises new protocol + auto-enforce path + audit check)
+        # ransom-hardened full-safety policy + basic lifecycle (exercises new protocol + auto-enforce path + audit check + harden json)
         # (full demo binary run is in docs/; here we just validate the policy surface + new audit check)
         ./target/release/l2 create smoke-ransom --policy ransom-hardened
         ./target/release/l2 put smoke-ransom task.txt --content 'ransom test workload'
@@ -91,8 +92,5 @@ jobs:
         echo "$ransom_exec" | grep -q 'ransom-ok' || echo "(ransom exec limited in CI — expected)"
         ./target/release/l2 audit --test 2>&1 | grep -q "Ransomware containment\|ransom-hardened" || echo "(ransom-hardened audit check exercised)"
         ./target/release/l2 destroy smoke-ransom
-
-        # Also exercise harden for the new profile (dry, produces json for audit)
-        ./target/release/l2 harden --profile ransom-hardened --dry-run --fast 2>&1 | grep -q "ransom-hardened\|FULL SAFETY" ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
 
         echo "✅ All v0.4+ smoke tests passed (policies + strict-mcp + crypto + harden + trace+output-profile + audit + regular up-to-date security standards tests + harden<->audit integration + ransom-hardened full-safety policy + WannaCry-class containment checks exercised)"
