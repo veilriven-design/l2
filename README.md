@@ -89,7 +89,7 @@ cat ~/l2-sel4-workspace/README-l2-sel4.md
 <a id="crypto--hardening-v040"></a>
 ## Crypto & Hardening (v0.4.0+)
 
-Dedicated tooling and explicit policy protocols (`strict-mcp` main focus) for high-assurance agentic/AI/MCP systems. NSA/CISA-aligned host prep, verified crypto for system encryption, and data-driven seccomp policies — all integrated with the l2 substrate. Long guidance uses paced "typewriter" output.
+Dedicated tooling and explicit policy protocols (`strict-mcp` main focus) for high-assurance agentic/AI/MCP systems (per NSA May 2026 MCP Security Design CSI for AI-Driven Automation). NSA/CISA 2026 latest (CPG 2.0, AI/ML supply chain Mar 2026, OT AI, agentic AI) host prep via great-harden, verified crypto for system encryption, and data-driven seccomp policies — all integrated with the l2 substrate for North-Star Containment. Long guidance uses paced "typewriter" output.
 
 <details>
 <summary><strong>Read more (l2 crypto profiles + hybrid, l2 harden, strict-mcp divergence, trace-to-profile pipeline, integration)</strong></summary>

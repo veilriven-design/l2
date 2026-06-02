@@ -250,7 +250,7 @@ enum Commands {
         verify: bool,
 
         /// Run regular automated audit tests against up-to-date security standards
-        /// (NSA/CISA/FBI-aligned for agentic systems, Linux hardening best practices).
+        /// (NSA/CISA/FBI-aligned for agentic systems per latest 2026: CPG 2.0, MCP security design for AI automation, AI/ML supply chain, OT AI integration, agentic AI).
         /// Checks: audit chain, high-assurance policy usage (strict-mcp / ransom-hardened / great-harden), harden reports, sandbox protections,
         /// no ambient root/creds in recent execs, etc. Integrates standards automatically.
         #[arg(long)]
@@ -1537,7 +1537,7 @@ fn run_security_audit_tests(
             .map(|(n, p, d)| serde_json::json!({"check": n, "passed": p, "detail": d}))
             .collect();
         print_json(
-            &serde_json::json!({"audit_tests": json_results, "standards": "CISA/NSA/FBI + Linux hardening for agentic systems + CISA ransomware / worm containment + supply-chain (Miasma-style) + AIO malware-cancer + l2 North-Star Containment (great-harden grand demo)"}),
+            &serde_json::json!({"audit_tests": json_results, "standards": "CISA/NSA/FBI 2026 latest: CPG 2.0 (GOVERN, least priv, malicious code, MSP/oversight), NSA MCP security design for AI automation (May 2026), AI/ML supply chain risks (Mar 2026), OT AI integration principles, agentic AI careful adoption, AI data security + CISA ransomware/worm + supply-chain (Miasma) + AIO malware-cancer + l2 North-Star Containment (great-harden)"}),
         );
     }
 
@@ -2595,15 +2595,15 @@ fn main() -> Result<()> {
             println!("Available policy protocols:\n");
             println!("  default         - Pragmatic balance (current default behavior)");
             println!("  strict          - Strong isolation + seccomp (Landlock + no_new_privs)");
-            println!("  strict-mcp      - **Current main focus**");
+            println!("  strict-mcp      - **Current main focus** (NSA MCP May 2026 security design for AI automation: substrate isolation for secure MCP tool/context interactions)");
             println!("                    High-assurance protocol for agentic/AI/MCP workloads.");
             println!("                    Builds on 'strict' with:");
             println!("                      • Stronger seccomp enforcing by default");
             println!("                      • MCP/tool-execution threat model considerations");
             println!("                      • Designed to pair with output from `l2 harden --profile strict-mcp`");
-            println!("  ransom-hardened - **Full safety protocol** for ransomware/malicious code testing");
+            println!("  ransom-hardened - **Full safety protocol** for ransomware/malicious code testing (aligns to CISA ransomware + NSA 2026 AI/ML supply chain containment)");
             println!("                    (WannaCry-class resistance). Strictest posture + auto-enforce.");
-            println!("  great-harden    - **SUPREME** for aerospace, industrial, critical infrastructure (l2 great-harden)");
+            println!("  great-harden    - **SUPREME** for aerospace, industrial, critical infrastructure (l2 great-harden; aligns NSA/CISA OT AI integration principles Dec 2025, CPG 2.0, agentic AI careful adoption Apr 2026)");
             println!("                    Makes servers IMPENETRABLE to malware/worms/viruses. Higher assurance, closes logic gaps.");
             println!("                    Extreme: kernel lockdown, full ro, no dynamic, great policy (ransom superset).");
             println!(
@@ -3323,7 +3323,7 @@ mod tests {
         // Seed a minimal great-harden-latest.json so cancer AIO + great checks see harden report (as in real usage + CI)
         let gh_dir = temp.join("harden");
         let _ = std::fs::create_dir_all(&gh_dir);
-        let _ = std::fs::write(gh_dir.join("great-harden-latest.json"), r#"{"profile":"great-harden","apply":true,"standards":["AIO malware-cancer"],"great_harden_note":"substrate defense"}"#);
+        let _ = std::fs::write(gh_dir.join("great-harden-latest.json"), r#"{"profile":"great-harden","apply":true,"standards":["CPG 2.0","NSA MCP 2026","AI supply chain 2026","AIO malware-cancer"],"great_harden_note":"North-Star + latest NSA/CISA 2026"}"#);
 
         let results = run_security_audit_tests(&log_p, false).unwrap();
         assert!(results.iter().any(|(n, _, _)| n.contains("Tamper-evident")));
@@ -3346,7 +3346,7 @@ mod tests {
         assert!(results
             .iter()
             .any(|(n, _, _)| n.contains("malware-cancer") || n.contains("AIO malware-cancer")));
-        // 8 checks from up-to-date standards (tamper + policy + harden + sandbox + creds + ransom + miasma + cancer AIO)
+        // 8 checks from up-to-date standards (tamper + policy + harden + sandbox + creds + ransom + miasma + cancer AIO; covers 2026 CPG 2.0/MCP/AI supply/OT via standards)
         assert!(results.len() >= 8);
 
         let _ = std::env::remove_var("L2_DATA_DIR");

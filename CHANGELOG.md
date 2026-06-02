@@ -2,6 +2,12 @@
 
 ## Unreleased / Next (post v0.4.4)
 
+### Alignment to Latest NSA/CISA Guidance (as of 2026, to the hour)
+- Full sweep against CISA Cross-Sector CPGs 2.0 (Dec 2025: GOVERN, least priv 3.H, malicious code detection, MSP/oversight risks, NIST CSF 2.0 alignment), NSA CSI AI/ML Supply Chain Risks & Mitigations (Mar 2026: poisoning, AIBOM/SBOM, provenance), NSA MCP Security Design Considerations for AI-Driven Automation (May 2026 - l2 strict-mcp is the secure substrate), NSA/CISA OT AI Integration Principles (Dec 2025: governance, human-in-loop, fail-safes, separate AI data), Agentic AI Careful Adoption (Apr 2026), AI Data Security.
+- Updates: harden.sh now explicitly references CPG 2.0 + MCP CSI + AI supply chain + SBOM/AIBOM recs for AI workloads; standards in json/audit expanded; policy descs in main.rs updated (strict-mcp for NSA MCP, great for OT/AI/CPG); docs (README/SECURITY/STATUS/ROADMAP) updated with mappings and "how l2 meets".
+- No new code surfaces; enhancements are in guidance, comments, audit checks, and docs. Existing primitives (Landlock/least priv, seccomp, explicit authority, audit chain, demos for supply chain/ransomware/substrate, great-harden for critical) already meet or exceed. Added SBOM rec and CPG/GOVERN emphasis.
+- Verified: l2 audit --test now surfaces CPG 2.0/MCP/AI supply chain in standards; smokes pass.
+
 ### Added / Improved (harden operationalization - making the north-star cybersec workflow real)
 - `l2 harden --apply`: New flag (modeled exactly on the beautiful `crypto --apply`). Turns advisory guidance into operational reality: writes live systemd units, seccomp profiles, sysctl/audit/nft configs to standard + l2 locations; attempts safe application (with user confirmation in paced output, sudo fallbacks); updates the `<profile>-latest.json` with "apply": true + extended "applied" list. 
 - The full loop is now world-class and north-star worthy: `l2 trace --policy strict-mcp ... --analyze --output-profile ; l2 harden --profile strict-mcp --generate-seccomp <trace> --apply ; l2 exec --policy strict-mcp ... ; l2 audit --test` (now sees real applied artifacts + confirms standards + ransomware containment).

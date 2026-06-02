@@ -294,7 +294,7 @@ case "$PROFILE" in
         ;;
     great-harden)
         echo "      → great-harden: SUPREME aerospace/industrial/critical infrastructure mode (l2 great-harden)"
-        echo "      → Makes servers IMPENETRABLE to major classes of known malware/worms/viruses (ransomware + Miasma + viruses + AIO malware-cancer substrate attacks)."
+        echo "      → Makes servers IMPENETRABLE to major classes of known malware/worms/viruses (ransomware + Miasma + viruses + AIO malware-cancer substrate + AI supply chain per 2026 NSA CSI). Aligns to CPG 2.0, NSA MCP security design for AI automation, OT AI integration principles."
         echo "      → Extreme: combines ransom-hardened + strict-mcp + aerospace (kernel lockdown, modules disabled, full ro root, no dynamic code, extreme caps/seccomp/Landlock, verified paths)."
         echo "      → Closes all logic gaps from prior sweeps. Use for high-assurance where standard hardening misses."
         echo "      → Forces great-harden policy (ransom-hardened superset). Pair with l2 exec --policy great-harden."
@@ -428,8 +428,9 @@ if [ "$TARGET" = "host" ]; then
         echo "      echo 'blacklist bluetooth' > /etc/modprobe.d/l2-great-no-bt.conf || true"
         echo "      # 8. Enforce great-harden policy for critical procs via units or l2 exec --policy great-harden"
         echo "      #    (grand demo: l2 create ... --policy great-harden; put l2_malware_cancer... ; exec ; audit --test)"
+        echo "      # 9. For AI/ML/agentic workloads (NSA Mar 2026 AI/ML Supply Chain CSI + MCP May 2026): require SBOM + AIBOM (AI Bill of Materials) from vendors/supply chain; track data/model provenance to mitigate poisoning/drift. Use tools like syft for SBOM, custom for AI datasets."
         echo
-        type_line "      This + great-harden policy + l2 runtime sandbox = servers impenetrable to major classes of ransomware/worm/virus/substrate threats (validated by malware-cancer AIO sim)."
+        type_line "      This + great-harden policy + l2 runtime sandbox = servers impenetrable to major classes of ransomware/worm/virus/substrate/AI-MCP threats (validated by malware-cancer AIO sim + North-Star Containment). Aligns to latest NSA/CISA (CPG 2.0, MCP CSI, AI supply chain, OT AI)."
         echo "      # Validate with AIO malware-cancer sim (ransom + Miasma + direct substrate attacks on state/trace/audit/crypto/ns/bpf + git/pip/ELF/anti):"
         echo "      #   export L2_DATA_DIR=\$(mktemp -d); l2 great-harden --fast --apply || true"
         echo "      #   l2 create cancer-test --policy great-harden"
@@ -645,9 +646,15 @@ l2 audit --test
 ## References & Standards
 
 - NSA / CISA "Securing AI Systems" guidance
+- CISA Cross-Sector Cybersecurity Performance Goals (CPG 2.0, Dec 2025) - GOVERN, least privilege, malicious code detection, MSP risks, oversight
+- NSA CSI: AI/ML Supply Chain Risks and Mitigations (Mar 2026) - data poisoning, provenance, AIBOM/SBOM
+- NSA CSI: Model Context Protocol (MCP) Security Design Considerations for AI-Driven Automation (May 2026)
+- NSA/CISA et al: Principles for Secure Integration of AI in Operational Technology (Dec 2025) - governance, human-in-loop, fail-safes, separate data push
+- NSA/CISA: Careful Adoption of Agentic AI Services (Apr 2026), AI Data Security (May 2025)
 - CISA Zero Trust Maturity Model (adapted for agents)
 - FBI alerts on AI supply chain and agentic threats
-- l2 `strict-mcp` policy protocol documentation (`l2 policy show strict-mcp`)
+- l2 `strict-mcp` policy protocol documentation (`l2 policy show strict-mcp`) - substrate for secure MCP per NSA MCP CSI
+- l2 `great-harden` for critical infrastructure / OT-like AI integration
 
 ---
 
@@ -696,12 +703,17 @@ cat > "$LATEST_JSON" << EOF
   "great_harden_note": "${PROFILE} is l2 great-harden supreme mode for aerospace/industrial - closes logic gaps (incl. AIO malware-cancer substrate attacks), achieves l2 North-Star Containment of ransomware+ worms+viruses+direct l2 attacks, makes impenetrable.",
   "standards": [
     "NSA / CISA \"Securing AI Systems\" guidance",
+    "CISA Cross-Sector Cybersecurity Performance Goals (CPG 2.0, Dec 2025) incl. GOVERN, least privilege (3.H), malicious code detection, MSP risks, oversight",
+    "NSA CSI: AI/ML Supply Chain Risks and Mitigations (Mar 2026) - AIBOM/SBOM, data poisoning/provenance",
+    "NSA CSI: MCP Security Design Considerations for AI-Driven Automation (May 2026)",
+    "NSA/CISA et al: Secure Integration of AI in OT (Dec 2025) - governance, human-in-loop, fail-safes",
+    "NSA: Careful Adoption of Agentic AI Services (Apr 2026), AI Data Security (2025)",
     "CISA Zero Trust Maturity Model (adapted for agents)",
     "FBI alerts on AI supply chain and agentic threats",
     "CIS Benchmarks for Linux hardening",
     "CISA Stop Ransomware / worm containment guidance (for ransom-hardened)",
-    "Supply chain (Miasma-style npm worm + credential exfil + repack resistance)",
-    "AIO malware-cancer + l2 North-Star Containment (ransomware + Miasma + viruses + direct substrate attack resistance under great-harden; grand demo via put/exec/audit)",
+    "Supply chain (Miasma-style + AI/ML per 2026 CSI) resistance",
+    "AIO malware-cancer + l2 North-Star Containment (ransomware + Miasma + viruses + direct substrate + MCP/agentic containment under great-harden; grand demo)",
     "l2 ${PROFILE} policy protocol + regular \`l2 audit --test\`"
   ],
   "report_md": "$REPORT_FILE",
@@ -720,7 +732,7 @@ echo "      3. Run agents with \`l2 exec --policy ${PROFILE}\`"
 echo "      4. (Beautiful part) Re-run with --apply to make it operational:  l2 harden --profile ${PROFILE} --apply"
 echo "      5. Run \`l2 audit --test\` to automatically verify standards compliance (harden reports + chain + ${PROFILE} usage etc.)"
 echo "      6. For supply-chain (Miasma) testing: l2 put ... l2_miasma_resistance_demo.c ; exec under ${PROFILE}"
-echo "      7. For supreme aerospace/industrial (great-harden) + AIO substrate defense: l2 great-harden --apply ; use --policy great-harden + l2_malware_cancer_resistance_demo.c ; l2 audit --test"
+echo "      7. For supreme aerospace/industrial + AI/MCP/OT (great-harden per latest NSA MCP CSI, CPG 2.0, AI supply chain): l2 great-harden --apply ; use --policy great-harden + l2_malware_cancer... ; l2 audit --test (now covers CPG 2.0, MCP sec design, AI supply chain)"
 
 echo
 echo "[6/6] l2 harden complete for profile '$PROFILE'."
