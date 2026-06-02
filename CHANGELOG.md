@@ -1,8 +1,9 @@
 # Changelog
 
-## Unreleased / Next (post v0.4.4)
+## [0.4.5] - 2026-06-06
 
 ### Alignment to Latest NSA/CISA Guidance (as of 2026, to the hour)
+- Full sweep and update of l2 to meet NSA and CISA recommendations current as of the latest 2026 publications (CPG 2.0, AI/ML supply chain CSI, MCP security design for AI automation, OT AI integration, agentic AI, etc.). l2 substrate now explicitly documents and aligns to these for agentic/AI/MCP/critical infrastructure use.
 - Full sweep against CISA Cross-Sector CPGs 2.0 (Dec 2025: GOVERN, least priv 3.H, malicious code detection, MSP/oversight risks, NIST CSF 2.0 alignment), NSA CSI AI/ML Supply Chain Risks & Mitigations (Mar 2026: poisoning, AIBOM/SBOM, provenance), NSA MCP Security Design Considerations for AI-Driven Automation (May 2026 - l2 strict-mcp is the secure substrate), NSA/CISA OT AI Integration Principles (Dec 2025: governance, human-in-loop, fail-safes, separate AI data), Agentic AI Careful Adoption (Apr 2026), AI Data Security.
 - Updates: harden.sh now explicitly references CPG 2.0 + MCP CSI + AI supply chain + SBOM/AIBOM recs for AI workloads; standards in json/audit expanded; policy descs in main.rs updated (strict-mcp for NSA MCP, great for OT/AI/CPG); docs (README/SECURITY/STATUS/ROADMAP) updated with mappings and "how l2 meets".
 - No new code surfaces; enhancements are in guidance, comments, audit checks, and docs. Existing primitives (Landlock/least priv, seccomp, explicit authority, audit chain, demos for supply chain/ransomware/substrate, great-harden for critical) already meet or exceed. Added SBOM rec and CPG/GOVERN emphasis.
