@@ -103,6 +103,7 @@ l2 policy strict-mcp
 
 - `strict`: Strong baseline (Landlock + no_new_privs + seccomp).
 - `strict-mcp`: Current flagship — stricter defaults for agentic/MCP/tool workloads (seccomp enforcing auto-on, tighter Landlock). Pair with `l2 harden --profile strict-mcp`.
+- `ransom-hardened`: Full safety for ransomware/malicious code testing (WannaCry-class). Auto-enforce + minimal ws-only surface. See `l2 policy ransom-hardened`, the demo in docs/examples/, and SECURITY.md.
 
 Use with `--policy strict-mcp` on create/exec/trace/etc.
 

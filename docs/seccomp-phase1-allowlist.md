@@ -1,6 +1,6 @@
 # seccomp Phase 1 Allowlist (Work in Progress)
 
-This document tracks the data-driven curation of a minimal seccomp allowlist primarily for the `strict` and `strict-mcp` policy protocols (our current main focus).
+This document tracks the data-driven curation of a minimal seccomp allowlist primarily for the `strict`, `strict-mcp`, and `ransom-hardened` (full safety / ransomware testing) policy protocols.
 
 `l2 harden` prepares the host/container environment. `strict-mcp` (via `l2 trace --policy strict-mcp` and `l2 exec --policy strict-mcp`) is the execution policy that consumes the hardened substrate.
 
@@ -34,6 +34,7 @@ This document tracks the data-driven curation of a minimal seccomp allowlist pri
 - Rust compilation (very useful): `cargo build --quiet` inside a system with a small Rust project
 - Common tools: `git status`, `make`, `curl -I https://example.com`, `find . -type f | head -5`
 - Interpreters: Node/Ruby if available in the environment
+- For `ransom-hardened` (full safety): the `l2_ransomware_resistance_demo.c` (or any "bad" encryptor/worm sim) under `L2_STRICT_SECCOMP_ENFORCE=1 l2 trace --policy ransom-hardened`. Expect zero net syscalls (41/42/...), ptrace etc. — those must stay in NEVER_ALLOWED.
 
 ## Collected Traces
 

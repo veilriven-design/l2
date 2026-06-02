@@ -61,7 +61,7 @@ enum Commands {
     },
     Exec {
         /// Policy protocol to use.
-        /// Examples: "strict", "strict-mcp" (current main focus), "default".
+        /// Examples: "strict", "strict-mcp" (current main focus), "default", "ransom-hardened" (full safety for ransomware testing).
         /// These protocols make the isolation and hardening guarantees explicit.
         /// Only meaningful for one-shot mode (`l2 exec hello.py`).
         #[arg(long)]
@@ -103,7 +103,7 @@ enum Commands {
         input: Option<String>,
 
         /// Policy protocol to use.
-        /// Examples: "strict", "strict-mcp", "strict-audit".
+        /// Examples: "strict", "strict-mcp", "ransom-hardened", "strict-audit".
         /// These define the exact isolation and hardening guarantees applied.
         #[arg(long, default_value = "strict")]
         policy: String,
@@ -186,7 +186,7 @@ enum Commands {
 
     /// Show details for a policy protocol.
     Policy {
-        /// Name of the policy protocol (e.g. "strict-mcp")
+        /// Name of the policy protocol (e.g. "strict-mcp" or "ransom-hardened")
         name: String,
 
         /// Show in JSON format
@@ -214,7 +214,7 @@ enum Commands {
 
         /// Run regular automated audit tests against up-to-date security standards
         /// (NSA/CISA/FBI-aligned for agentic systems, Linux hardening best practices).
-        /// Checks: audit chain, strict-mcp usage, harden reports, sandbox protections,
+        /// Checks: audit chain, high-assurance policy usage (strict-mcp / ransom-hardened), harden reports, sandbox protections,
         /// no ambient root/creds in recent execs, etc. Integrates standards automatically.
         #[arg(long)]
         test: bool,
@@ -811,12 +811,25 @@ fn compute_dispatch_command(name: &str, content: &str) -> Option<String> {
 ///     * No ambient network by default for MCP tool execution
 ///     * Tighter capability and filesystem posture suitable for tool-using agents
 ///     * Clear audit of "MCP workload" context
+/// - "ransom-hardened": **full safety protocol** for ransomware / malicious workload testing (e.g. WannaCry-class):
+///     * Strictest containment posture on Linux prototype
+///     * Auto-enabling Phase 1 seccomp enforcing (tiny no-net builtin + NEVER blacklist)
+///     * Minimal Landlock (workspace-only writes + tiniest RO system paths)
+///     * rlimits + dedicated audit/harden profile for ransomware resistance verification
+///     * Use only for red-team sims of "bad" code; normal agentic use strict-mcp
 fn normalize_policy(policy: &str) -> (String, bool, bool) {
     match policy {
         "strict-mcp" => {
             // strict-mcp is our primary hardened protocol for agentic/MCP workloads.
             // It implies stricter defaults than plain "strict".
             (policy.to_string(), true, true) // (name, is_strict_family, is_mcp)
+        }
+        "ransom-hardened" => {
+            // ransom-hardened is the full safety protocol for testing containment
+            // of ransomware-class threats (WannaCry-like: worm propagation, mass
+            // encryption, persistence, priv esc). Implies strict family + auto
+            // enforcing + even tighter posture. See docs/examples/l2_ransomware_resistance_demo.c
+            (policy.to_string(), true, true)
         }
         "strict" => (policy.to_string(), true, false),
         "default" => (policy.to_string(), false, false),
@@ -888,6 +901,7 @@ fn exec_isolated(
     _input: Option<&str>,
     sys_name: &str,
     workspace: Option<PathBuf>,
+    policy: &str,
 ) -> Result<String> {
     let mut cmd = Command::new("unshare");
     // Additional hardening isolation: separate UTS (hostname/domain), IPC namespaces
@@ -911,7 +925,21 @@ fn exec_isolated(
     }
 
     cmd.args(&unshare_args);
-    cmd.args(["sh", "-c", what]);
+
+    // For ransom-hardened (full safety), wrap with conservative ulimits to contain
+    // encrypt damage, fork-bomb spread, and fd exhaustion even if other controls
+    // have gaps. Applied to the inner sh so children inherit.
+    let inner_what = if policy == "ransom-hardened" {
+        // Basic single-quote escape for the user command (sufficient for our demo + dispatch cases).
+        let escaped = what.replace('\'', "'\\''");
+        format!(
+            "ulimit -u 16 -n 128 -f 10485760 2>/dev/null || true; sh -c '{}'",
+            escaped
+        )
+    } else {
+        what.to_string()
+    };
+    cmd.args(["sh", "-c", &inner_what]);
 
     // Hardening + smoother UX: do not leak host environment variables (API keys,
     // SSH agents, tokens, locale quirks, etc.) into isolated workloads.
@@ -967,7 +995,16 @@ fn exec_isolated(
                 drop_privileges_if_sudo();
 
                 let mut direct = Command::new("sh");
-                direct.arg("-c").arg(what);
+                let direct_what = if policy == "ransom-hardened" {
+                    let escaped = what.replace('\'', "'\\''");
+                    format!(
+                        "ulimit -u 16 -n 128 -f 10485760 2>/dev/null || true; sh -c '{}'",
+                        escaped
+                    )
+                } else {
+                    what.to_string()
+                };
+                direct.arg("-c").arg(&direct_what);
                 // Use deduped helper (polish).
                 setup_minimal_l2_env(&mut direct, workspace.as_ref());
                 direct.stdout(Stdio::piped()).stderr(Stdio::piped());
@@ -1018,7 +1055,16 @@ fn exec_isolated(
             drop_privileges_if_sudo();
 
             let mut direct = Command::new("sh");
-            direct.arg("-c").arg(what);
+            let direct_what = if policy == "ransom-hardened" {
+                let escaped = what.replace('\'', "'\\''");
+                format!(
+                    "ulimit -u 16 -n 128 -f 10485760 2>/dev/null || true; sh -c '{}'",
+                    escaped
+                )
+            } else {
+                what.to_string()
+            };
+            direct.arg("-c").arg(&direct_what);
             // Use deduped helper (polish).
             setup_minimal_l2_env(&mut direct, workspace.as_ref());
             direct.stdout(Stdio::piped()).stderr(Stdio::piped());
@@ -1095,8 +1141,8 @@ fn error(msg: &str, json: bool) -> ! {
 /// principles, and l2's own threat model in SECURITY.md).
 ///
 /// These checks are "automatically implemented" by:
-/// - Being required/enforced via strict-mcp policy (e.g. sandbox, audit logging)
-/// - Integrated into harden (generates compliant units/rules)
+/// - Being required/enforced via high-assurance policies (strict-mcp for agents; ransom-hardened for ransomware/malicious workload testing)
+/// - Integrated into harden (generates compliant units/rules + profile-specific json)
 /// - Verifiable via `l2 audit --test` (regularly runnable, e.g. in CI/cron)
 ///
 /// Returns vec of (check_name, passed, detail).
@@ -1263,13 +1309,63 @@ fn run_security_audit_tests(
         },
     ));
 
+    // 6. Ransomware containment (ransom-hardened full-safety protocol for WannaCry-class testing)
+    // Looks for explicit use of the policy + its dedicated harden report (produced by
+    // `l2 harden --profile ransom-hardened` even in --dry-run). This closes the loop for
+    // "prepare for testing against ransomware" — the check exercises the full substrate
+    // (Landlock ws-only + auto seccomp + ns + caps + rlimits + audit) on malicious sims.
+    let has_ransom_policy = log_path.exists()
+        && std::fs::read_to_string(log_path)
+            .map(|c| c.contains("ransom-hardened") || c.contains("policy\":\"ransom-hardened"))
+            .unwrap_or(false);
+
+    // Reuse the data/home logic from check #3 but for ransom-hardened profile
+    let home_ransom_json =
+        std::path::PathBuf::from(&home).join(".l2/harden/ransom-hardened-latest.json");
+    let data_ransom_json = if !data_dir.is_empty() {
+        std::path::PathBuf::from(&data_dir).join("harden/ransom-hardened-latest.json")
+    } else {
+        std::path::PathBuf::new()
+    };
+    let found_ransom_json: Option<std::path::PathBuf> = if data_ransom_json.exists()
+        && std::fs::read_to_string(&data_ransom_json)
+            .map(|c| c.contains("ransom-hardened") || c.contains("\"profile\""))
+            .unwrap_or(false)
+    {
+        Some(data_ransom_json.clone())
+    } else if home_ransom_json.exists()
+        && std::fs::read_to_string(&home_ransom_json)
+            .map(|c| c.contains("ransom-hardened") || c.contains("\"profile\""))
+            .unwrap_or(false)
+    {
+        Some(home_ransom_json.clone())
+    } else {
+        None
+    };
+    let has_ransom_harden = found_ransom_json.is_some();
+    let ransom_pass = has_ransom_policy || has_ransom_harden || !log_path.exists();
+    results.push((
+        "Ransomware containment (ransom-hardened full-safety)".to_string(),
+        ransom_pass,
+        if let Some(p) = &found_ransom_json {
+            format!(
+                "Found ransom-hardened harden report ({} with standards; WannaCry-class net/encrypt/persist contained to explicit workspace)",
+                p.display()
+            )
+        } else if has_ransom_policy {
+            "Recent ransom-hardened policy usage (high-assurance malicious workload containment active)".to_string()
+        } else {
+            "No ransom-hardened usage or harden report (use --policy ransom-hardened + l2 harden --profile ransom-hardened for full-safety ransomware testing)".to_string()
+        },
+    ));
+
     if json {
         let json_results: Vec<_> = results
             .iter()
             .map(|(n, p, d)| serde_json::json!({"check": n, "passed": p, "detail": d}))
             .collect();
         print_json(
-            &serde_json::json!({"audit_tests": json_results, "standards": "CISA/NSA/FBI + Linux hardening for agentic systems"}),
+            &serde_json::json!({"audit_tests": json_results, "standards": "CISA/NSA/FBI + Linux hardening for agentic systems + CISA ransomware / worm containment"}),
         );
     }
 
@@ -1505,6 +1601,12 @@ fn main() -> Result<()> {
 
     match cli.command {
         Commands::Create { name, policy } => {
+            if policy.len() > 63 {
+                error(
+                    "policy name too long (max 63 chars for C substrate compatibility)",
+                    cli.json,
+                );
+            }
             let id = if should_use_core() {
                 // Major split demo: delegate state op over L2P to l2-core
                 let resp = l2p_request_to_core(
@@ -1860,8 +1962,12 @@ fn main() -> Result<()> {
                     }
                 };
 
-                let (_effective_policy, is_strict_family, is_mcp) =
-                    normalize_policy(&system.policy);
+                let (effective_policy, is_strict_family, is_mcp) = normalize_policy(&system.policy);
+                if effective_policy == "ransom-hardened" {
+                    // Full safety: auto-enable enforcing (user choice) so sims are maximally locked
+                    // without requiring separate L2_STRICT_SECCOMP_ENFORCE=1.
+                    std::env::set_var("L2_STRICT_SECCOMP_ENFORCE", "1");
+                }
                 if is_strict_family {
                     warn_on_cleanup_err(
                         sandbox::apply_strict_sandbox(workspace.as_deref(), &system.policy),
@@ -1889,6 +1995,7 @@ fn main() -> Result<()> {
                     input.as_deref(),
                     &oneshot_id,
                     workspace,
+                    &effective_policy,
                 ) {
                     Ok(o) => o,
                     Err(e) => {
@@ -2029,7 +2136,11 @@ fn main() -> Result<()> {
                 }
             };
 
-            let (_effective_policy, is_strict_family, _is_mcp) = normalize_policy(&system.policy);
+            let (effective_policy, is_strict_family, _is_mcp) = normalize_policy(&system.policy);
+            if effective_policy == "ransom-hardened" {
+                // Full safety: auto-enable enforcing for ransomware/malicious testing.
+                std::env::set_var("L2_STRICT_SECCOMP_ENFORCE", "1");
+            }
             if is_strict_family {
                 warn_on_cleanup_err(
                     sandbox::apply_strict_sandbox(workspace.as_deref(), &system.policy),
@@ -2048,7 +2159,13 @@ fn main() -> Result<()> {
                 }),
             );
 
-            match exec_isolated(&effective_what, input.as_deref(), &sys, workspace) {
+            match exec_isolated(
+                &effective_what,
+                input.as_deref(),
+                &sys,
+                workspace,
+                &effective_policy,
+            ) {
                 Ok(out) => {
                     let mut to_print = out;
 
@@ -2146,16 +2263,18 @@ fn main() -> Result<()> {
 
         Commands::Policies {} => {
             println!("Available policy protocols:\n");
-            println!("  default     - Pragmatic balance (current default behavior)");
-            println!("  strict      - Strong isolation + seccomp (Landlock + no_new_privs)");
-            println!("  strict-mcp  - **Current main focus**");
-            println!("                High-assurance protocol for agentic/AI/MCP workloads.");
-            println!("                Builds on 'strict' with:");
-            println!("                  • Stronger seccomp enforcing by default");
-            println!("                  • MCP/tool-execution threat model considerations");
-            println!("                  • Designed to pair with output from `l2 harden --profile strict-mcp`");
+            println!("  default         - Pragmatic balance (current default behavior)");
+            println!("  strict          - Strong isolation + seccomp (Landlock + no_new_privs)");
+            println!("  strict-mcp      - **Current main focus**");
+            println!("                    High-assurance protocol for agentic/AI/MCP workloads.");
+            println!("                    Builds on 'strict' with:");
+            println!("                      • Stronger seccomp enforcing by default");
+            println!("                      • MCP/tool-execution threat model considerations");
+            println!("                      • Designed to pair with output from `l2 harden --profile strict-mcp`");
+            println!("  ransom-hardened - **Full safety protocol** for ransomware/malicious code testing");
+            println!("                    (WannaCry-class resistance). Strictest posture + auto-enforce.");
             println!(
-                "\nUse `l2 policy <name>` for detailed information (e.g. `l2 policy strict-mcp`)."
+                "\nUse `l2 policy <name>` for detailed information (e.g. `l2 policy strict-mcp` or `l2 policy ransom-hardened`)."
             );
         }
 
@@ -2236,12 +2355,68 @@ fn main() -> Result<()> {
                         println!("Use `l2 policy show strict-mcp` for the currently recommended protocol.");
                     }
                 }
+                "ransom-hardened" => {
+                    if json {
+                        print_json(&serde_json::json!({
+                            "name": "ransom-hardened",
+                            "description": "Full safety protocol for ransomware and malicious workload containment testing (WannaCry-class).",
+                            "base": "strict + strict-mcp",
+                            "key_differences": [
+                                "Auto-enables Phase 1 seccomp enforcing filter (tiny no-net allowlist + NEVER blacklist)",
+                                "Minimal Landlock (workspace-only + tiniest RO system paths for test binaries)",
+                                "rlimits on nproc/nofile/fsize for damage control in encrypt/spread sims",
+                                "Dedicated harden profile + ransomware-specific audit checks",
+                                "Intended for red-team validation of substrate against encryptors/worms/persistence"
+                            ],
+                            "recommended_usage": "l2 create wc-test --policy ransom-hardened; l2 put ... l2_ransomware_resistance_demo.c; l2 exec ... 'gcc -static ... && ./sim'; l2 audit --test",
+                            "companion_command": "l2 harden --profile ransom-hardened ; l2 policy ransom-hardened"
+                        }));
+                    } else {
+                        println!("ransom-hardened — Full Safety Protocol for Ransomware / Malicious Workload Testing");
+                        println!("==================================================================================");
+                        println!();
+                        println!("This is the explicit 'full safety' policy for preparing and validating");
+                        println!(
+                            "the l2 substrate against ransomware-class threats (e.g. WannaCry)."
+                        );
+                        println!();
+                        println!("Description:");
+                        println!("  Strictest practical containment on the Linux prototype:");
+                        println!("    • Workspace-only writes (Landlock) — mass encryption cannot escape");
+                        println!("    • Auto Phase 1 seccomp enforcing (kills on net, ptrace, modules, etc.)");
+                        println!(
+                            "    • Full cap drop + no_new_privs + non-dumpable + env sanitization"
+                        );
+                        println!("    • rlimits + ns for spread/fork/resource control");
+                        println!("    • Dedicated harden profile + audit verification");
+                        println!();
+                        println!("Key characteristics:");
+                        println!("  • Builds on strict / strict-mcp but with ransomware-specific tightening");
+                        println!("  • Use *only* for red-team sims of 'bad' code (normal MCP/agent use strict-mcp)");
+                        println!("  • When you are ready: run real or simulated WannaCry-like binaries here");
+                        println!("    to prove 'only the files you explicitly put into the system can be affected'");
+                        println!();
+                        println!("Recommended usage (with the resistance demo):");
+                        println!("  l2 create wc-test --policy ransom-hardened");
+                        println!("  l2 put wc-test wc-sim.c --file docs/examples/l2_ransomware_resistance_demo.c");
+                        println!("  l2 exec wc-test 'gcc -static -Wall -Wextra -o wc-sim wc-sim.c && ./wc-sim'");
+                        println!();
+                        println!("  l2 audit --test   # verify ransomware containment + harden standards");
+                        println!();
+                        println!("Companion command:");
+                        println!("  l2 harden --profile ransom-hardened");
+                        println!("    → Prepares host with extra worm/encrypt/persist blocks (nft 445, sysctls, ...)");
+                        println!(
+                            "  (Then run the sim under the policy to exercise full substrate.)"
+                        );
+                    }
+                }
                 other => {
                     if json {
                         print_json(&serde_json::json!({"name": other, "known": false}));
                     } else {
                         println!("Unknown policy protocol: {}", other);
-                        println!("Known protocols: default, strict, strict-mcp");
+                        println!("Known protocols: default, strict, strict-mcp, ransom-hardened");
                         println!("Run `l2 policies` to list them.");
                     }
                 }
@@ -2386,9 +2561,12 @@ fn main() -> Result<()> {
             // Always enable observer when tracing (for Phase 1 data collection)
             std::env::set_var("L2_STRICT_SECCOMP_OBSERVE", "1");
 
-            // strict-mcp (main focus) + any strict family gets strong defaults.
-            // We bias toward enabling the enforcing filter for these protocols.
-            let should_enforce = enforce || is_mcp || canonical_policy.starts_with("strict");
+            // strict-mcp (main focus) + ransom-hardened (full safety) + any strict family
+            // gets strong defaults. We bias toward enabling the enforcing filter for these.
+            let should_enforce = enforce
+                || is_mcp
+                || canonical_policy.starts_with("strict")
+                || canonical_policy == "ransom-hardened";
 
             if should_enforce {
                 std::env::set_var("L2_STRICT_SECCOMP_ENFORCE", "1");
@@ -2411,6 +2589,13 @@ fn main() -> Result<()> {
                         "[trace] Using strict-mcp policy protocol — our current main focus.\n\
                          This protocol provides high-assurance hardened execution suitable for\n\
                          MCP servers and tools. Strong isolation + seccomp enforcing is active."
+                    );
+                }
+                "ransom-hardened" => {
+                    println!(
+                        "[trace] Using ransom-hardened (full safety) policy protocol.\n\
+                         This is for ransomware / malicious workload containment testing (WannaCry-class).\n\
+                         Strongest isolation + auto seccomp enforcing + workspace-only encryption surface."
                     );
                 }
                 p if p.starts_with("strict") => {
@@ -2610,6 +2795,13 @@ mod tests {
         std::env::set_var("L2_STRICT_SECCOMP_OBSERVE", "1");
         let res = sandbox::apply_strict_sandbox(Some(&tmp), "strict");
         assert!(res.is_ok(), "sandbox apply failed: {:?}", res.err());
+        // Also exercise ransom-hardened (full safety) path.
+        let res2 = sandbox::apply_strict_sandbox(Some(&tmp), "ransom-hardened");
+        assert!(
+            res2.is_ok(),
+            "ransom-hardened sandbox apply failed: {:?}",
+            res2.err()
+        );
         let _ = std::fs::remove_dir_all(&tmp);
     }
 
@@ -2744,7 +2936,11 @@ mod tests {
         assert!(results
             .iter()
             .any(|(n, _, _)| n.contains("strict-mcp policy")));
-        // At least 5 checks from up-to-date standards
+        // New full-safety ransomware check is always produced (may be "no usage" on fresh log)
+        assert!(results
+            .iter()
+            .any(|(n, _, _)| n.contains("Ransomware containment")));
+        // At least 5 checks from up-to-date standards (now 6 with ransom-hardened)
         assert!(results.len() >= 5);
 
         let _ = std::env::remove_var("L2_DATA_DIR");

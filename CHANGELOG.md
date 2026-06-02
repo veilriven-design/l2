@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.4] - 2026-06-05
+
+### Added / Improved (full safety protocol + ransomware resistance prep)
+- **`ransom-hardened` (full safety) policy protocol**: New explicit protocol for ransomware / malicious workload containment testing (preparing l2 for eventual WannaCry-class validation when the system is ready). `l2 create ... --policy ransom-hardened`, `l2 policy ransom-hardened`, `l2 trace/harden/exec --policy ...`. Auto-enables Phase 1 seccomp enforcing (tiny no-net builtin + extended NEVER blacklist for net/ptrace/modules), minimal Landlock (workspace-only + tiniest RO), rlimits in exec layer, dedicated harden profile + "Ransomware containment" check in `l2 audit --test`.
+- **WannaCry-class resistance demo**: New self-contained `docs/examples/l2_ransomware_resistance_demo.c` (SMB 139/445 propagation + killswitch http, mass "encrypt" of common extensions + .WNCRY/.l2ransom + ransom note, cron/bashrc/systemd persistence, setuid/ptrace/personality, fork spread). Only succeeds on the explicit l2 workspace; all else blocked. Usage + conclusions tie directly to the `ransom-hardened` controls. Compile with `-static`. Cross-ref from the safe execution demo.
+- **harden + audit + CI integration**: `scripts/harden.sh` now supports `--profile ransom-hardened` (ransomware-specific guidance, 445/139 nft blocks, extra standards in emitted `harden/ransom-hardened-latest.json`). `run_security_audit_tests` always produces the new check (consumes the json + recent policy use). CI smoke exercises policy discovery, create/put/exec under it, harden profile, and the audit check (tolerant pipes preserved).
+- **Docs**: Full section in SECURITY.md (WannaCry mapping table, "when you feel ready" testing instructions, CISA ransomware tie-in). Updates to STATUS, README, seccomp-allowlist, ROADMAP. The protocol + demo + `l2 audit --test` give a repeatable, auditable, standards-backed validation path.
+- All changes are additive, reuse existing strict-family paths, preserve prior high-assurance fixes (no new surfaces, no bloat). Added policy length guard in C create + Rust for properness. C substrate + seL4 docs lightly commented for future verified caps version of this use case.
+- Full verification: logic/security pass over entire l2 (greps/reads of privdrop, guards, C safe, sandbox rules for all policies, new ulimit/escape, demo safety), all gates, strict C compiles, comprehensive L2_DATA_DIR smoke exercising ransom-hardened end-to-end + demo put + audit PASS with json + no regressions.
+
 ## [0.4.3] - 2026-06-04
 
 ### Security / High-Assurance Fixes (full code sweep)

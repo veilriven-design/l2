@@ -13,6 +13,7 @@ This document gives a one-page view of direction and priorities. Detailed design
 - Extreme restraint on scope and code
 - Long-term backend: seL4 / Microkit (verified capability-based isolation)
 - Short/medium-term: Best-effort high-quality Linux prototype using Landlock + namespaces + seccomp + no_new_privs
+- Full safety "ransom-hardened" policy protocol + ransomware resistance demos for malicious code containment validation (WannaCry-class testing when ready)
 
 The external interface and mental model must remain the same whether the backend is the host prototype or seL4.
 

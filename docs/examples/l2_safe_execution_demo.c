@@ -37,6 +37,9 @@
  *   (Do NOT do `l2 exec safe_demo.c` — that triggers one-shot mode on the *local* file
  *    instead of using the object you put into the system.)
  *
+ *   For the ransomware / WannaCry-class resistance version of this idea, see
+ *   l2_ransomware_resistance_demo.c + `l2 ... --policy ransom-hardened`.
+ *
  *   You will probably get a sudo prompt (l2 needs root for unshare/namespaces).
  *   On very old kernels (like X200) you may see "Landlock not enforced" and/or
  *   unshare permission issues — that's expected; the demo still illustrates the
@@ -50,6 +53,10 @@
  *     - Write ransomware or backdoors into /tmp, ~/.cache, /etc/cron.d, etc.
  *     - Phone home over the network
  *     - Attempt container escapes or kernel exploits via unusual syscalls
+ *
+ * See also docs/examples/l2_ransomware_resistance_demo.c (and --policy ransom-hardened)
+ * for a dedicated WannaCry-class ransomware resistance test (mass encrypt + SMB worm +
+ * persistence + priv esc, all contained to the explicit workspace only).
  *
  * The l2 substrate makes "bad" code much less dangerous because the terminal
  * operator is the only source of authority, and every boundary is explicitly

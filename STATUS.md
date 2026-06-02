@@ -47,6 +47,8 @@ l2 is the minimal high-assurance Latticra substrate:
 
 1. **Agentic/AI/MCP hardening track (v0.4.0 main focus)**: `l2 crypto` + `strict-mcp` + `l2 harden` as a complete, operational high-assurance path. Further per-protocol divergence, more aggressive defaults in crypto/harden, deeper integration of generated seccomp profiles into runtime, and expanded concrete steps in `l2 harden` (more distros, automated unit/profile application).
 
+   **New: ransom-hardened (full safety) policy + WannaCry-class resistance prep**: Explicit `ransom-hardened` protocol (auto-enforcing, minimal Landlock ws-only, rlimits, dedicated harden profile + audit check "Ransomware containment"). Includes self-contained educational sim `docs/examples/l2_ransomware_resistance_demo.c` (SMB 445/killswitch, mass encrypt+.WNCRY, persistence, priv esc — only ws files succeed). `l2 create ... --policy ransom-hardened ; ... exec ... ; l2 audit --test` now exercises full substrate for ransomware resistance. Prepares for real testing "when ready". See SECURITY.md and the demo header.
+
    **Recent concrete improvements to crypto + MCP hardening:**
    - Capability bounding set fully dropped (PR_CAPBSET_DROP) for all strict/strict-mcp workloads.
    - strict-mcp Landlock: no ambient /tmp (even RO) — workspace is the only writable and now the only visible tmp surface.

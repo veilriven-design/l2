@@ -21,6 +21,10 @@
  * - Real in-memory object storage (put/get functional for prototype).
  * - Uses l2_memcpy_safe() from common/safe.c for all copies.
  * - Strict bounds, explicit zeroing on destroy, better errors.
+ * - Policy string (including "ransom-hardened" full-safety for ransomware testing)
+ *   is stored and passed through for future seL4/Microkit dispatch. In a capability
+ *   system this would translate to granting only the narrow rights needed for a
+ *   contained malicious workload (ws cap + no net cap etc.).
  *
  * Build/test: gcc -c -I. -Icore -Isrc/common core/host.c works for validation.
  * Full linking would be done in a seL4 build or via cbindgen/FFI from Rust.
@@ -59,6 +63,7 @@ struct l2_sys {
 l2_result_t l2_sys_create(const char *name, const char *policy, l2_sys_t *out) {
     if (!name || !policy || !out) return L2_ERR_INVALID;
     if (strlen(name) >= sizeof(((struct l2_sys*)0)->name)) return L2_ERR_INVALID;
+    if (strlen(policy) >= sizeof(((struct l2_sys*)0)->policy)) return L2_ERR_INVALID;
 
     struct l2_sys *sys = (struct l2_sys *)calloc(1, sizeof(*sys));
     if (!sys) return L2_ERR_NOSPACE;

@@ -13,6 +13,12 @@ use std::path::Path;
 /// - Additional caution around tool execution paths
 /// - Strong recommendation (and eventual enforcement) of network isolation
 ///   via seccomp or external controls (since Landlock is FS-only in current kernels)
+///
+/// For "ransom-hardened" (full safety), applies the strictest Linux-prototype
+/// posture suitable for ransomware / malicious code red-team testing (WannaCry-class):
+/// - Minimal RO paths (static bins only) + workspace-only for all writes/encrypt
+/// - Auto-enforcing seccomp (caller sets) + rlimits from exec layer
+/// - See docs/examples/l2_ransomware_resistance_demo.c for the canonical test sim.
 pub fn apply_strict_sandbox(workspace: Option<&Path>, policy: &str) -> Result<()> {
     // no_new_privs: prevent the process or children from gaining new privileges (e.g. via setuid binaries)
     if let Err(e) = nix::sys::prctl::set_no_new_privs() {
@@ -90,6 +96,8 @@ pub fn apply_strict_sandbox(workspace: Option<&Path>, policy: &str) -> Result<()
         // Read+Exec on essential system paths.
         // For strict-mcp we are more conservative about additional paths that
         // common agent tools might abuse (e.g. user home caches, package managers).
+        // For ransom-hardened (full safety) we are even stricter: minimal RO for
+        // static test binaries only; no /etc (persistence vector), minimal /proc.
         let mut ro_paths: Vec<&str> = vec![
             "/bin",
             "/usr/bin",
@@ -109,6 +117,12 @@ pub fn apply_strict_sandbox(workspace: Option<&Path>, policy: &str) -> Result<()
             // must happen inside the l2-provided workspace (cwd under Landlock full access).
             // /tmp is a classic confused-deputy and persistence vector for agents/MCP servers.
             println!("[strict-mcp] Applying MCP-specific FS posture: NO ambient /tmp or cache access (workspace only)");
+        } else if policy == "ransom-hardened" {
+            // Full safety for ransomware testing: tiniest possible RO surface.
+            // Assume static-linked sim binaries (gcc -static) so /etc / large /proc not required.
+            // Workspace is the *only* place "encryption" or writes can succeed.
+            ro_paths = vec!["/bin", "/usr/bin", "/lib", "/usr/lib", "/dev", "/proc"];
+            println!("[ransom-hardened] FULL SAFETY: minimal RO (static bins + /dev + limited /proc); workspace-only writes for ransomware containment testing");
         } else {
             ro_paths.push("/tmp");
         }
@@ -125,6 +139,8 @@ pub fn apply_strict_sandbox(workspace: Option<&Path>, policy: &str) -> Result<()
 
         let policy_label = if policy == "strict-mcp" {
             "strict-mcp"
+        } else if policy == "ransom-hardened" {
+            "ransom-hardened"
         } else {
             "strict"
         };
@@ -152,6 +168,8 @@ pub fn apply_strict_sandbox(workspace: Option<&Path>, policy: &str) -> Result<()
     } else {
         let policy_label = if policy == "strict-mcp" {
             "strict-mcp"
+        } else if policy == "ransom-hardened" {
+            "ransom-hardened"
         } else {
             "strict"
         };
@@ -455,6 +473,14 @@ pub fn try_install_seccomp_enforcing_filter(profile_path: Option<&str>) -> Resul
             167, // swapon
             168, // swapoff
             115, // personality (can be abused)
+            // Network (worm / C2 / SMB propagation resistance for ransom-hardened + any profile)
+            41, // socket
+            42, // connect
+            43, // accept
+            44, // sendto
+            45, // recvfrom
+            49, // bind
+            50, // listen
         ];
 
         for &nr in &allowed {

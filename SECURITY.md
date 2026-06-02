@@ -106,6 +106,7 @@ The script is deliberately advisory (prints what to run, never auto-mutates priv
   - Tighter Landlock posture (more conservative handling of ambient paths and tool-invocation surfaces).
   - Auto-wires enforcing + policy metadata so users are explicitly aware.
   - Designed to pair directly with `l2 harden --profile strict-mcp` output and `l2 crypto` keys.
+- `ransom-hardened`: The explicit "full safety" protocol for ransomware / malicious workload containment testing (WannaCry-class red-team validation). See below.
 
 Usage is explicit everywhere:
 
@@ -116,6 +117,35 @@ l2 trace --policy strict-mcp ./mcp-tool --enforce
 ```
 
 The `normalize_policy` path and audit logs record the chosen protocol. `strict-mcp` is recommended (and often defaulted) for anything that may invoke external tools or MCP servers.
+
+### ransom-hardened (Full Safety Protocol for Ransomware / Malicious Workload Testing)
+
+`ransom-hardened` is the "full safety" policy protocol designed specifically for preparing and validating l2 against ransomware-class threats (worm propagation, mass file encryption, persistence, lateral movement, priv esc — the behaviors that made WannaCry so damaging).
+
+It is the strictest practical posture on the current Linux prototype:
+- Minimal Landlock RO surface (static test binaries + /dev + limited /proc) + **workspace is the *only* writable location**.
+- Auto-enables Phase 1 seccomp enforcing filter (tiny builtin allowlist that excludes all network syscalls + the hard NEVER_ALLOWED blacklist for ptrace/modules/kexec/reboot/etc.).
+- rlimits (nproc, nofile, fsize) applied in the exec layer for damage/spread control.
+- Same cap drop / no_new_privs / non-dumpable / env clean / ns as strict family, plus dedicated `l2 harden --profile ransom-hardened` output (nft blocks on 139/445 etc., extra sysctls, ransomware-specific guidance).
+- Always produces a `ransom-hardened-latest.json` consumed by `l2 audit --test` (new "Ransomware containment" check).
+
+**Typical use for testing (when you feel the system is ready):**
+```bash
+l2 create wc-test --policy ransom-hardened
+l2 put wc-test wc-sim.c --file docs/examples/l2_ransomware_resistance_demo.c
+l2 exec wc-test 'gcc -static -Wall -Wextra -o wc-sim wc-sim.c && ./wc-sim'
+# Observe table: only files inside the l2 ws were "encrypted" (.WNCRY / .l2ransom).
+# All SMB 445, killswitch http, host /etc /home writes, cron/bashrc persistence,
+# setuid, ptrace etc. were blocked (Landlock EACCES / seccomp KILL / EPERM).
+l2 audit --test   # PASS on the ransomware containment check + harden report
+l2 destroy wc-test
+```
+
+The included `l2_ransomware_resistance_demo.c` is a self-contained educational sim of exactly the behaviors (killswitch, SMB scan+connect+bind, mass encrypt+rename of common extensions, ransom note, cron/bashrc/systemd persistence, priv esc, fork spread). It only succeeds on the explicit workspace — proving the substrate.
+
+This directly supports "prepare the l2 program for a full safety protocol" and future real WannaCry (or Linux port/equiv) testing. The combination of policy + demo + harden artifact + `l2 audit --test` gives a repeatable, evidence-based, standards-backed (CISA ransomware guidance + NSA/CISA/FBI) validation that malicious encryptors/worms are contained to the narrow authority the terminal operator explicitly granted.
+
+See `docs/examples/l2_ransomware_resistance_demo.c` (header has full run instructions) and the ransom-hardened case in `scripts/harden.sh`.
 
 ### Trace Collection → Profile Generation → Enforcing (`l2 trace`)
 
