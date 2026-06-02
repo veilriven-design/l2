@@ -424,7 +424,9 @@ fn escalate_to_root_for_exec() -> ! {
             eprintln!("  You may need to manually prefix with sudo using the binary path:");
             eprintln!("    sudo {} {}", exe.display(), args.join(" "));
             if std::env::var_os("L2_DATA_DIR").is_some() {
-                eprintln!("  (Include your L2_DATA_DIR override if using one: L2_DATA_DIR=... sudo ...)");
+                eprintln!(
+                    "  (Include your L2_DATA_DIR override if using one: L2_DATA_DIR=... sudo ...)"
+                );
             }
             std::process::exit(1);
         }
@@ -1240,20 +1242,22 @@ fn run_security_audit_tests(
     }
 
     // 2. Strict-mcp policy usage in recent activity (explicit hardened protocol)
-    let has_strict_mcp =
-        if log_path.exists() {
-            std::fs::read_to_string(log_path)
-                .map(|content| {
-                    content.lines().rev().take(20).any(|l| {
-                        l.contains("\"strict-mcp\"") || l.contains("policy\":\"strict-mcp")
-                            || l.contains("\"ransom-hardened\"") || l.contains("policy\":\"ransom-hardened")
-                            || l.contains("\"great-harden\"") || l.contains("policy\":\"great-harden")
-                    })
+    let has_strict_mcp = if log_path.exists() {
+        std::fs::read_to_string(log_path)
+            .map(|content| {
+                content.lines().rev().take(20).any(|l| {
+                    l.contains("\"strict-mcp\"")
+                        || l.contains("policy\":\"strict-mcp")
+                        || l.contains("\"ransom-hardened\"")
+                        || l.contains("policy\":\"ransom-hardened")
+                        || l.contains("\"great-harden\"")
+                        || l.contains("policy\":\"great-harden")
                 })
-                .unwrap_or(false)
-        } else {
-            false
-        };
+            })
+            .unwrap_or(false)
+    } else {
+        false
+    };
     results.push((
         "strict-mcp / great-harden policy usage (recent ops)".to_string(),
         has_strict_mcp,
@@ -1282,13 +1286,17 @@ fn run_security_audit_tests(
 
     let found_harden_json: Option<std::path::PathBuf> = if data_harden_json.exists()
         && std::fs::read_to_string(&data_harden_json)
-            .map(|c| c.contains("strict-mcp") || c.contains("great-harden") || c.contains("\"profile\""))
+            .map(|c| {
+                c.contains("strict-mcp") || c.contains("great-harden") || c.contains("\"profile\"")
+            })
             .unwrap_or(false)
     {
         Some(data_harden_json.clone())
     } else if home_harden_json.exists()
         && std::fs::read_to_string(&home_harden_json)
-            .map(|c| c.contains("strict-mcp") || c.contains("great-harden") || c.contains("\"profile\""))
+            .map(|c| {
+                c.contains("strict-mcp") || c.contains("great-harden") || c.contains("\"profile\"")
+            })
             .unwrap_or(false)
     {
         Some(home_harden_json.clone())
@@ -1306,15 +1314,19 @@ fn run_security_audit_tests(
     let has_harden_md = (home_reports.exists()
         && std::fs::read_dir(&home_reports)
             .map(|d| {
-                d.filter_map(|e| e.ok())
-                    .any(|e| e.file_name().to_string_lossy().contains("strict-mcp") || e.file_name().to_string_lossy().contains("great-harden"))
+                d.filter_map(|e| e.ok()).any(|e| {
+                    e.file_name().to_string_lossy().contains("strict-mcp")
+                        || e.file_name().to_string_lossy().contains("great-harden")
+                })
             })
             .unwrap_or(false))
         || (data_reports.exists()
             && std::fs::read_dir(&data_reports)
                 .map(|d| {
-                    d.filter_map(|e| e.ok())
-                        .any(|e| e.file_name().to_string_lossy().contains("strict-mcp") || e.file_name().to_string_lossy().contains("great-harden"))
+                    d.filter_map(|e| e.ok()).any(|e| {
+                        e.file_name().to_string_lossy().contains("strict-mcp")
+                            || e.file_name().to_string_lossy().contains("great-harden")
+                    })
                 })
                 .unwrap_or(false));
 
@@ -1437,10 +1449,16 @@ fn run_security_audit_tests(
     // give repeatable validation that supply-chain credential-stealing worms are contained.
     let has_miasma_policy = log_path.exists()
         && std::fs::read_to_string(log_path)
-            .map(|c| c.contains("ransom-hardened") || c.contains("miasma") || c.contains("Miasma") || c.contains("policy\":\"ransom-hardened"))
+            .map(|c| {
+                c.contains("ransom-hardened")
+                    || c.contains("miasma")
+                    || c.contains("Miasma")
+                    || c.contains("policy\":\"ransom-hardened")
+            })
             .unwrap_or(false);
 
-    let home_miasma_json = std::path::PathBuf::from(&home).join(".l2/harden/ransom-hardened-latest.json");
+    let home_miasma_json =
+        std::path::PathBuf::from(&home).join(".l2/harden/ransom-hardened-latest.json");
     let data_miasma_json = if !data_dir.is_empty() {
         std::path::PathBuf::from(&data_dir).join("harden/ransom-hardened-latest.json")
     } else {
@@ -1448,13 +1466,17 @@ fn run_security_audit_tests(
     };
     let found_miasma_json: Option<std::path::PathBuf> = if data_miasma_json.exists()
         && std::fs::read_to_string(&data_miasma_json)
-            .map(|c| c.contains("ransom-hardened") || c.contains("miasma") || c.contains("\"profile\""))
+            .map(|c| {
+                c.contains("ransom-hardened") || c.contains("miasma") || c.contains("\"profile\"")
+            })
             .unwrap_or(false)
     {
         Some(data_miasma_json.clone())
     } else if home_miasma_json.exists()
         && std::fs::read_to_string(&home_miasma_json)
-            .map(|c| c.contains("ransom-hardened") || c.contains("miasma") || c.contains("\"profile\""))
+            .map(|c| {
+                c.contains("ransom-hardened") || c.contains("miasma") || c.contains("\"profile\"")
+            })
             .unwrap_or(false)
     {
         Some(home_miasma_json.clone())
@@ -1489,10 +1511,16 @@ fn run_security_audit_tests(
     // for "prepare the substrate for defense against AIO attack on l2 itself" and achieving North-Star Containment.
     let has_cancer_policy = log_path.exists()
         && std::fs::read_to_string(log_path)
-            .map(|c| c.contains("great-harden") || c.contains("cancer") || c.contains("malware-cancer") || c.contains("policy\":\"great-harden"))
+            .map(|c| {
+                c.contains("great-harden")
+                    || c.contains("cancer")
+                    || c.contains("malware-cancer")
+                    || c.contains("policy\":\"great-harden")
+            })
             .unwrap_or(false);
 
-    let home_cancer_json = std::path::PathBuf::from(&home).join(".l2/harden/great-harden-latest.json");
+    let home_cancer_json =
+        std::path::PathBuf::from(&home).join(".l2/harden/great-harden-latest.json");
     let data_cancer_json = if !data_dir.is_empty() {
         std::path::PathBuf::from(&data_dir).join("harden/great-harden-latest.json")
     } else {
@@ -1500,13 +1528,20 @@ fn run_security_audit_tests(
     };
     let found_cancer_json: Option<std::path::PathBuf> = if data_cancer_json.exists()
         && std::fs::read_to_string(&data_cancer_json)
-            .map(|c| c.contains("great-harden") || c.contains("cancer") || c.contains("malware-cancer") || c.contains("\"profile\""))
+            .map(|c| {
+                c.contains("great-harden")
+                    || c.contains("cancer")
+                    || c.contains("malware-cancer")
+                    || c.contains("\"profile\"")
+            })
             .unwrap_or(false)
     {
         Some(data_cancer_json.clone())
     } else if home_cancer_json.exists()
         && std::fs::read_to_string(&home_cancer_json)
-            .map(|c| c.contains("great-harden") || c.contains("cancer") || c.contains("\"profile\""))
+            .map(|c| {
+                c.contains("great-harden") || c.contains("cancer") || c.contains("\"profile\"")
+            })
             .unwrap_or(false)
     {
         Some(home_cancer_json.clone())
@@ -1569,6 +1604,7 @@ fn sel4_setup(fast: bool) -> Result<()> {
 
 /// High-assurance system hardening for the agentic/AI/MCP era.
 /// Companion to policy protocols such as "strict-mcp".
+#[allow(clippy::too_many_arguments)]
 fn harden(
     profile: String,
     target: String,
@@ -1696,7 +1732,9 @@ fn great_harden(
     json: bool,
 ) -> Result<()> {
     if !json {
-        println!("🛡️  Running l2 GREAT-HARDEN - SUPREME mode for aerospace & industrial complexes...");
+        println!(
+            "🛡️  Running l2 GREAT-HARDEN - SUPREME mode for aerospace & industrial complexes..."
+        );
         println!("   Target  : {}", target);
         if dry_run {
             println!("   Mode    : DRY-RUN (no changes will be made)");
@@ -1767,7 +1805,9 @@ fn great_harden(
     if json {
         println!(
             "{}",
-            json_line(&success_json("great-harden complete - servers now impenetrable"))
+            json_line(&success_json(
+                "great-harden complete - servers now impenetrable"
+            ))
         );
     } else {
         if apply {
@@ -3284,7 +3324,7 @@ mod tests {
         assert_eq!(dir, temp);
 
         // Cleanup
-        let _ = std::env::remove_var("L2_DATA_DIR");
+        std::env::remove_var("L2_DATA_DIR");
         let _ = std::fs::remove_dir_all(&temp);
     }
 
@@ -3305,9 +3345,10 @@ mod tests {
 
         let audit_p = audit::path();
         assert!(audit_p.ends_with("audit.log"));
-        assert!(audit_p.parent().unwrap().ends_with(".l2") || audit_p.parent().unwrap() == temp); // depending on logic
+        let parent = audit_p.parent().unwrap();
+        assert!(parent.file_name() == Some(std::ffi::OsStr::new(".l2")) || parent == temp); // depending on logic (L2_DATA_DIR override uses data dir directly; default uses ~/.l2)
 
-        let _ = std::env::remove_var("L2_DATA_DIR");
+        std::env::remove_var("L2_DATA_DIR");
         let _ = std::fs::remove_dir_all(&temp);
     }
 
@@ -3323,7 +3364,10 @@ mod tests {
         // Seed a minimal great-harden-latest.json so cancer AIO + great checks see harden report (as in real usage + CI)
         let gh_dir = temp.join("harden");
         let _ = std::fs::create_dir_all(&gh_dir);
-        let _ = std::fs::write(gh_dir.join("great-harden-latest.json"), r#"{"profile":"great-harden","apply":true,"standards":["CPG 2.0","NSA MCP 2026","AI supply chain 2026","AIO malware-cancer"],"great_harden_note":"North-Star + latest NSA/CISA 2026"}"#);
+        let _ = std::fs::write(
+            gh_dir.join("great-harden-latest.json"),
+            r#"{"profile":"great-harden","apply":true,"standards":["CPG 2.0","NSA MCP 2026","AI supply chain 2026","AIO malware-cancer"],"great_harden_note":"North-Star + latest NSA/CISA 2026"}"#,
+        );
 
         let results = run_security_audit_tests(&log_p, false).unwrap();
         assert!(results.iter().any(|(n, _, _)| n.contains("Tamper-evident")));
@@ -3339,9 +3383,8 @@ mod tests {
             .iter()
             .any(|(n, _, _)| n.contains("Miasma supply-chain")));
         // great-harden supreme check (aerospace/industrial impenetrable)
-        assert!(results
-            .iter()
-            .any(|(n, _, _)| n.contains("great-harden") || n.contains("Harden reports for strict-mcp / great-harden")));
+        assert!(results.iter().any(|(n, _, _)| n.contains("great-harden")
+            || n.contains("Harden reports for strict-mcp / great-harden")));
         // AIO malware-cancer containment check (direct substrate attack sim under great-harden)
         assert!(results
             .iter()
@@ -3349,7 +3392,7 @@ mod tests {
         // 8 checks from up-to-date standards (tamper + policy + harden + sandbox + creds + ransom + miasma + cancer AIO; covers 2026 CPG 2.0/MCP/AI supply/OT via standards)
         assert!(results.len() >= 8);
 
-        let _ = std::env::remove_var("L2_DATA_DIR");
+        std::env::remove_var("L2_DATA_DIR");
         let _ = std::fs::remove_dir_all(&temp);
     }
 
@@ -3367,7 +3410,7 @@ mod tests {
         let sub = load_state();
         assert!(sub.systems.is_empty());
 
-        let _ = std::env::remove_var("L2_DATA_DIR");
+        std::env::remove_var("L2_DATA_DIR");
         let _ = std::fs::remove_dir_all(&temp);
     }
 
@@ -3384,7 +3427,7 @@ mod tests {
         let loaded = load_state();
         assert!(loaded.systems.values().any(|s| s.name == "roundtrip-sys"));
 
-        let _ = std::env::remove_var("L2_DATA_DIR");
+        std::env::remove_var("L2_DATA_DIR");
         let _ = std::fs::remove_dir_all(&temp);
     }
 }

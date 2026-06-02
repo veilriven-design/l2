@@ -19,9 +19,9 @@ use std::path::Path;
 /// - Minimal RO paths (static bins only) + workspace-only for all writes/encrypt
 /// - Auto-enforcing seccomp (caller sets) + rlimits from exec layer
 /// - See docs/examples/l2_ransomware_resistance_demo.c for the canonical test sim.
-/// For "great-harden" (supreme): tiniest surface + extended NEVER (bpf/setns/unshare)
-/// for AIO malware-cancer (direct l2 substrate attacks on state/trace/audit/ns/crypto).
-/// See docs/examples/l2_malware_cancer_resistance_demo.c .
+/// - For "great-harden" (supreme): tiniest surface + extended NEVER (bpf/setns/unshare)
+///   for AIO malware-cancer (direct l2 substrate attacks on state/trace/audit/ns/crypto).
+///   See docs/examples/l2_malware_cancer_resistance_demo.c .
 pub fn apply_strict_sandbox(workspace: Option<&Path>, policy: &str) -> Result<()> {
     // no_new_privs: prevent the process or children from gaining new privileges (e.g. via setuid binaries)
     if let Err(e) = nix::sys::prctl::set_no_new_privs() {
