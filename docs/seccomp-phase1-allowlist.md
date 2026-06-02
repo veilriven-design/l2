@@ -14,9 +14,11 @@ This document tracks the data-driven curation of a minimal seccomp allowlist pri
 
 ## Current Status
 
-- Phase 0 observer implemented and UX improved (v0.3.2+).
-- Trace collection tooling in progress (`l2 trace` subcommand + helpers).
-- No enforcing filter yet.
+- Phase 0 observer + Phase 1 enforcing filter fully implemented and integrated (v0.4.0+).
+- `l2 trace --policy <p>` (strict / strict-mcp / ransom-hardened) + `--analyze <log> --output-profile` produces minimal loadable profiles.
+- `l2 harden --generate-seccomp` and runtime auto-discovery (for strict-mcp/ransom-hardened) wire profiles directly.
+- Enforcing active by default for `strict-mcp` and `ransom-hardened` (full safety); `L2_STRICT_SECCOMP_ENFORCE=1` for others. NEVER_ALLOWED blacklist always hard-enforced.
+- `ransom-hardened` uses tiniest allowlist + extended net/ptrace/modules blacklist for ransomware containment testing (paired with `l2_ransomware_resistance_demo.c`).
 
 ## Methodology
 
@@ -40,7 +42,7 @@ This document tracks the data-driven curation of a minimal seccomp allowlist pri
 
 (Traces will be summarized here as we collect them)
 
-### Example run (v0.3.2+)
+### Example run (v0.4.0+)
 
 ```bash
 L2_STRICT_SECCOMP_OBSERVE=1 l2 trace --policy strict sh -c 'echo hello; ls /proc | head -3'
@@ -71,7 +73,7 @@ syscalls:
 
 **Status**: Seeded from common knowledge + early analyzer tests. Needs real trace data.
 
-Note: This allowlist is primarily exercised under the `strict` and `strict-mcp` policy protocols (our current main focus). `strict-mcp` currently maps to the same strong isolation base as `strict` but is the designated protocol for high-assurance MCP/tool workloads and will receive additional hardening rules over time.
+Note: This allowlist is exercised under the `strict`, `strict-mcp` (main focus for agentic/MCP), and `ransom-hardened` (full safety / ransomware testing) policy protocols. `strict-mcp` and `ransom-hardened` receive per-protocol tightening (ransom-hardened is the strictest: workspace-only + no net/ptrace etc.). Profiles are data-driven from `l2 trace` under the target policy.
 
 From analyzer test run (sample log):
 - 0 (read)
@@ -129,17 +131,18 @@ Next step: Run real workloads with `l2 trace` and feed the logs through `--analy
 
 ## Next Actions
 
-- Run the starter workloads using the new `l2 trace` command (now with `--output-profile` for direct use by strict-mcp).
-- Capture and parse logs.
-- Populate the draft allowlist above.
-- Use `l2 trace --analyze ... --output-profile ~/.l2/seccomp/strict-mcp.txt` + `l2 harden --generate-seccomp` for closed-loop MCP hardening.
-- Capability bounding set drop and stricter no-/tmp Landlock for strict-mcp now active in runtime.
+- Run the starter workloads using `l2 trace --policy strict-mcp` (or `ransom-hardened` for sims) with `--output-profile` for direct use.
+- Capture and parse logs (supports journalctl, dmesg, etc.).
+- Populate/curate the draft allowlist (policy-specific variants).
+- Use `l2 trace --analyze ... --output-profile ~/.l2/seccomp/strict-mcp.txt` (or ransom...) + `l2 harden --generate-seccomp` + `l2 audit --test` for closed-loop hardening.
+- `ransom-hardened` + demo.c is the validation workload for full safety (expect no net/encrypt/persist escapes).
 
-The enforcing filter (Phase 1) + auto profile discovery + cap drop are now implemented and integrated with strict-mcp.
+The enforcing filter (Phase 1) + auto profile discovery + cap drop + per-policy Landlock + `l2 audit --test` (harden json) are now implemented and integrated with strict-mcp and ransom-hardened. See also `docs/examples/l2_ransomware_resistance_demo.c`.
 
 ---
 
 See also:
-- `src/sandbox.rs` (current observer + future filter location)
-- `ROADMAP.md`
-- `docs/PROTOTYPE_HARDENING_AND_SEL4_PLAN.md` (original hardening plan)
+- `src/sandbox.rs` (observer + enforcing filter + policy dispatch for strict-mcp/ransom-hardened)
+- `ROADMAP.md`, `STATUS.md`, `SECURITY.md`
+- `docs/PROTOTYPE_HARDENING_AND_SEL4_PLAN.md` (hardening plan)
+- `docs/examples/l2_ransomware_resistance_demo.c` (use under ransom-hardened for validation)

@@ -15,7 +15,8 @@ The external interface (`l2` CLI + L2P protocol + `l2_sys_*`) must be identical 
 ## Current State
 
 - `l2.system` updated to the narrow model (only l2_core is static).
-- Host prototype (`src/main.rs`) already demonstrates real isolation via `unshare`.
+- Host prototype (`src/main.rs`) demonstrates real isolation via `unshare` + Landlock + seccomp enforcing (policy-aware for strict / strict-mcp / ransom-hardened).
+- Explicit policy protocols (incl. `ransom-hardened`) are passed through create/exec/trace and honored in sandbox + harden integration.
 
 ## Next Steps (seL4 track)
 

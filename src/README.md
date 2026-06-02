@@ -4,9 +4,9 @@ C implementation of the l2 substrate core.
 
 ## Model
 
-Systems are created, populated, executed inside, queried, and destroyed on demand from the terminal.
+Systems are created (with explicit `--policy` e.g. strict-mcp or ransom-hardened), populated, executed inside, queried, and destroyed on demand from the terminal.
 
-All authority and boundary crossings go through the narrow `l2_sys_*` interface (see `core/sys.h`).
+All authority and boundary crossings go through the narrow `l2_sys_*` interface (see `core/sys.h`). Policy protocols are honored in sandboxing and core.
 
 ## Rules
 

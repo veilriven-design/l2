@@ -44,13 +44,13 @@ l2 explicitly targets the security standards and best practices set forth by the
 
 These alignments ensure l2 not only meets but aims to exceed baseline expectations in the referenced standards. No formal certification is claimed yet, but the design supports auditable compliance.
 
-## Cryptography and Host Hardening (v0.4.0)
+## Cryptography and Host Hardening (v0.4.0+)
 
-v0.4.0 delivers the core operational path for high-assurance agentic/AI/MCP systems on the l2 substrate: explicit policy protocols (with `strict-mcp` as the flagship), selectable verified crypto for true system encryption, concrete host hardening, and a closed data-driven loop from trace collection to runtime enforcement. All long guidance uses the same paced "typewriter" output introduced for `l2 sel4-setup` (readable step-by-step; `--fast` / `L2_FAST=1` disables for scripts, CI, or ancient hardware).
+v0.4.0+ delivers the core operational path for high-assurance agentic/AI/MCP systems on the l2 substrate: explicit policy protocols (with `strict-mcp` as the flagship for agents, `ransom-hardened` for full-safety ransomware/malicious workload testing), selectable verified crypto for true system encryption, concrete host hardening, a closed data-driven loop from trace collection to runtime enforcement, and `l2 audit --test` integration with harden artifacts. All long guidance uses the same paced "typewriter" output introduced for `l2 sel4-setup` (readable step-by-step; `--fast` / `L2_FAST=1` disables for scripts, CI, or ancient hardware).
 
 These additions do **not** introduce new attack surfaces. The tools are advisory by design (non-destructive defaults, explicit `--apply` or user-pasted commands, confirmations), all operations remain under explicit terminal authority, and runtime enforcement (kill-process default, pre-BPF NEVER_ALLOWED blacklist, Landlock, caps, ns, size-limited profiles) is unchanged or tightened. Everything is audited.
 
-Full details below. See also the collapsible **[Crypto & Hardening](README.md#crypto--hardening-v040)** section in [README.md](README.md) for a high-level overview.
+Full details below. See also the collapsible **[Crypto & Hardening](README.md#crypto--hardening-v040)** section in [README.md](README.md) for a high-level overview (now includes `ransom-hardened`).
 
 ### `l2 crypto` — Only Verified, Most Effective Open-Source Profiles
 
@@ -176,7 +176,7 @@ This is the practical realization of "collect traces, curate allowlist, wire enf
 
 The net result is a practical, verifiable high-assurance path: explicit protocols → substrate isolation → host hardening → verified crypto → data-driven minimal seccomp → full audit, all while preserving the narrow terminal interface and "no ambient authority" core properties. These features directly operationalize CISA Secure by Design/Default, NSA hardening guidance, and joint CISA/NSA/FBI recommendations for least-privilege, supply-chain-aware, auditable agentic systems.
 
-See `CHANGELOG.md`, the scripts (`scripts/crypto.sh`, `scripts/harden.sh`), `src/main.rs` (Crypto/Harden/Trace subcommands + normalize_policy), and `src/sandbox.rs` (enforcing filter + strict-mcp Landlock divergence) for implementation specifics. All v0.4.0 work stays within the original threat model and design principles.
+See `CHANGELOG.md`, the scripts (`scripts/crypto.sh`, `scripts/harden.sh`), `src/main.rs` (Crypto/Harden/Trace subcommands + normalize_policy), and `src/sandbox.rs` (enforcing filter + strict-mcp / ransom-hardened Landlock divergence) for implementation specifics. All v0.4.0+ work stays within the original threat model and design principles.
 
 ## Reporting Security Issues
 

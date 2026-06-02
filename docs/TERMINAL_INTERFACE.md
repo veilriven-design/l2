@@ -33,9 +33,9 @@ l2 <command> [subcommand] [arguments] [options]
 | `status`    | Show substrate and system state              | `l2 status` or `l2 status build-42`  |
 | `sel4-setup`| One-shot seL4/Microkit dev environment       | `l2 sel4-setup [--fast]`             |
 | `trace`     | Collect seccomp traces under a policy        | `l2 trace --policy strict-mcp ... --analyze <log>` |
-| `harden`    | Host/container hardening for agentic era     | `l2 harden --profile strict-mcp --network-isolation` |
+| `harden`    | Host/container hardening for agentic era (supports strict-mcp + ransom-hardened) | `l2 harden --profile strict-mcp --network-isolation` |
 | `crypto`    | Select/apply verified crypto profile for system encryption | `l2 crypto --profile hybrid-aes-chacha --apply` |
-| `policies` / `policy` | Discover/inspect policy protocols       | `l2 policy strict-mcp`               |
+| `policies` / `policy` | Discover/inspect policy protocols       | `l2 policy strict-mcp` or `l2 policy ransom-hardened` |
 
 ### Global Options
 
@@ -43,7 +43,7 @@ l2 <command> [subcommand] [arguments] [options]
 - `--json` — machine-readable output for scripting
 - `--quiet` / `--verbose`
 - `--fast` — disable paced "typewriter" output in `l2 sel4-setup`, `l2 harden`, `l2 crypto` (useful in CI or on old hardware)
-- `--policy <protocol>` — explicit policy protocol (`strict-mcp` recommended for high-assurance agentic/MCP work)
+- `--policy <protocol>` — explicit policy protocol (`strict-mcp` recommended for high-assurance agentic/MCP work; `ransom-hardened` for full-safety ransomware/malicious testing)
 - `--host-backend` (for development: qemu, native, etc.)
 
 ## Interaction Styles
@@ -51,7 +51,7 @@ l2 <command> [subcommand] [arguments] [options]
 ### 1. One-shot CLI (primary for scripts and muscle memory)
 
 ```bash
-l2 create mcp-review --policy mcp-default
+l2 create mcp-review --policy strict-mcp
 l2 put mcp-review code ./review-agent
 l2 exec mcp-review "cargo test --quiet"
 l2 get mcp-review "report.md" > review-report.md

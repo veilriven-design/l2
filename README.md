@@ -1,13 +1,13 @@
-# l2 — Minimal High-Assurance System Substrate (v0.4.3)
+# l2 — Minimal High-Assurance System Substrate (v0.4.4)
 
 Terminal-first CLI for creating, using, and destroying strongly isolated execution contexts. Narrow surface. Built for high-assurance with seL4 as the root of trust.
 
 **Linux prototype** — ready for immediate use and validation (with powerful hardening and crypto).  
 **seL4/Microkit** — the production/high-assurance path.
 
-**v0.4.2 highlights:** integration of `l2 harden` (strict-mcp) with regular `l2 audit --test` — harden now emits `~/.l2/harden/strict-mcp-latest.json` (standards + applied) which audit --test consumes for automatic PASS after `l2 harden --profile strict-mcp`; post-harden hint "l2 audit --test"; docs/CI updated for the combined regular verification flow. Builds on v0.4.1: deeper C integration + L2P ties, experimental user-ns support, `l2 put` UX ( `--file` + auto local-file read when name matches cwd), exec validation fixes for compilers + code objects, unshare fallback for old kernels, the `docs/examples/l2_safe_execution_demo.c` (canonical example of safe contained execution vs. unprotected host), trace/harden analyzer + script polish, and many robustness/UX wins. See full details in CHANGELOG.md.
+**v0.4.4 highlights:** `ransom-hardened` full-safety policy protocol for ransomware/malicious workload containment testing (WannaCry-class); new self-contained `docs/examples/l2_ransomware_resistance_demo.c` (SMB propagation, mass encrypt+.WNCRY, persistence, priv esc — only succeeds inside explicit l2 ws); `l2 harden --profile ransom-hardened` + `l2 audit --test` "Ransomware containment" integration (plus CI); dedicated harden profile with 139/445 blocks + ransomware guidance. All additive, preserves prior guarantees. Builds on v0.4.3 security sweep (seccomp BPF fix, L2_USE_CORE persistence, oneshot/put guards, etc.). See full details in CHANGELOG.md.
 
-See the dedicated **[Crypto & Hardening](#crypto--hardening-v040)** section (collapsible) and [SECURITY.md](SECURITY.md) for full v0.4.0 crypto/hardening/strict-mcp details, plus [ROADMAP.md](ROADMAP.md) and [STATUS.md](STATUS.md).
+See the dedicated **[Crypto & Hardening](#crypto--hardening-v040)** section (collapsible) and [SECURITY.md](SECURITY.md) for full v0.4.0+ crypto/hardening/strict-mcp/ransom-hardened details, plus [ROADMAP.md](ROADMAP.md) and [STATUS.md](STATUS.md).
 
 ## Install
 
@@ -15,7 +15,7 @@ See the dedicated **[Crypto & Hardening](#crypto--hardening-v040)** section (col
 ```bash
 git clone https://github.com/veilriven-design/l2.git
 cd l2
-git checkout v0.4.0
+git checkout v0.4.4
 cargo install --path . --force
 l2 --help
 ```
@@ -24,7 +24,7 @@ l2 --help
 ```bash
 git clone https://github.com/veilriven-design/l2.git
 cd l2
-git checkout v0.4.0
+git checkout v0.4.4
 cargo build --release
 ./target/release/l2 --help
 # (or add target/release to PATH, or use the install command above)
@@ -87,7 +87,7 @@ cat ~/l2-sel4-workspace/README-l2-sel4.md
 ```
 
 <a id="crypto--hardening-v040"></a>
-## Crypto & Hardening (v0.4.0/0.4.1)
+## Crypto & Hardening (v0.4.0+)
 
 Dedicated tooling and explicit policy protocols (`strict-mcp` main focus) for high-assurance agentic/AI/MCP systems. NSA/CISA-aligned host prep, verified crypto for system encryption, and data-driven seccomp policies — all integrated with the l2 substrate. Long guidance uses paced "typewriter" output.
 
@@ -132,7 +132,7 @@ l2 trace --policy strict-mcp ./workload --analyze trace.log
 
 Collects under chosen policy; `--analyze` produces minimal allowlists loadable by enforcing filter or systemd `SystemCallFilter`.
 
-**Full v0.4.0 specifics** (exact algorithms + rationale, hybrid construction, strict-mcp differences, concrete hardening commands/steps, generated artifacts, substrate integration for protecting crypto/keys, no-new-surfaces guarantees, data-driven loop, paced UX, explicit protocols) live in [SECURITY.md](SECURITY.md#cryptography-and-host-hardening-v040).
+**Full v0.4.0+ specifics** (exact algorithms + rationale, hybrid construction, strict-mcp/ransom-hardened differences, concrete hardening commands/steps, generated artifacts, substrate integration for protecting crypto/keys, no-new-surfaces guarantees, data-driven loop, paced UX, explicit protocols) live in [SECURITY.md](SECURITY.md#cryptography-and-host-hardening-v040).
 
 </details>
 
@@ -145,7 +145,7 @@ git checkout v0.1.0
 
 | Command                          | Description |
 |----------------------------------|-------------|
-| `l2 create <name> [--policy <protocol>]` | Create isolated system (use `--policy strict-mcp` for high-assurance agentic/MCP) |
+| `l2 create <name> [--policy <protocol>]` | Create isolated system (use `--policy strict-mcp` for high-assurance agentic/MCP; `--policy ransom-hardened` for full-safety ransomware testing) |
 | `l2 put <sys> <name> ...`        | Store object |
 | `l2 get <sys> <name>`            | Retrieve object |
 | `l2 exec [--policy <protocol>] <sys> [command]` | Run inside a system (or oneshot). Bare filenames auto-dispatch. |
@@ -155,47 +155,49 @@ git checkout v0.1.0
 | `l2 trace [--policy <protocol>] [--enforce] ...` | Collect seccomp traces (Phase 1). `--analyze <log>` generates real profiles. |
 | `l2 harden --profile <name> ...` | NSA/CISA/FBI-aligned host/container hardening for agentic era (with `--network-isolation`, seccomp gen, systemd units). Paced output. |
 | `l2 crypto --profile <name> [--apply] ...` | Choose/apply verified crypto profile (AES-256-XTS-Argon2id, XChaCha20-Poly1305-Argon2id, or hybrid) for system encryption via LUKS/gocryptfs + l2 isolation. Paced output. |
-| `l2 policies` / `l2 policy <name>` | Discover and inspect policy protocols (e.g. `strict-mcp`). |
+| `l2 policies` / `l2 policy <name>` | Discover and inspect policy protocols (e.g. `strict-mcp`, `ransom-hardened`). |
 | `l2 audit ...`                   | View/manage tamper-evident authority audit log. |
 
 Full surface includes the above + status, revoke, etc. All commands support `--json`. Use `--policy strict-mcp` (or other protocols) for explicit guarantees. JSON output via `--json`.
 
 ## Verification (Smoke Test)
 
-These commands exercise the full v0.4+ surface (policies, strict-mcp, crypto, harden, trace with profile output, audit). They should succeed:
+These commands exercise the full v0.4.4+ surface (policies including ransom-hardened, strict-mcp, crypto, harden, trace with profile output, audit + ransomware containment check). They should succeed:
 
 ```bash
 export L2_DATA_DIR=$(mktemp -d)
 l2 policies
 l2 policy strict-mcp
 l2 crypto --list
-l2 harden --profile strict-mcp --dry-run --fast --generate-seccomp /dev/null
+echo 'fake trace' > /tmp/trace.log
+l2 harden --profile strict-mcp --dry-run --fast --generate-seccomp /tmp/trace.log || true
 l2 create smoke --policy strict-mcp
-l2 put smoke hello.txt --content 'hello from v0.4+'
-l2 get smoke hello.txt | grep -q 'v0.4+'
+l2 put smoke hello.txt --content 'hello from v0.4.4'
+l2 get smoke hello.txt | grep -q 'v0.4.4'
 echo 'fake log' > /tmp/fake.log
 l2 trace --analyze /tmp/fake.log --output-profile /tmp/profile.txt
 l2 audit --tail 5
 l2 audit --verify
-l2 audit --test  # runs regular automated checks vs. latest security standards (CISA/NSA/FBI/Linux hardening); automatically tied to strict-mcp + l2 harden artifacts (run `l2 harden --profile strict-mcp` then this for full PASS)
+l2 audit --test  # runs regular automated checks vs. latest security standards (CISA/NSA/FBI/Linux hardening + ransomware); tied to strict-mcp/ransom-hardened + l2 harden artifacts (run `l2 harden --profile strict-mcp` (or ransom-hardened) then this for full PASS)
 l2 destroy smoke
 echo "Smoke OK"
 ```
 
 The CI runs an expanded version of this on every push to main (including fmt, clippy `-D warnings`, and the new tooling).
 
-## Status (v0.4.0)
+## Status (v0.4.4)
 
 See [STATUS.md](STATUS.md) for the full current state and [ROADMAP.md](ROADMAP.md) for direction.
 
-**Core delivered (v0.4.0 focus):**
-- Explicit policy protocols (`strict-mcp` as main focus for agentic/MCP) with clear guarantees.
+**Core delivered (v0.4.0+ focus):**
+- Explicit policy protocols (`strict-mcp` as main focus for agentic/MCP; `ransom-hardened` for full-safety ransomware/malicious testing) with clear guarantees.
 - `l2 crypto`: selectable verified profiles (including hybrid) for system encryption, integrated with l2 isolation.
-- `l2 harden`: concrete NSA/CISA/FBI-aligned host hardening + automatic systemd units + trace-driven seccomp profiles.
+- `l2 harden`: concrete NSA/CISA/FBI-aligned host hardening + automatic systemd units + trace-driven seccomp profiles. Supports `ransom-hardened` profile.
 - `l2 trace` + analysis for real Phase 1 data collection under any protocol.
 - Paced typewriter output in setup/hardening/crypto tools.
 - `l2 policies` / `l2 policy <name>` for discovery.
-- Stronger defaults and deeper integration between policies, crypto, and host hardening.
+- Stronger defaults and deeper integration between policies, crypto, host hardening, and audit (`l2 audit --test`).
+- `ransom-hardened` + `l2_ransomware_resistance_demo.c` + harden/audit integration for repeatable WannaCry-class containment validation.
 
 **Ongoing:**
 - Production seL4/Microkit integration (l2-core as protection domain).
@@ -214,6 +216,6 @@ The SPDX identifier is `MIT OR Apache-2.0`.
 
 ---
 
-**v0.1.0** remains available as an immutable historical baseline for evaluation and integrity checks against v0.4.0 and future releases.
+**v0.1.0** remains available as an immutable historical baseline for evaluation and integrity checks against v0.4.4 and future releases.
 
-See `CHANGELOG.md`, `STATUS.md`, `ROADMAP.md`, and the `docs/` directory for the complete picture of what v0.4.0 provides for users building high-assurance agentic/AI/MCP systems on the l2 substrate.
+See `CHANGELOG.md`, `STATUS.md`, `ROADMAP.md`, and the `docs/` directory for the complete picture of what v0.4.4 provides for users building high-assurance agentic/AI/MCP systems on the l2 substrate (including full-safety ransomware testing support).

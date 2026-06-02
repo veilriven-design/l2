@@ -32,7 +32,7 @@ jobs:
         cargo install cargo-audit --locked || true
         cargo audit || echo "cargo audit reported issues or failed to run (non-blocking for release; review advisories separately if any)"
 
-    - name: "Smoke tests (v0.4+ full surface: strict-mcp, crypto, harden, trace, policies, audit)"
+    - name: "Smoke tests (v0.4.4+ full surface: strict-mcp + ransom-hardened, crypto, harden, trace, policies, audit + ransomware check)"
       run: |
         set -euo pipefail
         cargo build --release --quiet
@@ -46,7 +46,7 @@ jobs:
         ./target/release/l2 policy strict-mcp | grep -q "current main focus" ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
         ./target/release/l2 policy ransom-hardened | grep -q "ransom-hardened\|full safety\|WannaCry\|ransomware" ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
 
-        # Full v0.4+ crypto surface (advisory, no privileged apply in CI)
+        # Full v0.4.4+ crypto surface (advisory, no privileged apply in CI)
         ./target/release/l2 crypto --list | grep -q "hybrid-aes-chacha" ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
         ./target/release/l2 crypto --profile aes256-xts-argon2id --fast 2>&1 | grep -q "Cryptography profiles" ; s=$?; [ $s -eq 0 -o $s -eq 141 ]
 
@@ -97,4 +97,4 @@ jobs:
         ./target/release/l2 audit --test 2>&1 | grep -q "Ransomware containment\|ransom-hardened" || echo "(ransom-hardened audit check exercised)"
         ./target/release/l2 destroy smoke-ransom
 
-        echo "✅ All v0.4+ smoke tests passed (policies + strict-mcp + crypto + harden + trace+output-profile + audit + regular up-to-date security standards tests + harden<->audit integration + ransom-hardened full-safety policy + WannaCry-class containment checks exercised)"
+        echo "✅ All v0.4.4+ smoke tests passed (policies + strict-mcp + ransom-hardened + crypto + harden + trace+output-profile + audit + regular up-to-date security standards tests + harden<->audit integration + ransomware containment checks exercised)"

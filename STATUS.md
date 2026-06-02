@@ -1,6 +1,6 @@
 # Status
 
-**v0.4.3 released** — Full code sweep for logic errors/security/high-assurance: fixed seccomp BPF arch jumps (enforcing filter now actually works on x86/aarch), completed L2_USE_CORE persistence+dispatch (real shared state), guarded oneshot/put auto-read against arbitrary host file reads (../ /abs), extracted dupe sudo drop logic, C put name bounds, audit check count/docs, etc. All to eliminate bypasses, inconsistency, leaks in the substrate. See CHANGELOG.md for details. Verified with gates + full smoke + L2_USE_CORE + attack sims. Builds on v0.4.2. v0.4.2 tag preserved.
+**v0.4.4 released** — Full safety protocol + ransomware resistance prep: new explicit `ransom-hardened` policy (auto-enforcing seccomp, minimal ws-only Landlock, rlimits, dedicated harden); self-contained `docs/examples/l2_ransomware_resistance_demo.c` (WannaCry-class sim: SMB, encrypt+.WNCRY, persistence, priv esc — only ws succeeds); `scripts/harden.sh` + `l2 audit --test` integration for ransomware containment check + `ransom-hardened-latest.json`; CI/docs updates. All additive. See CHANGELOG.md. Builds on v0.4.3 (security sweep). v0.4.3 tag preserved.
 - New `l2 harden` command + `scripts/harden.sh` (modeled after sel4-setup with paced typewriter output). Applies NSA/CISA/FBI-aligned concrete hardening steps for the agentic era.
 - `strict-mcp` policy protocol is now the main focus: diverges from `strict` with aggressive defaults (enforcing seccomp on by default, tighter posture).
 - Full integration: `l2 trace --policy strict-mcp` + `--analyze`, `l2 harden --generate-seccomp`, and the runtime enforcing filter can directly load generated minimal profiles.
@@ -9,7 +9,7 @@
 - Significant maturity in seccomp tooling, capability/namespace guidance, and network isolation options.
 - `l2 harden --network-isolation` and concrete host hardening steps (sysctls, dedicated users, audit rules, etc.).
 
-This release makes `strict-mcp` + `l2 harden` a real, operational high-assurance path for MCP/agentic workloads. v0.3.2 and earlier tags preserved.
+This release makes `strict-mcp` + `ransom-hardened` + `l2 harden` + `l2 audit --test` a real, operational high-assurance path for MCP/agentic and ransomware containment validation workloads. v0.3.2 and earlier tags preserved.
 
 ## Charter
 
@@ -27,7 +27,7 @@ l2 is the minimal high-assurance Latticra substrate:
 - **Real persistence**: systems + objects survive across separate `l2` invocations (stored in `~/.l2/state.json`)
 - Real Linux namespace isolation for `exec` (`unshare`)
 - **Real Landlock + no_new_privs sandboxing for `--policy strict`**: workspace-confined writes, RO+EXEC on system essentials (v0.2.0)
-- **Explicit policy protocols** (`default`, `strict`, `strict-mcp` as current main focus for agentic/MCP workloads) with clear guarantees and `l2 policies` / `l2 policy <name>` discovery.
+- **Explicit policy protocols** (`default`, `strict`, `strict-mcp` (main focus for agentic/MCP), `ransom-hardened` (full safety for ransomware/malicious testing)) with clear guarantees and `l2 policies` / `l2 policy <name>` discovery.
 - **Full `l2 sel4-setup` command**: one-command seL4/Microkit bootstrap with:
   - Official Microkit SDK 2.2.0 tarball download (clear primary/fast path)
   - Distro-aware behavior (especially strong support for RHEL/Fedora + podman)
@@ -36,27 +36,28 @@ l2 is the minimal high-assurance Latticra substrate:
   - High-quality generated `README-l2-sel4.md` with the RHEL/Podman one-time fix permanently documented and strong guidance on choosing the right path by hardware capability
 - **Dramatically improved `list` output and overall UX**
 - `demo.sh` removed (commands documented directly in README instead)
-- **`l2 crypto`** (v0.4.0): Select and apply verified crypto profiles (`aes256-xts-argon2id`, `xchacha20-poly1305-argon2id`, `hybrid-aes-chacha`) for true system encryption (LUKS + gocryptfs). Hybrid mixes complementary algorithms. Applied proficiently with paced typewriter output; keys protected by l2 isolation (strict-mcp). Includes `--apply`, `--network-isolation`, `--generate-seccomp`, and auto-generated hardened systemd units.
-- **`l2 harden`** (v0.4.0): NSA/CISA/FBI-aligned concrete host/container hardening for the agentic era. Paced output, `--network-isolation`, capability dropping, advanced namespaces, automatic systemd unit generation, and trace-driven seccomp profiles. `strict-mcp` profile is the focus and has aggressive defaults (enforcing on by default, tighter Landlock).
-- **`l2 trace`** with policy support, `--analyze`, and `--output-profile` to generate real minimal seccomp profiles that the runtime enforcing filter + strict-mcp auto-discovery load directly (via `L2_SECCOMP_PROFILE` or `~/.l2/seccomp/strict-mcp.txt`).
+- **`l2 crypto`** (v0.4.0): Select and apply verified crypto profiles (`aes256-xts-argon2id`, `xchacha20-poly1305-argon2id`, `hybrid-aes-chacha`) for true system encryption (LUKS + gocryptfs). Hybrid mixes complementary algorithms. Applied proficiently with paced typewriter output; keys protected by l2 isolation (strict-mcp / ransom-hardened). Includes `--apply`, `--network-isolation`, `--generate-seccomp`, and auto-generated hardened systemd units.
+- **`l2 harden`** (v0.4.0+): NSA/CISA/FBI-aligned concrete host/container hardening for the agentic era. Paced output, `--network-isolation`, capability dropping, advanced namespaces, automatic systemd unit generation, and trace-driven seccomp profiles. Supports `strict-mcp` and `ransom-hardened` profiles (ransomware-specific blocks, standards in json). `strict-mcp` profile is the main focus and has aggressive defaults (enforcing on by default, tighter Landlock).
+- **`l2 trace`** with policy support (incl. `ransom-hardened`), `--analyze`, and `--output-profile` to generate real minimal seccomp profiles that the runtime enforcing filter + strict-mcp / ransom-hardened auto-discovery load directly (via `L2_SECCOMP_PROFILE` or `~/.l2/seccomp/...`).
 - More C integration (core/host.c + src/core/core.c polished with L2P/seL4/Rust ties + safe.c usage), user-ns exploration (L2_EXPERIMENTAL_USER_NS=1 + nix sched), and ongoing trace/harden/overall polish (analyzer robustness, script UX, quality gates, L2P/C consistency).
-- Full integration between policies, crypto, trace data, and host hardening. All long guidance uses readable paced "typewriter" output (disable with `--fast`).
-- Dramatically improved `list` output and overall UX (repeated for emphasis on v0.4.0 polish)
+- Full integration between policies (strict-mcp + ransom-hardened), crypto, trace data, host hardening, and `l2 audit --test` (consumes harden json artifacts). All long guidance uses readable paced "typewriter" output (disable with `--fast`).
+- Dramatically improved `list` output and overall UX (repeated for emphasis on v0.4+ polish)
 
 ## Current Focus
 
-1. **Agentic/AI/MCP hardening track (v0.4.0 main focus)**: `l2 crypto` + `strict-mcp` + `l2 harden` as a complete, operational high-assurance path. Further per-protocol divergence, more aggressive defaults in crypto/harden, deeper integration of generated seccomp profiles into runtime, and expanded concrete steps in `l2 harden` (more distros, automated unit/profile application).
+1. **Agentic/AI/MCP hardening track (v0.4.0+ main focus)**: `l2 crypto` + `strict-mcp` + `ransom-hardened` + `l2 harden` + `l2 audit --test` as a complete, operational high-assurance path (incl. ransomware containment validation). Further per-protocol divergence, more aggressive defaults in crypto/harden, deeper integration of generated seccomp profiles into runtime, and expanded concrete steps in `l2 harden` (more distros, automated unit/profile application).
 
    **New: ransom-hardened (full safety) policy + WannaCry-class resistance prep**: Explicit `ransom-hardened` protocol (auto-enforcing, minimal Landlock ws-only, rlimits, dedicated harden profile + audit check "Ransomware containment"). Includes self-contained educational sim `docs/examples/l2_ransomware_resistance_demo.c` (SMB 445/killswitch, mass encrypt+.WNCRY, persistence, priv esc — only ws files succeed). `l2 create ... --policy ransom-hardened ; ... exec ... ; l2 audit --test` now exercises full substrate for ransomware resistance. Prepares for real testing "when ready". See SECURITY.md and the demo header.
 
-   **Recent concrete improvements to crypto + MCP hardening:**
-   - Capability bounding set fully dropped (PR_CAPBSET_DROP) for all strict/strict-mcp workloads.
-   - strict-mcp Landlock: no ambient /tmp (even RO) — workspace is the only writable and now the only visible tmp surface.
-   - Seccomp profiles: auto-discovery for strict-mcp from l2 data dir + /etc/l2; `l2 trace --analyze --output-profile` produces directly loadable files; `l2 harden --generate-seccomp` now writes them too.
-   - Crypto: --apply produces MCP-aware helper script, stronger integration guidance for protecting l2 state + keys under strict-mcp.
+   **Recent concrete improvements to crypto + MCP hardening (incl. v0.4.4 full-safety):**
+   - Capability bounding set fully dropped (PR_CAPBSET_DROP) for all strict/strict-mcp/ransom-hardened workloads.
+   - strict-mcp / ransom-hardened Landlock: no ambient /tmp (even RO) — workspace is the only writable and now the only visible tmp surface.
+   - Seccomp profiles: auto-discovery for strict-mcp/ransom-hardened from l2 data dir + /etc/l2; `l2 trace --analyze --output-profile` produces directly loadable files; `l2 harden --generate-seccomp` now writes them too.
+   - Crypto: --apply produces MCP-aware helper script, stronger integration guidance for protecting l2 state + keys under strict-mcp (and ransom-hardened for testing).
+   - `l2 harden --profile ransom-hardened` + `ransom-hardened-latest.json` + "Ransomware containment" check in `l2 audit --test`.
    - Audit events now emitted for `l2 crypto` and `l2 harden` invocations.
 
-2. Better host isolation (seccomp-bpf, capability dropping, tighter Landlock policies, user+mount ns) — Landlock baseline v0.2.0. Phase 0 complete: real `SECCOMP_RET_LOG` + `FLAG_LOG` observer now works (`L2_STRICT_SECCOMP_OBSERVE=1`). Kernel audit logs for strict workloads are available. See `src/sandbox.rs` + docs/PROTOTYPE_HARDENING_AND_SEL4_PLAN.md for usage. Ready for trace collection → Phase 1 enforcing filter. (Now heavily exercised by `strict-mcp` and crypto tooling.)
+2. Better host isolation (seccomp-bpf, capability dropping, tighter Landlock policies, user+mount ns) — Landlock baseline v0.2.0. Phase 0 complete: real `SECCOMP_RET_LOG` + `FLAG_LOG` observer now works (`L2_STRICT_SECCOMP_OBSERVE=1`). Kernel audit logs for strict workloads are available. Phase 1 enforcing active and exercised by strict-mcp + ransom-hardened. See `src/sandbox.rs` + docs/PROTOTYPE_HARDENING_AND_SEL4_PLAN.md for usage. Ready for trace collection → profiles. (Now heavily exercised by `strict-mcp`, `ransom-hardened`, and crypto tooling.)
 
 3. Audit logging: Basic append-only JSONL authority audit log (`audit.log` in data dir) now implemented for create/put/exec/destroy/revoke/escalate/sandbox (and oneshot temp systems). Includes `l2 audit` subcommand. Respects SUDO_USER. See `src/audit.rs`. This directly addresses the "Evidence and audit" requirement in SECURITY.md.
 

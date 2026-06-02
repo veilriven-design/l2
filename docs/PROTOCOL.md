@@ -49,7 +49,7 @@ Every response has:
 
 Request:
 ```json
-{"v":1, "op":"create", "id":"c1", "name":"build-42", "policy":"strict"}
+{"v":1, "op":"create", "id":"c1", "name":"build-42", "policy":"strict-mcp"}
 ```
 
 Success:

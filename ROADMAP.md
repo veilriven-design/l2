@@ -27,33 +27,35 @@ The external interface and mental model must remain the same whether the backend
 - [STATUS.md](STATUS.md) — Living snapshot of what is actually done and current focus areas
 - [SECURITY.md](SECURITY.md) — Security requirements and philosophy
 
-## Current State (as of v0.4.0)
+## Current State (as of v0.4.4)
 
 See [STATUS.md](STATUS.md) for the authoritative "Done" and "Current Focus" lists.
 
-Highlights (v0.4.0 focus on agentic/AI/MCP hardening):
-- Explicit policy protocols (`strict-mcp` as flagship) + `l2 policies` / `l2 policy <name>` discovery.
-- **`l2 crypto`**: Selectable verified profiles (AES-256-XTS-Argon2id, XChaCha20-Poly1305-Argon2id, hybrid) for true system encryption (LUKS + gocryptfs). Hybrid mixes complementary algorithms. Paced typewriter output. Integrated with l2 isolation (keys protected by strict-mcp).
-- **`l2 harden`**: Concrete NSA/CISA/FBI-aligned host/container hardening (paced output). `--network-isolation`, auto-generated systemd units, capability dropping, advanced namespaces, trace-driven seccomp profiles. `strict-mcp` profile has aggressive defaults.
-- **`l2 trace`** with policy support + `--analyze` → real minimal profiles that the runtime enforcing filter loads directly.
-- Full integration: policies + crypto + host prep + trace data form a coherent high-assurance path.
+Highlights (v0.4.0+ focus on agentic/AI/MCP hardening + full-safety):
+- Explicit policy protocols (`strict-mcp` as flagship for agentic/MCP; `ransom-hardened` for full-safety ransomware/malicious testing) + `l2 policies` / `l2 policy <name>` discovery.
+- **`l2 crypto`**: Selectable verified profiles (AES-256-XTS-Argon2id, XChaCha20-Poly1305-Argon2id, hybrid) for true system encryption (LUKS + gocryptfs). Hybrid mixes complementary algorithms. Paced typewriter output. Integrated with l2 isolation (keys protected by strict-mcp / ransom-hardened contexts).
+- **`l2 harden`**: Concrete NSA/CISA/FBI-aligned host/container hardening (paced output). `--network-isolation`, auto-generated systemd units, capability dropping, advanced namespaces, trace-driven seccomp profiles. Supports `strict-mcp` and `ransom-hardened` (ransomware-specific).
+- **`l2 trace`** with policy support + `--analyze` → real minimal profiles that the runtime enforcing filter loads directly (exercised by ransom-hardened too).
+- Full integration: policies + crypto + host prep + trace data + `l2 audit --test` (harden json consumption) form a coherent high-assurance path. Includes ransomware containment validation path.
 - Paced "typewriter" output in `l2 sel4-setup`, `l2 harden`, `l2 crypto` for readable long guidance (`--fast` to disable).
 - Excellent `l2 sel4-setup` on-ramp (Microkit SDK primary path + strong RHEL/Podman guidance).
-- Landlock + no_new_privs + seccomp baseline (Phase 0 observer complete; Phase 1 enforcing active for strict-family policies).
-- Append-only authority audit log + `l2 audit` subcommand.
+- Landlock + no_new_privs + seccomp baseline (Phase 0 observer complete; Phase 1 enforcing active for strict-family policies including ransom-hardened).
+- Append-only authority audit log + `l2 audit` subcommand (incl. ransomware check).
 - Basic out-of-process `l2-core` binary speaking L2P over stdio (architecture prep).
+- `docs/examples/l2_ransomware_resistance_demo.c` + dedicated `ransom-hardened` protocol + harden/audit for repeatable containment testing.
 
 ## Prioritized Work
 
 ### Now (Highest Leverage)
 
 1. **Agentic/AI/MCP hardening track (v0.4.0+ main focus)**
-   - `l2 crypto` + `strict-mcp` + `l2 harden` as a complete operational path.
-   - Continue maturing: more aggressive defaults in crypto/harden, per-protocol divergence (e.g. network denial, tool-specific rules in strict-mcp), expanded automated application in `l2 harden` (more distros, direct profile application).
-   - `l2 trace --policy strict-mcp` remains the primary data collection tool (observer + enforcing by default); feed into `l2 harden --generate-seccomp`.
-   - `l2 harden --profile strict-mcp` prepares hosts/containers per NSA/CISA/FBI guidance for the agentic era.
-   - `strict-mcp` is the flagship policy protocol (stronger defaults than `strict`, integrates crypto profiles and host hardening).
-   - Mature per-protocol allowlists, analyzer tooling (`l2 trace --analyze`), user-facing awareness (`l2 policies`), and integration (e.g. auto-wiring generated seccomp profiles into runtime).
+   - `l2 crypto` + `strict-mcp` + `ransom-hardened` + `l2 harden` + `l2 audit --test` as a complete operational path (incl. ransomware containment validation).
+   - Continue maturing: more aggressive defaults in crypto/harden, per-protocol divergence (e.g. network denial, tool-specific rules in strict-mcp; full safety in ransom-hardened), expanded automated application in `l2 harden` (more distros, direct profile application).
+   - `l2 trace --policy strict-mcp` (and ransom-hardened for sims) remains the primary data collection tool (observer + enforcing by default); feed into `l2 harden --generate-seccomp`.
+   - `l2 harden --profile strict-mcp` (or `ransom-hardened`) prepares hosts/containers per NSA/CISA/FBI guidance (and ransomware-specific) for the agentic era.
+   - `strict-mcp` is the flagship policy protocol for normal use (stronger defaults than `strict`, integrates crypto profiles and host hardening); `ransom-hardened` for explicit malicious code testing.
+   - Mature per-protocol allowlists, analyzer tooling (`l2 trace --analyze`), user-facing awareness (`l2 policies`), and integration (e.g. auto-wiring generated seccomp profiles into runtime, harden json to audit).
+   - `docs/examples/l2_ransomware_resistance_demo.c` as canonical sim for proving `ransom-hardened` controls.
 
 2. **Deeper crypto + host hardening operationalization**
    - Make generated profiles/units from `l2 crypto`/`l2 harden` directly consumable with one command.

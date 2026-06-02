@@ -4,7 +4,7 @@ An l2 system is a dynamic, isolated execution context created and destroyed on d
 
 ## Lifecycle (all explicit)
 
-1. `l2 create` — The core allocates the context and grants initial capabilities according to policy.
+1. `l2 create --policy <name>` — The core allocates the context and grants initial capabilities according to the chosen protocol (e.g. `strict-mcp` for agentic, `ransom-hardened` for full-safety malicious testing).
 2. `l2 put` — Operator places code, data, or credentials into the system (mediated, logged).
 3. `l2 exec` — Run work inside the system using only the capabilities it currently holds.
 4. `l2 get` — Retrieve results or artifacts (again, explicit and mediated).

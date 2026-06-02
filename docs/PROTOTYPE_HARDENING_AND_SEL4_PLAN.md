@@ -12,9 +12,9 @@
 ## seL4 Hosting/Auto-Install Plan
 
 ### Short-term (Prototype)
-- Provide `l2 setup` command that installs prerequisites and sets up a Docker-based seL4 dev environment.
-- Docker image: `veilriven/l2-sel4-dev` containing seL4 toolchain, Microkit, Rust cross-compile, and l2 source.
-- Users run `docker run -it veilriven/l2-sel4-dev` or `l2 setup-sel4` which pulls and configures.
+- Provide `l2 sel4-setup` command (current) that installs prerequisites (Microkit SDK tarball primary, host tools) and sets up a seL4/Microkit dev environment. Strong RHEL/Fedora + podman support, paced output, `--fast` for CI/old hardware, hardware-aware warnings.
+- Official Microkit SDK 2.2.0 tarball as unambiguous recommended path (fast on-ramp even on vintage hardware).
+- Generated `~/l2-sel4-workspace/README-l2-sel4.md` with permanent guidance. (Historical Docker `l2 setup` / container ideas superseded by the practical SDK-focused `l2 sel4-setup`.)
 
 ### Medium-term
 - Scripted build using seL4's `repo` tool or CMake-based build system.
@@ -30,17 +30,18 @@ See SEL4_INTEGRATION.md for architecture details.
 
 See [ROADMAP.md](../ROADMAP.md) for the current overall priorities. The sections below are historical context + detailed hardening notes.
 
-**Status (as of v0.4.0):** Phase 0 complete — real working observer now installs a `SECCOMP_RET_LOG` + `SECCOMP_FILTER_FLAG_LOG` filter when `L2_STRICT_SECCOMP_OBSERVE=1` is set. Kernel audit logs are produced for every syscall under strict policy. See `src/sandbox.rs:try_install_seccomp_observer` and the function docs for exact usage + viewing instructions.
+**Status (as of v0.4.4):** Phase 0 complete + Phase 1 enforcing active — real working observer (`L2_STRICT_SECCOMP_OBSERVE=1`) and enforcing filter (auto for strict-mcp/ransom-hardened, or `L2_STRICT_SECCOMP_ENFORCE=1`) install `SECCOMP_RET_LOG` + `SECCOMP_FILTER_FLAG_LOG` / KILL filters. Profiles loadable from traces via `l2 trace --analyze --output-profile` / `l2 harden --generate-seccomp`. Kernel audit logs for strict-family policies. See `src/sandbox.rs` for `try_install_seccomp_*` and policy-aware logic. `ransom-hardened` exercises the strictest path (no-net + extended NEVER).
 
 Phase 1 enforcing is now active for strict-family policies (especially `strict-mcp`, the current main focus). The filter supports loading external trace-derived minimal profiles (generated via `l2 trace --analyze` + `l2 harden --generate-seccomp` or `l2 crypto` flows).
 
-**Current highest-priority concrete work:** Mature the `l2 crypto` + `strict-mcp` + `l2 harden` path (per the v0.4.0 roadmap). Continue trace collection under `strict-mcp`, curation of allowlists (now policy-aware), and expansion of concrete host hardening steps.
+**Current highest-priority concrete work:** Mature the `l2 crypto` + `strict-mcp` + `ransom-hardened` + `l2 harden` + `l2 audit --test` path (per the v0.4.4 roadmap). Continue trace collection under `strict-mcp` (and ransom-hardened for sims), curation of allowlists (policy-aware, incl. ransomware), expansion of concrete host hardening steps, and end-to-end validation with the resistance demo.
 
 Recent progress on this thread (trace + hardening UX):
-- `l2 trace --policy strict-mcp` (with `--enforce` and auto-paced output).
+- `l2 trace --policy strict-mcp` (and `ransom-hardened`) with `--enforce` and auto-paced output.
 - `l2 crypto` for selecting/applying verified profiles (including hybrid) system-wide.
-- `l2 harden` with NSA/CISA/FBI-aligned concrete steps, network isolation, auto systemd units, and seccomp generation.
-- Improved runtime messaging, `sandbox::print_seccomp_trace_reminder()`, and policy-aware Landlock/seccomp.
-- Better guidance on recommended first workloads and practical capture commands.
+- `l2 harden --profile strict-mcp` (and `ransom-hardened`) with NSA/CISA/FBI-aligned (and ransomware-specific) concrete steps, network isolation, auto systemd units, seccomp generation, and json artifacts for `l2 audit --test`.
+- `docs/examples/l2_ransomware_resistance_demo.c` + full `ransom-hardened` substrate path for containment validation.
+- Improved runtime messaging, `sandbox::print_seccomp_trace_reminder()`, and policy-aware Landlock/seccomp (ransom-hardened is strictest).
+- Better guidance on recommended first workloads and practical capture commands. See also the demo .c headers.
 
-See `src/sandbox.rs` and the updated `ROADMAP.md`.
+See `src/sandbox.rs`, `l2 sel4-setup --help`, the resistance demo, and the updated `ROADMAP.md` / `STATUS.md`.
