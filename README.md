@@ -1,11 +1,11 @@
-# l2 — Minimal High-Assurance System Substrate (v0.4.0)
+# l2 — Minimal High-Assurance System Substrate (v0.4.1)
 
 Terminal-first CLI for creating, using, and destroying strongly isolated execution contexts. Narrow surface. Built for high-assurance with seL4 as the root of trust.
 
 **Linux prototype** — ready for immediate use and validation (with powerful hardening and crypto).  
 **seL4/Microkit** — the production/high-assurance path.
 
-**v0.4.0 highlights for users:** explicit policy protocols (especially `strict-mcp`), `l2 crypto` (verified profiles + hybrid for system encryption), `l2 harden` (NSA/CISA/FBI host prep), `l2 trace` (policy-aware seccomp collection + profile generation), and paced "typewriter" guidance in setup tools.
+**v0.4.1 highlights (continuing v0.4.0):** deeper C integration + L2P ties, experimental user-ns support, `l2 put` UX ( `--file` + auto local-file read when name matches cwd), exec validation fixes for compilers + code objects, unshare fallback for old kernels, the `docs/examples/l2_safe_execution_demo.c` (canonical example of safe contained execution vs. unprotected host), trace/harden analyzer + script polish, and many robustness/UX wins. See full details in CHANGELOG.md.
 
 See the dedicated **[Crypto & Hardening](#crypto--hardening-v040)** section (collapsible) and [SECURITY.md](SECURITY.md) for full v0.4.0 crypto/hardening/strict-mcp details, plus [ROADMAP.md](ROADMAP.md) and [STATUS.md](STATUS.md).
 
@@ -87,7 +87,7 @@ cat ~/l2-sel4-workspace/README-l2-sel4.md
 ```
 
 <a id="crypto--hardening-v040"></a>
-## Crypto & Hardening (v0.4.0+)
+## Crypto & Hardening (v0.4.0/0.4.1)
 
 Dedicated tooling and explicit policy protocols (`strict-mcp` main focus) for high-assurance agentic/AI/MCP systems. NSA/CISA-aligned host prep, verified crypto for system encryption, and data-driven seccomp policies — all integrated with the l2 substrate. Long guidance uses paced "typewriter" output.
 
@@ -161,17 +161,21 @@ Full surface includes the above + status, revoke, etc. All commands support `--j
 
 ## Verification (Smoke Test)
 
-These commands should succeed with a v0.4.0 binary (expanded for policies, crypto, harden, trace):
+These commands exercise the full v0.4+ surface (policies, strict-mcp, crypto, harden, trace with profile output, audit). They should succeed:
 
 ```bash
 export L2_DATA_DIR=$(mktemp -d)
-l2 create smoke --policy strict-mcp
-l2 put smoke hello.txt --content 'hello from v0.4.0'
-l2 get smoke hello.txt | grep -q 'v0.4.0'
-l2 trace --policy strict-mcp --analyze /dev/null || true   # (trace tooling)
-l2 harden --profile strict-mcp --dry-run --fast || true
-l2 crypto --list
 l2 policies
+l2 policy strict-mcp
+l2 crypto --list
+l2 harden --profile strict-mcp --dry-run --fast --generate-seccomp /dev/null
+l2 create smoke --policy strict-mcp
+l2 put smoke hello.txt --content 'hello from v0.4+'
+l2 get smoke hello.txt | grep -q 'v0.4+'
+echo 'fake log' > /tmp/fake.log
+l2 trace --analyze /tmp/fake.log --output-profile /tmp/profile.txt
+l2 audit --tail 5
+l2 audit --verify
 l2 destroy smoke
 echo "Smoke OK"
 ```

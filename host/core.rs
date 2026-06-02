@@ -1,30 +1,26 @@
 //! l2-core (future separate binary)
 //!
-//! This will become the out-of-process core that speaks L2P v1 over stdio
-//! or a unix socket, implementing the narrow protocol defined in docs/PROTOCOL.md.
+//! This is the out-of-process core that speaks the narrow L2P v1 protocol
+//! (defined in docs/PROTOCOL.md) over stdio. It uses the shared l2 library
+//! (Substrate + L2Core trait) for state management.
 //!
-//! Architecture prep phase: basic L2P handler for a few ops (ping, status).
-//! Real isolation, persistence, and C backend come later. The main `l2` binary
-//! still does everything in-process for now.
-
-/* Planned structure (from docs/PROTOCOL.md):
- * - Read JSON lines from stdin (L2P requests)
- * - Each request: {"v":1, "op":"...", "id":"req-1", ...}
- * - Dispatch to core implementation
- * - Write responses: {"v":1, "id":"req-1", "ok":true, ...}
- * - Manage actual isolated contexts (namespaces today, seL4 later)
- *
- * Current status (prep): This binary can be run standalone and will
- * respond to basic L2P messages over stdio. Useful for testing the
- * protocol boundary before full split.
- */
+//! MAJOR PROGRESS (core split): Now implements a large subset of L2P ops
+//! (ping, status, create, destroy, list, put, get). This demonstrates a
+//! real protocol boundary. Exec/sandbox/hardening remain in the CLI for the
+//! prototype phase (they drive unshare + Landlock + seccomp).
+//!
+//! Usage for architecture testing:
+//!   L2_USE_CORE=1 l2 create ...   (main speaks L2P to this binary for state ops)
+//!
+//! Long-term: this (or a C/Microkit version) becomes the trusted core for seL4.
 
 use std::io::{self, BufRead, Write};
 
 fn main() {
-    eprintln!("l2-core: basic L2P handler (architecture prep). See docs/PROTOCOL.md");
-    eprintln!("Now uses the shared core library (Substrate) for real (in-memory) ops.");
-    eprintln!("This demonstrates the boundary before full out-of-process + C core.");
+    eprintln!(
+        "l2-core: L2P v1 handler (advanced architecture prep). See docs/PROTOCOL.md + host/core.rs"
+    );
+    eprintln!("Uses shared Substrate for real ops. This binary + the L2Core trait are the foundation for the out-of-process + seL4 future.");
 
     let mut core: Box<dyn l2::L2Core> = Box::new(l2::Substrate::default());
 
@@ -51,14 +47,15 @@ fn main() {
             } else {
                 match op {
                     "ping" => {
-                        serde_json::json!({"v":1, "id": id, "ok": true, "msg": "pong from core lib"})
+                        serde_json::json!({"v":1, "id": id, "ok": true, "msg": "pong from l2-core (L2P v1 + shared lib)"})
                     }
                     "status" => serde_json::json!({
                         "v":1,
                         "id": id,
                         "ok": true,
-                        "status": "l2-core (using shared Substrate)",
-                        "systems": core.list_systems().len()
+                        "status": "l2-core (advanced split prep)",
+                        "systems": core.list_systems().len(),
+                        "using": "shared Substrate + L2Core trait"
                     }),
                     "create" => {
                         let name = req
@@ -78,10 +75,49 @@ fn main() {
                             }
                         }
                     }
+                    "destroy" => {
+                        let sys = req.get("sys").and_then(|x| x.as_str()).unwrap_or("");
+                        match core.destroy(sys) {
+                            Ok(()) => serde_json::json!({"v":1, "id": id, "ok": true}),
+                            Err(e) => {
+                                serde_json::json!({"v":1, "id": id, "ok": false, "err": e.to_string()})
+                            }
+                        }
+                    }
                     "list" => {
                         let systems: Vec<_> =
                             core.list_systems().iter().map(|s| s.name.clone()).collect();
                         serde_json::json!({"v":1, "id": id, "ok": true, "systems": systems})
+                    }
+                    "put" => {
+                        let sys = req.get("sys").and_then(|x| x.as_str()).unwrap_or("");
+                        let name = req.get("name").and_then(|x| x.as_str()).unwrap_or("");
+                        let typ = req.get("type").and_then(|x| x.as_str()).unwrap_or("data");
+                        let data = req.get("data").and_then(|x| x.as_str()).unwrap_or("");
+                        // Note: v1 PROTOCOL mentions base64 for data; here we accept raw for simplicity in prototype.
+                        // Real client would base64-encode large payloads.
+                        match core.put(sys, name, typ, data) {
+                            Ok(()) => serde_json::json!({"v":1, "id": id, "ok": true}),
+                            Err(e) => {
+                                serde_json::json!({"v":1, "id": id, "ok": false, "err": e.to_string()})
+                            }
+                        }
+                    }
+                    "get" => {
+                        let sys = req.get("sys").and_then(|x| x.as_str()).unwrap_or("");
+                        let name = req.get("name").and_then(|x| x.as_str()).unwrap_or("");
+                        match core.get(sys, name) {
+                            Ok(obj) => serde_json::json!({
+                                "v":1, "id": id, "ok": true,
+                                "name": obj.name,
+                                "type": obj.r#type,
+                                "size": obj.size,
+                                "content": obj.content   // small objects ok; large would use refs
+                            }),
+                            Err(e) => {
+                                serde_json::json!({"v":1, "id": id, "ok": false, "err": e.to_string()})
+                            }
+                        }
                     }
                     _ => {
                         serde_json::json!({"v":1, "id": id, "ok": false, "err": format!("unknown op: {}", op)})

@@ -49,6 +49,8 @@ enum Commands {
         r#type: String,
         #[arg(long, help = "Inline content")]
         content: Option<String>,
+        #[arg(long, help = "Read content from this local file (mutually exclusive with --content)")]
+        file: Option<String>,
     },
     Get {
         sys: String,
@@ -94,11 +96,6 @@ enum Commands {
         #[arg(short, long)]
         system: Option<String>,
 
-        /// Command and arguments to execute under trace mode.
-        /// Not required when using --analyze.
-        #[arg(trailing_var_arg = true)]
-        command: Vec<String>,
-
         #[arg(long)]
         input: Option<String>,
 
@@ -117,6 +114,17 @@ enum Commands {
         /// and print unique syscall numbers. Great for Phase 1 allowlist work.
         #[arg(long)]
         analyze: Option<String>,
+
+        /// When using --analyze, also write a ready-to-load seccomp profile (numbers, whitespace separated)
+        /// to this path. Usable directly as L2_SECCOMP_PROFILE=... or with l2 harden.
+        /// Pairs with strict-mcp auto-discovery (~/.l2/seccomp/strict-mcp.txt).
+        #[arg(long)]
+        output_profile: Option<String>,
+
+        /// Command and arguments to execute under trace mode.
+        /// Not required when using --analyze.
+        #[arg(trailing_var_arg = true)]
+        command: Vec<String>,
     },
 
     /// High-assurance hardening for agentic/AI/MCP systems (NSA/CISA-aligned).
@@ -196,6 +204,10 @@ enum Commands {
         /// Just print the path to the audit log and exit
         #[arg(long)]
         path: bool,
+
+        /// Verify the tamper-evident hash chain (new security feature)
+        #[arg(long)]
+        verify: bool,
     },
 }
 
@@ -204,6 +216,95 @@ enum Commands {
 use l2::{
     data_dir, load_state, prepare_workspace, save_state, state_path, warn_on_cleanup_err, System,
 };
+
+/// Optional L2P core mode (major architecture improvement).
+/// When L2_USE_CORE=1 (or any value), state operations (create/put/destroy/list)
+/// are performed by speaking L2P v1 over stdio to the `l2-core` binary.
+/// This demonstrates the narrow protocol boundary defined in docs/PROTOCOL.md
+/// and host/core.rs *today*, while exec/sandbox (which need host primitives)
+/// continue to run locally in the CLI wrapper.
+///
+/// This is opt-in for developers testing the split. Default (no env) = full
+/// in-process behavior (unchanged UX + full compatibility with CI/smoke).
+/// The l2-core binary must be findable (same dir as l2, or in PATH, or built).
+fn should_use_core() -> bool {
+    std::env::var_os("L2_USE_CORE").is_some()
+}
+
+/// Speak a simple L2P request to a spawned l2-core process (or "l2-core" in PATH).
+/// Returns the response JSON value on success.
+fn l2p_request_to_core(op: &str, payload: serde_json::Value) -> Result<serde_json::Value> {
+    use std::process::{Command, Stdio};
+
+    let exe = std::env::current_exe().ok();
+    let core_path = if let Some(p) = &exe {
+        let mut c = p.clone();
+        c.set_file_name("l2-core");
+        if c.exists() {
+            c
+        } else {
+            std::path::PathBuf::from("l2-core")
+        }
+    } else {
+        std::path::PathBuf::from("l2-core")
+    };
+
+    let mut child = Command::new(&core_path)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::inherit())
+        .spawn()
+        .map_err(|e| anyhow::anyhow!("failed to spawn l2-core ({}): {}. Build it with `cargo build` or ensure it is in PATH.", core_path.display(), e))?;
+
+    let mut full_req = serde_json::json!({
+        "v": 1,
+        "op": op,
+        "id": format!("cli-{}", op),
+    });
+    // Merge extra fields from payload (name, policy, sys, data, etc.)
+    if let (Some(base), Some(extra)) = (full_req.as_object_mut(), payload.as_object()) {
+        for (k, v) in extra {
+            base.insert(k.clone(), v.clone());
+        }
+    } else {
+        anyhow::bail!("internal error building L2P request");
+    }
+
+    {
+        let mut stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("no stdin to core"))?;
+        let line = serde_json::to_string(&full_req)? + "\n";
+        use std::io::Write;
+        stdin.write_all(line.as_bytes())?;
+        stdin.flush()?;
+    }
+
+    let output = child.wait_with_output()?;
+    if !output.status.success() {
+        anyhow::bail!("l2-core exited with error");
+    }
+
+    // Read first non-empty line from stdout as the JSON response
+    let stdout_str = String::from_utf8_lossy(&output.stdout);
+    for line in stdout_str.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        if let Ok(val) = serde_json::from_str::<serde_json::Value>(line) {
+            if val.get("ok").and_then(|o| o.as_bool()) == Some(false) {
+                let err = val
+                    .get("err")
+                    .and_then(|e| e.as_str())
+                    .unwrap_or("core error");
+                anyhow::bail!("l2-core error: {}", err);
+            }
+            return Ok(val);
+        }
+    }
+    anyhow::bail!("no valid L2P response from l2-core")
+}
 
 // Core helpers now come from the library (see src/lib.rs) as part of architecture prep.
 
@@ -277,6 +378,7 @@ fn validate_exec_target_references_real_object(
         return;
     }
 
+    let mut prev_was_interpreter = false;
     for (i, tok) in tokens.iter().enumerate() {
         let candidate = tok
             .trim_start_matches("./")
@@ -284,10 +386,13 @@ fn validate_exec_target_references_real_object(
             .to_string();
 
         if candidate.is_empty() || candidate.starts_with('/') || candidate.contains("..") {
+            prev_was_interpreter = false;
             continue;
         }
 
-        // Common interpreters / tools: the *next* token is often the file we care about
+        // Common interpreters / tools: the *next* token is often the file we care about.
+        // Expanded list + pure commands for much smoother UX with ad-hoc shell
+        // commands (echo, ls, date etc. should never trigger "object not found").
         let is_interpreter = matches!(
             *tok,
             "sh" | "bash"
@@ -301,6 +406,24 @@ fn validate_exec_target_references_real_object(
                 | "head"
                 | "tail"
                 | "more"
+                // builtins / common utils that do *not* reference put objects
+                | "echo"
+                | "printf"
+                | "env"
+                | "printenv"
+                | "date"
+                | "id"
+                | "whoami"
+                | "pwd"
+                | "ls"
+                | "true"
+                | "false"
+                | "test"
+                | "["
+                | "sleep"
+                // Compilers and build tools - their next arg is source file to process (not "direct exec")
+                | "cc" | "gcc" | "g++" | "clang" | "clang++" | "c++"
+                | "rustc" | "go" | "javac"
         );
 
         let target_to_check = if is_interpreter {
@@ -310,18 +433,36 @@ fn validate_exec_target_references_real_object(
                     .trim_start_matches(".\\")
                     .to_string();
                 if c.starts_with('/') || c.contains("..") || c.is_empty() {
+                    prev_was_interpreter = true;
                     continue;
                 }
+                prev_was_interpreter = true;
                 c
             } else {
+                prev_was_interpreter = true;
                 continue;
             }
         } else if !tok.starts_with("./") && tok.contains('/') {
             // Looks like an absolute or complex path that isn't one of our objects
+            prev_was_interpreter = false;
             continue;
         } else {
+            prev_was_interpreter = false;
             candidate
         };
+
+        let target_from_tool_arg = prev_was_interpreter;
+
+        // UX improvement: only treat as "possible missing object" if it looks like
+        // a filename (has . or / or is reasonably long). Bare words after echo/ls etc
+        // ("hello", "from", "isolated") are command arguments, not put objects.
+        // This prevents false "exec target 'hello' not found" for normal shell usage.
+        if !target_to_check.contains('.')
+            && !target_to_check.contains('/')
+            && target_to_check.len() < 32
+        {
+            continue;
+        }
 
         // Check for missing first (existing "did you mean" logic)
         if !system.objects.contains_key(&target_to_check) {
@@ -352,9 +493,14 @@ fn validate_exec_target_references_real_object(
         // object (e.g. `./task` or `task.rs` after `put --type code`). Give a clear
         // conceptual explanation instead of letting the shell fail later.
         if let Some(obj) = system.objects.get(&target_to_check) {
+            // Do not treat "foo.c" as direct-exec of a code object if the command line
+            // earlier contains a compiler (cc/gcc/rustc etc). "gcc foo.c" is valid use
+            // of a --type code object; only bare "foo.c" or "./foo.c" (without tool) is
+            // the "direct run source" mistake we want to catch.
             let is_direct_exec = !is_interpreter && (tok.starts_with("./") || !tok.contains('/'));
+            let has_compiler = tokens[..i].iter().any(|t| matches!(*t, "cc" | "gcc" | "g++" | "clang" | "clang++" | "c++" | "rustc"));
 
-            if is_direct_exec && obj.r#type == "code" {
+            if is_direct_exec && obj.r#type == "code" && !has_compiler {
                 let mut msg = format!(
                     "Direct execution of '{}' is not supported (object type = code).\n\n\
                      `l2 exec` runs an arbitrary shell command you provide inside the\n\
@@ -679,47 +825,187 @@ fn exec_isolated(
     workspace: Option<PathBuf>,
 ) -> Result<String> {
     let mut cmd = Command::new("unshare");
-    cmd.args(["--fork", "--pid", "--mount-proc", "--net", "sh", "-c", what]);
+    // Additional hardening isolation: separate UTS (hostname/domain), IPC namespaces
+    // in addition to pid, mount, net. This reduces cross-workload info leaks and
+    // is cheap.
+    let mut unshare_args = vec!["--fork", "--pid", "--mount-proc", "--net", "--uts", "--ipc"];
+
+    // User-ns exploration (nix sched feature enabled in Cargo.toml for this roadmap item).
+    // Opt-in experimental via env (L2_EXPERIMENTAL_USER_NS=1). Requires privileges
+    // or proper /etc/subuid setup + newuidmap/newgidmap for unprivileged user ns.
+    // WARNING: This is exploration only — full support (id maps, pivot_root, etc.)
+    // is future work. Can break on some kernels/distros. Use only for testing strict-mcp.
+    // See sandbox.rs TODO and docs/PROTOTYPE_HARDENING_AND_SEL4_PLAN.md.
+    if std::env::var_os("L2_EXPERIMENTAL_USER_NS").is_some() {
+        unshare_args.push("--user");
+        eprintln!(
+            "[hardening] EXPERIMENTAL: --user namespace requested via L2_EXPERIMENTAL_USER_NS\n\
+             This requires root or uid/gid map setup. May fail or require sudo.\n\
+             Full user+mount ns + ro-remounts coming via nix::sched in future."
+        );
+    }
+
+    cmd.args(&unshare_args);
+    cmd.args(["sh", "-c", what]);
 
     if let Some(ws) = &workspace {
         cmd.current_dir(ws);
     }
 
+    // Hardening + smoother UX: do not leak host environment variables (API keys,
+    // SSH agents, tokens, locale quirks, etc.) into isolated workloads.
+    // Especially important for strict-mcp / agentic / MCP server use cases.
+    // Provide a minimal safe environment so most tools still work.
+    cmd.env_clear();
+    cmd.env(
+        "PATH",
+        "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    );
+    cmd.env(
+        "HOME",
+        workspace
+            .as_ref()
+            .map(|w| w.display().to_string())
+            .unwrap_or_else(|| "/tmp".to_string()),
+    );
+    cmd.env("USER", "l2");
+    cmd.env("LOGNAME", "l2");
+    cmd.env(
+        "TERM",
+        std::env::var("TERM").unwrap_or_else(|_| "dumb".to_string()),
+    );
+
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
 
-    let output = cmd.output()?;
+    let unshare_result = cmd.output();
 
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-
-    if !output.status.success() {
-        let mut msg = format!(
-            "[isolated exec in '{}'] failed (code {:?})\n",
-            sys_name,
-            output.status.code()
-        );
-        if !stdout.trim().is_empty() {
-            msg.push_str(&format!("stdout:\n{}\n", stdout));
+    match unshare_result {
+        Ok(o) if o.status.success() => {
+            let out = String::from_utf8_lossy(&o.stdout).to_string();
+            Ok(format!("[isolated via unshare in '{}']\n{}", sys_name, out))
         }
-        if !stderr.trim().is_empty() {
-            msg.push_str(&format!("stderr:\n{}\n", stderr));
-        }
-
-        if stderr.contains("Operation not permitted") || stderr.contains("unshare failed") {
-            msg.push_str(
-                "\nHint: unshare(1) requires privileges or kernel support for user namespaces.\n",
+        Ok(o) => {
+            let out = String::from_utf8_lossy(&o.stdout).to_string();
+            let err = String::from_utf8_lossy(&o.stderr).to_string();
+            let mut msg = format!(
+                "[isolated exec in '{}'] failed (code {:?})\n",
+                sys_name,
+                o.status.code()
             );
-            msg.push_str(
-                "      (l2 auto-escalates via sudo for exec; ensure sudo works for your user.)\n",
-            );
+            if !out.trim().is_empty() {
+                msg.push_str(&format!("stdout:\n{}\n", out));
+            }
+            if !err.trim().is_empty() {
+                msg.push_str(&format!("stderr:\n{}\n", err));
+            }
+
+            // On old kernels (e.g. pre-5.13 Landlock, limited namespace support) or restricted
+            // environments (containers, some old distros on X200-era hardware), unshare can fail
+            // with EPERM even under sudo. Fall back to direct execution so the workload can still
+            // run (it will still inherit Landlock/seccomp/caps/no_new_privs/env sanitization from
+            // the parent l2 process if they were applied).
+            if err.contains("Operation not permitted") || err.contains("unshare failed") || err.contains("unshare spawn failed") {
+                eprintln!(
+                    "[warning] Full namespace isolation via unshare not available.\n\
+                     Falling back to direct execution of the command.\n\
+                     You will still get the benefit of any Landlock, seccomp enforcing filter,\n\
+                     capability drops, no_new_privs, and env sanitization that were applied to this process.\n\
+                     This is expected on very old kernels or when running in restricted environments."
+                );
+
+                let mut direct = Command::new("sh");
+                direct.arg("-c").arg(what);
+                if let Some(ws) = &workspace {
+                    direct.current_dir(ws);
+                }
+                direct.env_clear();
+                direct.env("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin");
+                direct.env(
+                    "HOME",
+                    workspace.as_ref().map(|w| w.display().to_string()).unwrap_or_else(|| "/tmp".to_string()),
+                );
+                direct.env("USER", "l2");
+                direct.env("LOGNAME", "l2");
+                direct.env("TERM", std::env::var("TERM").unwrap_or_else(|_| "dumb".to_string()));
+                direct.stdout(Stdio::piped()).stderr(Stdio::piped());
+
+                match direct.output() {
+                    Ok(dout) => {
+                        let dstdout = String::from_utf8_lossy(&dout.stdout).to_string();
+                        let dstderr = String::from_utf8_lossy(&dout.stderr).to_string();
+                        let mut dmsg = format!(
+                            "[direct (limited isolation) in '{}'] (code {:?})\n",
+                            sys_name,
+                            dout.status.code()
+                        );
+                        if !dstdout.trim().is_empty() {
+                            dmsg.push_str(&format!("stdout:\n{}\n", dstdout));
+                        }
+                        if !dstderr.trim().is_empty() {
+                            dmsg.push_str(&format!("stderr:\n{}\n", dstderr));
+                        }
+                        return Ok(dmsg);
+                    }
+                    Err(de) => {
+                        return Ok(format!("[direct fallback also failed: {}]", de));
+                    }
+                }
+            }
+
+            if err.contains("Operation not permitted") || err.contains("unshare failed") {
+                msg.push_str(
+                    "\nHint: unshare(1) requires privileges or kernel support for user namespaces.\n",
+                );
+                msg.push_str(
+                    "      (l2 auto-escalates via sudo for exec; ensure sudo works for your user.)\n",
+                );
+            }
+            Ok(msg)
         }
-        return Ok(msg);
+        Err(e) => {
+            // Same fallback for spawn failure
+            eprintln!(
+                "[warning] Could not run unshare ({}). Falling back to direct execution with parent process protections.",
+                e
+            );
+
+            let mut direct = Command::new("sh");
+            direct.arg("-c").arg(what);
+            if let Some(ws) = &workspace {
+                direct.current_dir(ws);
+            }
+            direct.env_clear();
+            direct.env("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin");
+            direct.env(
+                "HOME",
+                workspace.as_ref().map(|w| w.display().to_string()).unwrap_or_else(|| "/tmp".to_string()),
+            );
+            direct.env("USER", "l2");
+            direct.env("LOGNAME", "l2");
+            direct.env("TERM", std::env::var("TERM").unwrap_or_else(|_| "dumb".to_string()));
+            direct.stdout(Stdio::piped()).stderr(Stdio::piped());
+
+            match direct.output() {
+                Ok(dout) => {
+                    let dstdout = String::from_utf8_lossy(&dout.stdout).to_string();
+                    let dstderr = String::from_utf8_lossy(&dout.stderr).to_string();
+                    let mut dmsg = format!(
+                        "[direct (limited isolation) in '{}'] (code {:?})\n",
+                        sys_name,
+                        dout.status.code()
+                    );
+                    if !dstdout.trim().is_empty() {
+                        dmsg.push_str(&format!("stdout:\n{}\n", dstdout));
+                    }
+                    if !dstderr.trim().is_empty() {
+                        dmsg.push_str(&format!("stderr:\n{}\n", dstderr));
+                    }
+                    Ok(dmsg)
+                }
+                Err(de) => Ok(format!("[direct fallback also failed: {}]", de)),
+            }
+        }
     }
-
-    Ok(format!(
-        "[isolated via unshare in '{}']\n{}",
-        sys_name, stdout
-    ))
 }
 
 fn print_json<T: Serialize>(value: &T) {
@@ -797,18 +1083,24 @@ fn harden(
     fast: bool,
     network_isolation: bool,
     generate_seccomp: Option<String>,
+    json: bool,
 ) -> Result<()> {
-    println!("🛡️  Running l2 system hardening...");
-    println!("   Profile : {}", profile);
-    println!("   Target  : {}", target);
-    if dry_run {
-        println!("   Mode    : DRY-RUN (no changes will be made)");
-    }
-    if network_isolation {
-        println!("   Network isolation: ENABLED");
-    }
-    if let Some(trace) = &generate_seccomp {
-        println!("   Generate seccomp profile from: {}", trace);
+    if !json {
+        println!("🛡️  Running l2 system hardening...");
+        println!("   Profile : {}", profile);
+        println!("   Target  : {}", target);
+        if dry_run {
+            println!("   Mode    : DRY-RUN (no changes will be made)");
+        }
+        if network_isolation {
+            println!("   Network isolation: ENABLED");
+        }
+        if let Some(trace) = &generate_seccomp {
+            println!("   Generate seccomp profile from: {}", trace);
+        }
+    } else {
+        // For json, force fast/non-interactive
+        // (the script will still print, but we give a clean end marker)
     }
 
     let script = std::env::var("CARGO_MANIFEST_DIR")
@@ -823,7 +1115,8 @@ fn harden(
     if dry_run {
         cmd.arg("--dry-run");
     }
-    if fast {
+    let effective_fast = fast || json;
+    if effective_fast {
         cmd.arg("--fast");
         cmd.env("L2_FAST", "1");
     }
@@ -839,12 +1132,29 @@ fn harden(
         anyhow::bail!("System hardening failed (see script output)");
     }
 
-    println!("✅ l2 system hardening complete for profile '{}'.", profile);
-    println!("   Review the generated report and apply any manual steps as needed.");
-    println!();
-    println!("   Recommended next step for this profile:");
-    println!("     l2 trace --policy {} ./your-mcp-workload", profile);
-    println!("     l2 exec  --policy {} ./your-mcp-workload", profile);
+    audit::log(
+        "harden",
+        serde_json::json!({
+            "profile": profile,
+            "target": target,
+            "network_isolation": network_isolation,
+            "generate_seccomp": generate_seccomp
+        }),
+    );
+
+    if json {
+        println!(
+            "{}",
+            json_line(&success_json(&format!("harden {} complete", profile)))
+        );
+    } else {
+        println!("✅ l2 system hardening complete for profile '{}'.", profile);
+        println!("   Review the generated report and apply any manual steps as needed.");
+        println!();
+        println!("   Recommended next step for this profile:");
+        println!("     l2 trace --policy {} ./your-mcp-workload", profile);
+        println!("     l2 exec  --policy {} ./your-mcp-workload", profile);
+    }
     Ok(())
 }
 
@@ -857,17 +1167,20 @@ fn crypto(
     apply: bool,
     fast: bool,
     network_isolation: bool,
+    json: bool,
 ) -> Result<()> {
-    println!("🔐 Running l2 crypto profile setup...");
-    println!("   Profile : {}", profile);
-    if list {
-        println!("   Mode    : LIST PROFILES");
-    }
-    if apply {
-        println!("   Mode    : APPLY TO SYSTEM");
-    }
-    if network_isolation {
-        println!("   Network isolation: ON");
+    if !json {
+        println!("🔐 Running l2 crypto profile setup...");
+        println!("   Profile : {}", profile);
+        if list {
+            println!("   Mode    : LIST PROFILES");
+        }
+        if apply {
+            println!("   Mode    : APPLY TO SYSTEM");
+        }
+        if network_isolation {
+            println!("   Network isolation: ON");
+        }
     }
 
     let script = std::env::var("CARGO_MANIFEST_DIR")
@@ -884,7 +1197,8 @@ fn crypto(
     if apply {
         cmd.arg("--apply");
     }
-    if fast {
+    let effective_fast = fast || json;
+    if effective_fast {
         cmd.arg("--fast");
         cmd.env("L2_FAST", "1");
     }
@@ -897,7 +1211,24 @@ fn crypto(
         anyhow::bail!("Crypto setup failed (see script output)");
     }
 
-    println!("✅ l2 crypto setup complete for profile '{}'.", profile);
+    audit::log(
+        "crypto",
+        serde_json::json!({
+            "profile": profile,
+            "list": list,
+            "apply": apply,
+            "network_isolation": network_isolation
+        }),
+    );
+
+    if json {
+        println!(
+            "{}",
+            json_line(&success_json(&format!("crypto {} complete", profile)))
+        );
+    } else {
+        println!("✅ l2 crypto setup complete for profile '{}'.", profile);
+    }
     Ok(())
 }
 
@@ -906,35 +1237,55 @@ fn main() -> Result<()> {
     let mut sub = load_state();
 
     match cli.command {
-        Commands::Create { name, policy } => match sub.create(&name, &policy) {
-            Ok(id) => {
-                save_state(&sub)?;
-                audit::log(
+        Commands::Create { name, policy } => {
+            let id = if should_use_core() {
+                // Major split demo: delegate state op over L2P to l2-core
+                let resp = l2p_request_to_core(
                     "create",
-                    serde_json::json!({
-                        "name": name,
-                        "id": id,
-                        "policy": policy
-                    }),
-                );
-                if cli.json {
-                    print_json(
-                        &serde_json::json!({"ok":true,"sys":id,"name":name,"policy":policy}),
-                    );
-                } else {
-                    println!(
-                        "{} created system '{}' (id={})",
-                        "✓".green(),
-                        name.bold(),
-                        id
-                    );
-                    println!("   policy: {}", policy);
-                    let sp = state_path()?;
-                    println!("   state:  {}", sp.display());
-                }
+                    serde_json::json!({"name": name, "policy": policy}),
+                )?;
+                resp.get("sys")
+                    .and_then(|s| s.as_str())
+                    .unwrap_or("unknown")
+                    .to_string()
+            } else {
+                let id = sub.create(&name, &policy)?;
+                save_state(&sub)?;
+                id
+            };
+
+            if !should_use_core() {
+                // already saved above in the else; for core path the core owns state
+                // (in real split the core would persist; prototype keeps simple)
+            } else {
+                // best effort local view refresh (the core mutated its in-mem Substrate)
+                // For demo we just proceed; a real client would not maintain local state.
             }
-            Err(e) => error(&e.to_string(), cli.json),
-        },
+
+            audit::log(
+                "create",
+                serde_json::json!({"name": name, "id": id, "policy": policy, "via_core": should_use_core()}),
+            );
+
+            if cli.json {
+                print_json(
+                    &serde_json::json!({"ok":true,"sys":id,"name":name,"policy":policy,"via_core":should_use_core()}),
+                );
+            } else {
+                println!(
+                    "{} created system '{}' (id={})",
+                    "✓".green(),
+                    name.bold(),
+                    id
+                );
+                println!("   policy: {}", policy);
+                if should_use_core() {
+                    println!("   (via L2P l2-core — architecture split demo)");
+                }
+                let sp = state_path()?;
+                println!("   state:  {}", sp.display());
+            }
+        }
         Commands::Destroy { name } => {
             if let Err(e) = sub.destroy(&name) {
                 error(&e.to_string(), cli.json);
@@ -990,19 +1341,65 @@ fn main() -> Result<()> {
             name,
             r#type,
             content,
+            file,
         } => {
-            let data = content.unwrap_or_default();
-            if let Err(e) = sub.put(&sys, &name, &r#type, &data) {
-                error(&e.to_string(), cli.json);
+            let data = if let Some(path) = file {
+                if content.is_some() {
+                    error("cannot use both --content and --file", cli.json);
+                }
+                match std::fs::read_to_string(&path) {
+                    Ok(s) => s,
+                    Err(e) => error(&format!("failed to read file '{}': {}", path, e), cli.json),
+                }
+            } else if let Some(c) = content {
+                c
+            } else {
+                // UX improvement: if no --content/--file given, and a local file with exactly
+                // this <NAME> exists in the current directory, auto-read it. This makes the
+                // common case `l2 put mysys mycode.c` Just Work when the file is present.
+                let local_path = std::path::Path::new(&name);
+                if local_path.exists() && local_path.is_file() {
+                    match std::fs::read_to_string(local_path) {
+                        Ok(s) => {
+                            if !cli.json {
+                                eprintln!("(read content from local file ./{})", name);
+                            }
+                            s
+                        }
+                        Err(e) => error(&format!("failed to read ./{}: {}", name, e), cli.json),
+                    }
+                } else {
+                    String::new()
+                }
+            };
+
+            if should_use_core() {
+                // Route through L2P to the core process (architecture demo)
+                let _ = l2p_request_to_core(
+                    "put",
+                    serde_json::json!({
+                        "sys": sys,
+                        "name": name,
+                        "type": r#type,
+                        "data": data
+                    }),
+                )?;
+                println!("(put performed via L2P l2-core)");
+            } else {
+                if let Err(e) = sub.put(&sys, &name, &r#type, &data) {
+                    error(&e.to_string(), cli.json);
+                }
+                warn_on_cleanup_err(save_state(&sub), "failed to save state after put");
             }
-            warn_on_cleanup_err(save_state(&sub), "failed to save state after put");
+
             audit::log(
                 "put",
                 serde_json::json!({
                     "sys": sys,
                     "name": name,
                     "type": r#type,
-                    "size": data.len()
+                    "size": data.len(),
+                    "via_core": should_use_core()
                 }),
             );
             success(&format!("put '{}' into '{}'", name, sys), cli.json);
@@ -1410,6 +1807,7 @@ fn main() -> Result<()> {
                 fast,
                 network_isolation,
                 generate_seccomp,
+                cli.json,
             )?;
         }
 
@@ -1420,7 +1818,7 @@ fn main() -> Result<()> {
             fast,
             network_isolation,
         } => {
-            crypto(profile, list, apply, fast, network_isolation)?;
+            crypto(profile, list, apply, fast, network_isolation, cli.json)?;
         }
 
         Commands::Policies {} => {
@@ -1532,6 +1930,7 @@ fn main() -> Result<()> {
             policy,
             enforce,
             analyze,
+            output_profile,
         } => {
             if let Some(logfile) = analyze {
                 // Simple post-processing helper for Phase 1 (item 3)
@@ -1539,22 +1938,33 @@ fn main() -> Result<()> {
 
                 let mut syscalls = std::collections::BTreeSet::new();
 
+                // Polished analyzer: handles real journalctl/dmesg/ausearch, synthetic traces
+                // in docs/traces/, and common seccomp audit formats (syscall=, nr=, etc.).
+                // Keeps in sync with seccomp-phase1-allowlist.md and harden.sh generator.
                 for line in content.lines() {
-                    if let Some(idx) = line.find("syscall=") {
-                        if let Some(num_str) =
-                            line[idx + 8..].split(|c: char| !c.is_ascii_digit()).next()
-                        {
-                            if let Ok(n) = num_str.parse::<u32>() {
-                                syscalls.insert(n);
+                    // Common patterns from kernel audit, journalctl -k, dmesg, our synthetic logs
+                    for prefix in &["syscall=", " nr=", "syscall nr="] {
+                        if let Some(idx) = line.find(prefix) {
+                            let start = idx + prefix.len();
+                            if let Some(num_str) =
+                                line[start..].split(|c: char| !c.is_ascii_digit()).next()
+                            {
+                                if let Ok(n) = num_str.parse::<u32>() {
+                                    syscalls.insert(n);
+                                }
                             }
                         }
                     }
-                    if let Some(idx) = line.find(" nr=") {
-                        if let Some(num_str) =
-                            line[idx + 4..].split(|c: char| !c.is_ascii_digit()).next()
-                        {
-                            if let Ok(n) = num_str.parse::<u32>() {
-                                syscalls.insert(n);
+                    // Also catch "arch=... syscall=123" style full lines
+                    if line.contains("arch=") && line.contains("syscall=") {
+                        if let Some(idx) = line.find("syscall=") {
+                            let start = idx + 8;
+                            if let Some(num_str) =
+                                line[start..].split(|c: char| !c.is_ascii_digit()).next()
+                            {
+                                if let Ok(n) = num_str.parse::<u32>() {
+                                    syscalls.insert(n);
+                                }
                             }
                         }
                     }
@@ -1569,7 +1979,8 @@ fn main() -> Result<()> {
                     println!("Unique syscalls found ({}):", syscalls.len());
                     println!();
 
-                    // Expanded name map for curation (keep this in sync with allowlist doc)
+                    // Expanded name map for curation + polished output (keep in sync with
+                    // docs/seccomp-phase1-allowlist.md, harden.sh, and sandbox.rs built-in list).
                     let names: std::collections::HashMap<u32, &str> = [
                         (0, "read"),
                         (1, "write"),
@@ -1608,10 +2019,37 @@ fn main() -> Result<()> {
                     }
                     println!("```");
                     println!();
+
+                    // Build compact loadable profile (space/newline separated numbers, as expected by enforcing filter loader)
+                    let profile_nums: Vec<String> =
+                        syscalls.iter().map(|n| n.to_string()).collect();
+                    let profile_data = profile_nums.join(" ");
+
+                    if let Some(out_path) = &output_profile {
+                        if let Some(parent) = std::path::Path::new(out_path).parent() {
+                            let _ = std::fs::create_dir_all(parent);
+                        }
+                        match std::fs::write(out_path, &profile_data) {
+                            Ok(_) => {
+                                println!(
+                                    "✅ Wrote loadable seccomp profile ({} syscalls) to: {}",
+                                    syscalls.len(),
+                                    out_path
+                                );
+                                println!("   Use: L2_SECCOMP_PROFILE={} L2_STRICT_SECCOMP_ENFORCE=1 l2 exec --policy strict-mcp ...", out_path);
+                                println!("   (strict-mcp auto-discovers ~/.l2/seccomp/strict-mcp.txt and similar; feeds l2 harden)");
+                            }
+                            Err(e) => {
+                                eprintln!("Warning: failed to write profile to {}: {}", out_path, e)
+                            }
+                        }
+                    }
+
                     println!("Copy the block above into docs/seccomp-phase1-allowlist.md under the relevant architecture section.");
                     println!(
                         "Then review each one for safety before adding to the enforcing filter."
                     );
+                    println!("Trace/harden polish: combine with `l2 harden --profile strict-mcp --generate-seccomp` for full host prep + units.");
                 }
                 return Ok(());
             }
@@ -1680,11 +2118,38 @@ fn main() -> Result<()> {
             }
         }
 
-        Commands::Audit { tail, json, path } => {
+        Commands::Audit {
+            tail,
+            json,
+            path,
+            verify,
+        } => {
             let log_path = audit::path();
 
             if path {
                 println!("{}", log_path.display());
+                return Ok(());
+            }
+
+            if verify {
+                match audit::verify_chain(&log_path) {
+                    Ok((valid, count)) => {
+                        if json {
+                            print_json(
+                                &serde_json::json!({"ok": valid, "entries": count, "path": log_path}),
+                            );
+                        } else if valid {
+                            println!("✅ Audit log chain verified successfully ({} entries). No tampering detected.", count);
+                        } else {
+                            println!(
+                                "❌ AUDIT CHAIN VERIFICATION FAILED ({} entries checked).",
+                                count
+                            );
+                            println!("   The log may have been truncated, modified, or corrupted.");
+                        }
+                    }
+                    Err(e) => error(&format!("audit verification error: {}", e), cli.json),
+                }
                 return Ok(());
             }
 

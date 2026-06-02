@@ -1,6 +1,6 @@
 # Status
 
-**v0.4.0 released** — Major milestone on the agentic/AI/MCP hardening track, including new `l2 crypto` feature for selecting and applying verified crypto profiles (AES-256-XTS-Argon2id, XChaCha20-Poly1305-Argon2id, hybrid) system-wide via LUKS/gocryptfs integrated with l2 isolation (strict-mcp). Includes aggressive defaults, network isolation flag, auto-generated systemd units and seccomp profiles from traces, capability dropping, advanced namespaces in harden script. `l2 crypto` uses paced typewriter output. v0.3.9 and earlier tags preserved.
+**v0.4.1 released** — Builds on v0.4.0 with deeper C substrate integration (host.c + core.c + L2P ties), experimental user-ns exploration, major `put` UX (auto local files + --file), exec fixes for safe "gcc mycode.c" patterns with --type code objects, unshare fallback for old kernels (X200 etc.), the canonical `docs/examples/l2_safe_execution_demo.c`, trace/harden polish, and broad robustness/UX work. See CHANGELOG.md for details. v0.4.0 remains the big crypto/harden milestone; v0.3.9 and earlier tags preserved.
 - New `l2 harden` command + `scripts/harden.sh` (modeled after sel4-setup with paced typewriter output). Applies NSA/CISA/FBI-aligned concrete hardening steps for the agentic era.
 - `strict-mcp` policy protocol is now the main focus: diverges from `strict` with aggressive defaults (enforcing seccomp on by default, tighter posture).
 - Full integration: `l2 trace --policy strict-mcp` + `--analyze`, `l2 harden --generate-seccomp`, and the runtime enforcing filter can directly load generated minimal profiles.
@@ -38,13 +38,21 @@ l2 is the minimal high-assurance Latticra substrate:
 - `demo.sh` removed (commands documented directly in README instead)
 - **`l2 crypto`** (v0.4.0): Select and apply verified crypto profiles (`aes256-xts-argon2id`, `xchacha20-poly1305-argon2id`, `hybrid-aes-chacha`) for true system encryption (LUKS + gocryptfs). Hybrid mixes complementary algorithms. Applied proficiently with paced typewriter output; keys protected by l2 isolation (strict-mcp). Includes `--apply`, `--network-isolation`, `--generate-seccomp`, and auto-generated hardened systemd units.
 - **`l2 harden`** (v0.4.0): NSA/CISA/FBI-aligned concrete host/container hardening for the agentic era. Paced output, `--network-isolation`, capability dropping, advanced namespaces, automatic systemd unit generation, and trace-driven seccomp profiles. `strict-mcp` profile is the focus and has aggressive defaults (enforcing on by default, tighter Landlock).
-- **`l2 trace`** with policy support and `--analyze` to generate real minimal seccomp profiles that the runtime enforcing filter loads directly (via `L2_SECCOMP_PROFILE`).
+- **`l2 trace`** with policy support, `--analyze`, and `--output-profile` to generate real minimal seccomp profiles that the runtime enforcing filter + strict-mcp auto-discovery load directly (via `L2_SECCOMP_PROFILE` or `~/.l2/seccomp/strict-mcp.txt`).
+- More C integration (core/host.c + src/core/core.c polished with L2P/seL4/Rust ties + safe.c usage), user-ns exploration (L2_EXPERIMENTAL_USER_NS=1 + nix sched), and ongoing trace/harden/overall polish (analyzer robustness, script UX, quality gates, L2P/C consistency).
 - Full integration between policies, crypto, trace data, and host hardening. All long guidance uses readable paced "typewriter" output (disable with `--fast`).
 - Dramatically improved `list` output and overall UX (repeated for emphasis on v0.4.0 polish)
 
 ## Current Focus
 
 1. **Agentic/AI/MCP hardening track (v0.4.0 main focus)**: `l2 crypto` + `strict-mcp` + `l2 harden` as a complete, operational high-assurance path. Further per-protocol divergence, more aggressive defaults in crypto/harden, deeper integration of generated seccomp profiles into runtime, and expanded concrete steps in `l2 harden` (more distros, automated unit/profile application).
+
+   **Recent concrete improvements to crypto + MCP hardening:**
+   - Capability bounding set fully dropped (PR_CAPBSET_DROP) for all strict/strict-mcp workloads.
+   - strict-mcp Landlock: no ambient /tmp (even RO) — workspace is the only writable and now the only visible tmp surface.
+   - Seccomp profiles: auto-discovery for strict-mcp from l2 data dir + /etc/l2; `l2 trace --analyze --output-profile` produces directly loadable files; `l2 harden --generate-seccomp` now writes them too.
+   - Crypto: --apply produces MCP-aware helper script, stronger integration guidance for protecting l2 state + keys under strict-mcp.
+   - Audit events now emitted for `l2 crypto` and `l2 harden` invocations.
 
 2. Better host isolation (seccomp-bpf, capability dropping, tighter Landlock policies, user+mount ns) — Landlock baseline v0.2.0. Phase 0 complete: real `SECCOMP_RET_LOG` + `FLAG_LOG` observer now works (`L2_STRICT_SECCOMP_OBSERVE=1`). Kernel audit logs for strict workloads are available. See `src/sandbox.rs` + docs/PROTOTYPE_HARDENING_AND_SEL4_PLAN.md for usage. Ready for trace collection → Phase 1 enforcing filter. (Now heavily exercised by `strict-mcp` and crypto tooling.)
 

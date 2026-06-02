@@ -76,6 +76,25 @@ generate_seccomp_profile() {
     echo
     type_line "Recommendation: Feed this into docs/seccomp-phase1-allowlist.md"
     type_line "and only keep what is truly required for your MCP tools."
+    type_line "Combine with experimental user-ns (L2_EXPERIMENTAL_USER_NS=1) + C core (L2_USE_CORE=1) for deeper integration testing."
+
+    # Write usable profile files for direct consumption by l2 (auto-discover + L2_SECCOMP_PROFILE)
+    local prof_dir="${HOME}/.l2/seccomp"
+    mkdir -p "$prof_dir" 2>/dev/null || true
+    local raw_profile="$prof_dir/strict-mcp-from-trace.txt"
+    # One number per line (or space sep) - both work with the loader in sandbox.rs
+    echo "$syscalls" | tr ' ' '\n' | sort -n | uniq > "$raw_profile" || true
+    if [ -s "$raw_profile" ]; then
+        echo
+        type_line "Wrote loadable profile for l2 strict-mcp enforcement:"
+        echo "  $raw_profile"
+        echo "  Example usage (auto-discovered by strict-mcp in many cases):"
+        echo "    L2_STRICT_SECCOMP_ENFORCE=1 l2 exec --policy strict-mcp ./your-mcp-tool"
+        echo "  Or explicitly:"
+        echo "    L2_SECCOMP_PROFILE=$raw_profile L2_STRICT_SECCOMP_ENFORCE=1 l2 exec --policy strict-mcp ..."
+        echo
+        echo "  (Also consider copying/symlinking to /etc/l2/ for host-wide use)"
+    fi
 }
 
 # -----------------------------------------------------------------------------
@@ -91,26 +110,26 @@ should_type_slowly() {
 type_line() {
     local text="$*"
     if ! should_type_slowly; then
-        printf '%s\n' "$text"
+        printf '%s\n' "$text" || true
         return
     fi
     local i ch
     for (( i=0; i<${#text}; i++ )); do
         ch="${text:i:1}"
-        printf '%s' "$ch"
+        printf '%s' "$ch" || true
         sleep "$TYPE_DELAY"
     done
-    printf '\n'
+    printf '\n' || true
 }
 
 reveal_lines() {
     local text="$1"
     if ! should_type_slowly; then
-        printf '%s\n' "$text"
+        printf '%s\n' "$text" || true
         return
     fi
     while IFS= read -r line || [ -n "$line" ]; do
-        printf '%s\n' "$line"
+        printf '%s\n' "$line" || true
         sleep 0.07
     done <<< "$text"
 }

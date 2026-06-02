@@ -128,10 +128,13 @@ Next step: Run real workloads with `l2 trace` and feed the logs through `--analy
 
 ## Next Actions
 
-- Run the starter workloads using the new `l2 trace` command.
+- Run the starter workloads using the new `l2 trace` command (now with `--output-profile` for direct use by strict-mcp).
 - Capture and parse logs.
 - Populate the draft allowlist above.
-- Implement the enforcing filter once we have confidence in the list.
+- Use `l2 trace --analyze ... --output-profile ~/.l2/seccomp/strict-mcp.txt` + `l2 harden --generate-seccomp` for closed-loop MCP hardening.
+- Capability bounding set drop and stricter no-/tmp Landlock for strict-mcp now active in runtime.
+
+The enforcing filter (Phase 1) + auto profile discovery + cap drop are now implemented and integrated with strict-mcp.
 
 ---
 

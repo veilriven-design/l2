@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.4.1] - 2026-06-03
+
+### Added / Improved
+- **More C integration**: Polished `core/host.c` (full in-memory objects with `l2_memcpy_safe`, better errors, zeroing) and `src/core/core.c` with extensive comments tying the narrow `l2_sys_*` interface to L2P, the Rust `host/core.rs` + `L2Core` trait, and the seL4/Microkit path. Validated clean compilation.
+- **User-ns exploration**: Added opt-in experimental support (`L2_EXPERIMENTAL_USER_NS=1` appends `--user` to unshare in `exec_isolated`). Leverages the `nix` "sched" + "user" features (already enabled). Updated TODOs/comments in `sandbox.rs` and cross-refs to hardening plan docs. Includes strong warnings; full id-map/pivot_root work remains future.
+- **Put command UX polish**: 
+  - New `--file <LOCAL>` option to read content from a local file.
+  - Auto-read: if no `--content`/`--file` and `./<NAME>` exists as a file in cwd, `l2 put <sys> <name>` now automatically slurps it (prints note). Makes common `l2 put mysys foo.c` (when foo.c is local) "just work".
+- **Exec validation + compiler + code objects fix**: Refined `validate_exec_target_references_real_object` so `gcc`/`cc`/`rustc` etc. + a `--type code` object no longer falsely triggers "Direct execution of 'foo.c' is not supported". Added compilers to interpreter list and `target_from_tool_arg` / `has_compiler` guards. Now `l2 exec <sys> 'cc safe_demo.c ...'` works cleanly for the demo.
+- **Unshare fallback for old/restricted kernels**: In `exec_isolated`, if unshare fails (EPERM, spawn fail, etc. — common on X200-era hardware, old kernels <5.13, containers), gracefully fall back to direct `sh -c` execution (with the same env sanitization, cwd, etc.). Still inherits parent protections (caps, seccomp, Landlock if present, no_new_privs). Prints clear warning. Enables the safe demo C program to actually run and educate on old systems.
+- **Safe execution demo C program**: Added `docs/examples/l2_safe_execution_demo.c` — a self-contained educational example of "good" code that demonstrates exactly the protections l2 provides (env sanitization, Landlock FS containment, seccomp/caps blocks on dangerous syscalls like ptrace/socket, etc.). Includes full usage instructions for `put` (with `--file` or auto) + `exec` inside a `strict-mcp` system. Compiles cleanly; the program itself reports what would be "bad" on an unprotected host.
+- **Trace/harden/analyzer polish**: Made `--analyze` parser more robust (handles journalctl/dmesg/ausearch, synthetic traces from `docs/traces/`, more "syscall=" / "nr=" variants). Better output, integration hints ("feeds l2 harden"). Minor script UX improvements in `harden.sh`/`crypto.sh`.
+- **Other robustness/UX**: Fixed pipe-safety in all paced scripts (typewriter helpers now `|| true` on printf). Improved L2P client robustness. Various comment/doc updates tying new features together. Full `cargo fmt` + `clippy -D warnings` sweeps.
+- **Docs**: Updated `STATUS.md`, `README.md` (smoke test, usage), `SECURITY.md`, `CHANGELOG.md`, `docs/seccomp-phase1-allowlist.md` to reflect the above. The safe demo C is now the canonical "what safe execution inside l2 looks like" artifact.
+
+These changes continue maturing the high-assurance path (explicit policies + substrate + C/L2P split prep + hardening + data-driven seccomp + audit) while keeping the narrow terminal interface and "no new attack surfaces" invariants. Better support for old kernels and practical demo usage.
+
+## [0.4.0] - 2026-06-02
+
 ## [0.4.0] - 2026-06-02
 
 ### Added

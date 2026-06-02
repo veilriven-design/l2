@@ -139,6 +139,7 @@ This is the practical realization of "collect traces, curate allowlist, wire enf
 - Harden prepares the host kernel/audit/user/namespace/seccomp baseline that the substrate then builds upon.
 - Generated units reference `l2 exec --policy strict-mcp` (or the equivalent) and load any trace-derived `SystemCallFilter`.
 - Runtime sandbox (`apply_strict_sandbox`, `try_install_seccomp_enforcing_filter`) honors the policy protocol, the optional profile file, and the blacklist — all before any workload code runs.
+- Additional MCP hardening implemented: full capability bounding set drop (PR_CAPBSET_DROP for all 64) on strict-family, strict-mcp denies all ambient /tmp access (workspace-only for temps/persistence), seccomp profiles auto-discovered from ~/.l2/seccomp/ etc. for strict-mcp without extra env vars.
 - Every policy choice, boundary crossing, crypto apply step, and harden recommendation is logged in the tamper-evident audit trail.
 - Paced tools, `--fast` escape hatch, explicit confirmations, and dry-run/advisory modes keep the experience usable on real (including old/low-RAM) hardware without compromising the model.
 

@@ -122,16 +122,16 @@ should_type_slowly() {
 type_line() {
     local text="$*"
     if ! should_type_slowly; then
-        printf '%s\n' "$text"
+        printf '%s\n' "$text" || true
         return
     fi
     local i ch
     for (( i=0; i<${#text}; i++ )); do
         ch="${text:i:1}"
-        printf '%s' "$ch"
+        printf '%s' "$ch" || true
         sleep "$TYPE_CHAR_DELAY"
     done
-    printf '\n'
+    printf '\n' || true
 }
 
 # Reveal a multi-line block line-by-line at a comfortable reading pace.
@@ -140,11 +140,11 @@ reveal_lines() {
     local text="$1"
     local delay="$TYPE_LINE_DELAY"
     if ! should_type_slowly; then
-        printf '%s\n' "$text"
+        printf '%s\n' "$text" || true
         return
     fi
     while IFS= read -r line || [ -n "$line" ]; do
-        printf '%s\n' "$line"
+        printf '%s\n' "$line" || true
         sleep "$delay"
     done <<< "$text"
 }

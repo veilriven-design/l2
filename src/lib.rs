@@ -17,11 +17,16 @@ use std::path::{Component, Path, PathBuf};
 
 /// Simple core trait for architecture prep (clear boundary for the split).
 /// The CLI and l2-core can both use implementations of this.
+/// This is the key interface for the L2P protocol implementation (see host/core.rs
+/// and docs/PROTOCOL.md). Extended as part of major core split progress.
 pub trait L2Core {
     fn create(&mut self, name: &str, policy: &str) -> Result<String>;
     fn destroy(&mut self, name: &str) -> Result<()>;
     fn list_systems(&self) -> Vec<&System>;
-    // More methods (put, get, exec) can be added as the split progresses.
+    fn put(&mut self, sys_name: &str, obj_name: &str, typ: &str, content: &str) -> Result<()>;
+    fn get(&self, sys_name: &str, obj_name: &str) -> Result<Object>;
+    // exec and revoke remain primarily in the CLI wrapper for the prototype
+    // (they involve heavy host primitives + sandboxing today).
 }
 
 impl L2Core for Substrate {
@@ -33,6 +38,12 @@ impl L2Core for Substrate {
     }
     fn list_systems(&self) -> Vec<&System> {
         Substrate::list_systems(self)
+    }
+    fn put(&mut self, sys_name: &str, obj_name: &str, typ: &str, content: &str) -> Result<()> {
+        Substrate::put(self, sys_name, obj_name, typ, content)
+    }
+    fn get(&self, sys_name: &str, obj_name: &str) -> Result<Object> {
+        Substrate::get(self, sys_name, obj_name)
     }
 }
 
