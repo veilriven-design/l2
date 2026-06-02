@@ -17,8 +17,11 @@ use std::path::PathBuf;
 /// cause the calling operation to fail.
 ///
 /// IMPROVED (overall project hardening): simple tamper-evident chaining.
-/// Each entry includes a "prev" field containing the SHA256 of the previous
-/// line (if any). This allows later detection of truncation or insertion.
+/// Each entry includes a "prev" field containing a hash of the previous
+/// line (using std::hash::DefaultHasher; not a cryptographic SHA256).
+/// This allows detection of truncation or insertion by non-privileged
+/// attackers. For stronger assurance the log should be protected at the
+/// filesystem level (append-only, remote syslog, or signed).
 pub fn log(op: &str, details: Value) {
     let p = path();
     let prev = last_entry_hash(&p);
@@ -92,6 +95,8 @@ fn get_home_for_user(username: &str) -> Option<String> {
 
 /// Verify the tamper-evident hash chain of an audit log.
 /// Returns (is_valid, number_of_entries_checked).
+/// Note: the chain uses a non-crypto hasher; it primarily detects accidental
+/// or low-privilege tampering/truncation.
 pub fn verify_chain(log_path: &std::path::Path) -> anyhow::Result<(bool, usize)> {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};

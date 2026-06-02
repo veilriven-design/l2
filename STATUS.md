@@ -1,6 +1,6 @@
 # Status
 
-**v0.4.2 in prep** — `l2 harden` + `l2 audit --test` integration: harden emits machine-readable `~/.l2/harden/<profile>-latest.json` (with standards list) that the automated audit tests consume for PASS after running harden; added post-harden hint and docs/CI updates for the "harden then audit --test" as the regular verification flow for NSA/CISA/etc. standards. See CHANGELOG.md. Builds on v0.4.1 (deeper C, user-ns, put UX, safe demo C, etc.). v0.4.1 tag preserved.
+**v0.4.3 released** — Full code sweep for logic errors/security/high-assurance: fixed seccomp BPF arch jumps (enforcing filter now actually works on x86/aarch), completed L2_USE_CORE persistence+dispatch (real shared state), guarded oneshot/put auto-read against arbitrary host file reads (../ /abs), extracted dupe sudo drop logic, C put name bounds, audit check count/docs, etc. All to eliminate bypasses, inconsistency, leaks in the substrate. See CHANGELOG.md for details. Verified with gates + full smoke + L2_USE_CORE + attack sims. Builds on v0.4.2. v0.4.2 tag preserved.
 - New `l2 harden` command + `scripts/harden.sh` (modeled after sel4-setup with paced typewriter output). Applies NSA/CISA/FBI-aligned concrete hardening steps for the agentic era.
 - `strict-mcp` policy protocol is now the main focus: diverges from `strict` with aggressive defaults (enforcing seccomp on by default, tighter posture).
 - Full integration: `l2 trace --policy strict-mcp` + `--analyze`, `l2 harden --generate-seccomp`, and the runtime enforcing filter can directly load generated minimal profiles.

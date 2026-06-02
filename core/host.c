@@ -96,6 +96,7 @@ static struct l2_object *find_object(struct l2_sys *sys, const char *name) {
 
 l2_result_t l2_sys_put(l2_sys_t sys, const char *name, l2_object_type_t type, const void *data, size_t size) {
     if (!sys || !name || !data) return L2_ERR_INVALID;
+    if (strlen(name) >= sizeof(((struct l2_object *)0)->name)) return L2_ERR_INVALID;
     if (size > MAX_CONTENT) return L2_ERR_NOSPACE;
     if (sys->obj_count >= MAX_OBJECTS) return L2_ERR_NOSPACE;
 

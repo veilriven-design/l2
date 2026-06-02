@@ -16,13 +16,13 @@
 
 use std::io::{self, BufRead, Write};
 
+use l2::{load_state, save_state};
+
 fn main() {
     eprintln!(
         "l2-core: L2P v1 handler (advanced architecture prep). See docs/PROTOCOL.md + host/core.rs"
     );
     eprintln!("Uses shared Substrate for real ops. This binary + the L2Core trait are the foundation for the out-of-process + seL4 future.");
-
-    let mut core: Box<dyn l2::L2Core> = Box::new(l2::Substrate::default());
 
     let stdin = io::stdin();
     let mut stdout = io::stdout();
@@ -45,6 +45,11 @@ fn main() {
             if v != 1 {
                 serde_json::json!({"v":1, "id": id, "ok": false, "err": "unsupported version"})
             } else {
+                // Load disk state for *this* request (core is spawned per CLI op when
+                // L2_USE_CORE). Mut ops below will save. This fixes the logic error
+                // where every core started empty (no persistence across l2 invocations).
+                let mut sub = load_state();
+
                 match op {
                     "ping" => {
                         serde_json::json!({"v":1, "id": id, "ok": true, "msg": "pong from l2-core (L2P v1 + shared lib)"})
@@ -54,8 +59,8 @@ fn main() {
                         "id": id,
                         "ok": true,
                         "status": "l2-core (advanced split prep)",
-                        "systems": core.list_systems().len(),
-                        "using": "shared Substrate + L2Core trait"
+                        "systems": sub.list_systems().len(),
+                        "using": "shared Substrate + L2Core trait + per-req load/save"
                     }),
                     "create" => {
                         let name = req
@@ -66,8 +71,9 @@ fn main() {
                             .get("policy")
                             .and_then(|x| x.as_str())
                             .unwrap_or("default");
-                        match core.create(name, policy) {
+                        match sub.create(name, policy) {
                             Ok(sys_id) => {
+                                let _ = save_state(&sub);
                                 serde_json::json!({"v":1, "id": id, "ok": true, "sys": sys_id})
                             }
                             Err(e) => {
@@ -77,8 +83,11 @@ fn main() {
                     }
                     "destroy" => {
                         let sys = req.get("sys").and_then(|x| x.as_str()).unwrap_or("");
-                        match core.destroy(sys) {
-                            Ok(()) => serde_json::json!({"v":1, "id": id, "ok": true}),
+                        match sub.destroy(sys) {
+                            Ok(()) => {
+                                let _ = save_state(&sub);
+                                serde_json::json!({"v":1, "id": id, "ok": true})
+                            }
                             Err(e) => {
                                 serde_json::json!({"v":1, "id": id, "ok": false, "err": e.to_string()})
                             }
@@ -86,7 +95,7 @@ fn main() {
                     }
                     "list" => {
                         let systems: Vec<_> =
-                            core.list_systems().iter().map(|s| s.name.clone()).collect();
+                            sub.list_systems().iter().map(|s| s.name.clone()).collect();
                         serde_json::json!({"v":1, "id": id, "ok": true, "systems": systems})
                     }
                     "put" => {
@@ -96,8 +105,11 @@ fn main() {
                         let data = req.get("data").and_then(|x| x.as_str()).unwrap_or("");
                         // Note: v1 PROTOCOL mentions base64 for data; here we accept raw for simplicity in prototype.
                         // Real client would base64-encode large payloads.
-                        match core.put(sys, name, typ, data) {
-                            Ok(()) => serde_json::json!({"v":1, "id": id, "ok": true}),
+                        match sub.put(sys, name, typ, data) {
+                            Ok(()) => {
+                                let _ = save_state(&sub);
+                                serde_json::json!({"v":1, "id": id, "ok": true})
+                            }
                             Err(e) => {
                                 serde_json::json!({"v":1, "id": id, "ok": false, "err": e.to_string()})
                             }
@@ -106,7 +118,7 @@ fn main() {
                     "get" => {
                         let sys = req.get("sys").and_then(|x| x.as_str()).unwrap_or("");
                         let name = req.get("name").and_then(|x| x.as_str()).unwrap_or("");
-                        match core.get(sys, name) {
+                        match sub.get(sys, name) {
                             Ok(obj) => serde_json::json!({
                                 "v":1, "id": id, "ok": true,
                                 "name": obj.name,

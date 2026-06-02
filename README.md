@@ -1,4 +1,4 @@
-# l2 — Minimal High-Assurance System Substrate (v0.4.2)
+# l2 — Minimal High-Assurance System Substrate (v0.4.3)
 
 Terminal-first CLI for creating, using, and destroying strongly isolated execution contexts. Narrow surface. Built for high-assurance with seL4 as the root of trust.
 

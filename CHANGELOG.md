@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.4.3] - 2026-06-04
+
+### Security / High-Assurance Fixes (full code sweep)
+- **Full codebase sweep for logic errors and security issues**: Reviewed *every* file (Rust CLI/lib/sandbox/audit/L2P, all C core/safe, bash scripts for harden/crypto/sel4, docs, CI, build). Prioritized: isolation enforcement, privilege fallbacks, input sanitization, state/core consistency, BPF correctness, audit integrity, C memory safety, script robustness (quoting, EPIPE, L2 overrides), policy divergence, error paths, races/TOCTOU, claims vs. impl.
+- **Critical seccomp Phase 1 enforcing filter BPF bug (src/sandbox.rs)**: Arch validation jump offsets were incorrect (x86_64/aarch64 paths both hit KILL_PROCESS immediately; only exotic arches reached allowlist). This made `L2_STRICT_SECCOMP_ENFORCE=1` (core of strict-mcp + `l2 trace --analyze` + `l2 harden --generate-seccomp`) a DoS instead of true allowlist enforcement. Fixed jump targets (jt/jf) with explanatory comments. Observer path unaffected (always LOGs).
+- **L2_USE_CORE / core split persistence and dispatch (host/core.rs, src/main.rs)**: Core server always started empty `Substrate::default()` (no load/save); CLI only partially dispatched (create/put); list/get/destroy/oneshot/named-exec used local in-mem sub. Result: no state across CLI runs, divergence, "core" was broken demo. Fixed: core now `load_state()` at start of each request, `save_state()` after mutating ops (create/destroy/put). Added full dispatch for destroy/list/get (top-level + bare list). Oneshoots kept local (transient). Named systems now correctly persist via disk (subsequent `load_state()` sees core saves). `L2_USE_CORE=1` now provides real shared state. Verified end-to-end.
+- **Oneshot + put auto-read over-read of host files (src/main.rs)**: `normalize_exec_args` + shebang peek + handler + put auto-`read_to_string` would read (and import/run under temp ws) arbitrary host files via single-arg `l2 exec /abs/shebang` or `l2 put sys ../evil.txt` (absolute or `..` paths). Violates least-privilege / narrow authority. Fixed: guard detection/auto-read with `!starts_with('/') && !contains("..")` (and `object_relative_path().is_ok()`) before any `exists()`/`read`. Only safe cwd-relative files trigger oneshot/put auto. (Prevents historical-style bypasses.)
+- **Duplicate privilege-drop logic (src/main.rs)**: SUDO_UID/GID setuid/setgid drop (the backdoor fix for old-kernel fallbacks running as root) was copy-pasted in two unshare-fallback paths (Ok fail + Err spawn). Risk of divergence. Extracted to single `drop_privileges_if_sudo()` helper (called from both + documented).
+- **C l2_sys_put name truncation (core/host.c)**: No `strlen(name)` bound check (unlike create). Long names silently truncated by `strncpy`; later finds by original name failed (inconsistent objects, lost data). Added check returning `L2_ERR_INVALID`.
+- **Audit --test check count (src/main.rs)**: "strict-mcp policy usage" check only pushed if log existed → results could have <5 checks on fresh runs (violates documented "5 checks"). Always push now (false if no recent).
+- **Audit tamper chain docs (src/audit.rs)**: Comments/docstrings claimed "SHA256 of previous line" for tamper-evidence, but impl used `DefaultHasher` (non-crypto, 64-bit, forgeable). Mismatch between SECURITY claims and code. Fixed comments (accurate + caveats; strength from fs/append-only + best-effort). No dep added.
+- **Other**: Minor dispatch robustness, list/get under core, C compile warnings, smoke/CI greps tolerant of 141/EPIPE (as before), always 5 audit results, etc. All preserve narrow scope, no new surfaces.
+- **Verification**: Full gates (fmt/clippy -D/test/build --release), C strict gcc -Wall -Wextra -Werror, replicated CI smoke (harden+audit+trace+strict-mcp+L2_USE_CORE), attack sims from demo.c, cross-run persistence. All pass cleanly.
+
+These changes (from exhaustive sweep) eliminate logic errors that could undermine the high-assurance guarantees (enforcement bypasses, state inconsistency, arbitrary reads, privilege leaks in fallbacks, incorrect filters, etc.). l2 is now tighter for agentic/MCP workloads.
+
 ## [0.4.2] - 2026-06-03
 
 ### Added / Improved

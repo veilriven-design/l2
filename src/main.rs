@@ -372,6 +372,30 @@ fn escalate_to_root_for_exec() -> ! {
     }
 }
 
+/// Drop privileges back to the original (pre-sudo) user if we are currently
+/// running as root (euid==0) and SUDO_UID/GID are set. This is used in
+/// unshare fallback paths to ensure direct execution in the fallback does
+/// not run as UID 0 (preventing the historical "/etc/l2_backdoor" write
+/// even when Landlock/unshare unavailable on old kernels).
+fn drop_privileges_if_sudo() {
+    if nix::unistd::Uid::effective().is_root() {
+        if let Ok(uid_str) = std::env::var("SUDO_UID") {
+            if let Ok(uid) = uid_str.parse::<u32>() {
+                if uid != 0 {
+                    let _ = nix::unistd::setuid(nix::unistd::Uid::from_raw(uid));
+                }
+            }
+        }
+        if let Ok(gid_str) = std::env::var("SUDO_GID") {
+            if let Ok(gid) = gid_str.parse::<u32>() {
+                if gid != 0 {
+                    let _ = nix::unistd::setgid(nix::unistd::Gid::from_raw(gid));
+                }
+            }
+        }
+    }
+}
+
 /// Heuristic validation: if the exec command appears to reference a file that
 /// was `put` into the system (e.g. `./task`, `sh task.rs`, `cat ./foo.txt`),
 /// verify it actually exists in the stored objects. This gives a clear,
@@ -794,7 +818,13 @@ fn normalize_exec_args(args: &[String]) -> (Option<String>, String, bool, Option
         // (We don't have state here easily, so we do a best-effort later in the handler.
         // For now we treat 1-arg as potential oneshot if it looks like a local code file.)
         let path = std::path::Path::new(candidate);
-        if path.exists()
+        // Only treat as oneshot for *safe local relative files* (no absolute paths,
+        // no .. traversal). This prevents "l2 exec /etc/shadow" or "../secret" from
+        // causing l2 to read arbitrary host files during shebang peek or content
+        // import for oneshot. High-assurance: oneshot is for cwd code files only.
+        let is_safe_local = !candidate.starts_with('/') && !candidate.contains("..");
+        if is_safe_local
+            && path.exists()
             && (has_code_extension(candidate) || {
                 // Peek the file for shebang without loading everything
                 std::fs::read_to_string(candidate)
@@ -925,24 +955,7 @@ fn exec_isolated(
                 // Drop root privileges if we were escalated via sudo. This closes the
                 // "back door" where fallback direct execution could run as UID 0 and
                 // write to /etc etc. even when unshare/Landlock couldn't be used.
-                // The workload runs as the original user, so host FS writes outside
-                // workspace are denied by normal permissions.
-                if nix::unistd::Uid::effective().is_root() {
-                    if let Ok(uid_str) = std::env::var("SUDO_UID") {
-                        if let Ok(uid) = uid_str.parse::<u32>() {
-                            if uid != 0 {
-                                let _ = nix::unistd::setuid(nix::unistd::Uid::from_raw(uid));
-                            }
-                        }
-                    }
-                    if let Ok(gid_str) = std::env::var("SUDO_GID") {
-                        if let Ok(gid) = gid_str.parse::<u32>() {
-                            if gid != 0 {
-                                let _ = nix::unistd::setgid(nix::unistd::Gid::from_raw(gid));
-                            }
-                        }
-                    }
-                }
+                drop_privileges_if_sudo();
 
                 let mut direct = Command::new("sh");
                 direct.arg("-c").arg(what);
@@ -1012,24 +1025,7 @@ fn exec_isolated(
             // Drop root privileges if we were escalated via sudo. This closes the
             // "back door" where fallback direct execution could run as UID 0 and
             // write to /etc etc. even when unshare/Landlock couldn't be used.
-            // The workload runs as the original user, so host FS writes outside
-            // workspace are denied by normal permissions.
-            if nix::unistd::Uid::effective().is_root() {
-                if let Ok(uid_str) = std::env::var("SUDO_UID") {
-                    if let Ok(uid) = uid_str.parse::<u32>() {
-                        if uid != 0 {
-                            let _ = nix::unistd::setuid(nix::unistd::Uid::from_raw(uid));
-                        }
-                    }
-                }
-                if let Ok(gid_str) = std::env::var("SUDO_GID") {
-                    if let Ok(gid) = gid_str.parse::<u32>() {
-                        if gid != 0 {
-                            let _ = nix::unistd::setgid(nix::unistd::Gid::from_raw(gid));
-                        }
-                    }
-                }
-            }
+            drop_privileges_if_sudo();
 
             let mut direct = Command::new("sh");
             direct.arg("-c").arg(what);
@@ -1160,25 +1156,27 @@ fn run_security_audit_tests(
     }
 
     // 2. Strict-mcp policy usage in recent activity (explicit hardened protocol)
-    if log_path.exists() {
-        if let Ok(content) = std::fs::read_to_string(log_path) {
-            let has_strict_mcp = content
-                .lines()
-                .rev()
-                .take(20)
-                .any(|l| l.contains("\"strict-mcp\"") || l.contains("policy\":\"strict-mcp"));
-            results.push((
-                "strict-mcp policy usage (recent ops)".to_string(),
-                has_strict_mcp,
-                if has_strict_mcp {
-                    "Found recent strict-mcp create/exec/put (high-assurance path active)"
-                        .to_string()
-                } else {
-                    "No recent strict-mcp usage - recommend for MCP/agent workloads".to_string()
-                },
-            ));
-        }
-    }
+    let has_strict_mcp =
+        if log_path.exists() {
+            std::fs::read_to_string(log_path)
+                .map(|content| {
+                    content.lines().rev().take(20).any(|l| {
+                        l.contains("\"strict-mcp\"") || l.contains("policy\":\"strict-mcp")
+                    })
+                })
+                .unwrap_or(false)
+        } else {
+            false
+        };
+    results.push((
+        "strict-mcp policy usage (recent ops)".to_string(),
+        has_strict_mcp,
+        if has_strict_mcp {
+            "Found recent strict-mcp create/exec/put (high-assurance path active)".to_string()
+        } else {
+            "No recent strict-mcp usage - recommend for MCP/agent workloads".to_string()
+        },
+    ));
 
     // 3. Harden reports exist for strict-mcp (concrete NSA/CISA host prep applied)
     // Integrated: `l2 harden --profile strict-mcp` (even --dry-run) now emits
@@ -1588,11 +1586,15 @@ fn main() -> Result<()> {
             }
         }
         Commands::Destroy { name } => {
-            if let Err(e) = sub.destroy(&name) {
-                error(&e.to_string(), cli.json);
+            if should_use_core() {
+                let _ = l2p_request_to_core("destroy", serde_json::json!({"sys": name}))?;
+            } else {
+                if let Err(e) = sub.destroy(&name) {
+                    error(&e.to_string(), cli.json);
+                }
+                warn_on_cleanup_err(save_state(&sub), "failed to save state after destroy");
             }
             audit::log("destroy", serde_json::json!({ "name": name }));
-            warn_on_cleanup_err(save_state(&sub), "failed to save state after destroy");
             success(&format!("destroyed '{}'", name), cli.json);
         }
         Commands::List { name } => {
@@ -1617,22 +1619,37 @@ fn main() -> Result<()> {
                     Err(e) => error(&e.to_string(), cli.json),
                 }
             } else {
-                let systems = sub.list_systems();
+                // For bare list, under core we get names from L2P (core owns state on disk).
+                // Collect names for uniform handling.
+                let system_names: Vec<String> = if should_use_core() {
+                    match l2p_request_to_core("list", serde_json::json!({})) {
+                        Ok(resp) => {
+                            if let Some(arr) = resp.get("systems").and_then(|s| s.as_array()) {
+                                arr.iter()
+                                    .filter_map(|v| v.as_str().map(|n| n.to_string()))
+                                    .collect()
+                            } else {
+                                vec![]
+                            }
+                        }
+                        Err(_) => vec![],
+                    }
+                } else {
+                    sub.list_systems()
+                        .into_iter()
+                        .map(|s| s.name.clone())
+                        .collect()
+                };
                 if cli.json {
-                    print_json(&systems);
-                } else if systems.is_empty() {
+                    print_json(&system_names);
+                } else if system_names.is_empty() {
                     println!("No active systems.");
                     let dd = data_dir()?;
                     println!("Data dir: {}", dd.display());
                 } else {
                     println!("Active systems:");
-                    for s in systems {
-                        println!(
-                            "  {}  {}  ({} objects)",
-                            s.id,
-                            s.name.bold(),
-                            s.objects.len()
-                        );
+                    for n in system_names {
+                        println!("  {}", n.bold());
                     }
                 }
             }
@@ -1658,8 +1675,15 @@ fn main() -> Result<()> {
                 // UX improvement: if no --content/--file given, and a local file with exactly
                 // this <NAME> exists in the current directory, auto-read it. This makes the
                 // common case `l2 put mysys mycode.c` Just Work when the file is present.
+                // Security: only auto-read if the name is a valid object relative path
+                // (rejects .. and absolute). Prevents using a malicious name to cause
+                // l2 (even non-root) to read host files outside cwd via auto logic
+                // (the subsequent put will reject anyway, but we avoid the read side-effect).
                 let local_path = std::path::Path::new(&name);
-                if local_path.exists() && local_path.is_file() {
+                if l2::object_relative_path(&name).is_ok()
+                    && local_path.exists()
+                    && local_path.is_file()
+                {
                     match std::fs::read_to_string(local_path) {
                         Ok(s) => {
                             if !cli.json {
@@ -1705,20 +1729,44 @@ fn main() -> Result<()> {
             );
             success(&format!("put '{}' into '{}'", name, sys), cli.json);
         }
-        Commands::Get { sys, name } => match sub.get(&sys, &name) {
-            Ok(obj) => {
-                if cli.json {
-                    print_json(&obj);
-                } else {
-                    println!("Object: {}", obj.name.bold());
-                    println!("Type:   {}", obj.r#type);
-                    println!("Size:   {} bytes", obj.size);
-                    println!("---");
-                    println!("{}", obj.content);
+        Commands::Get { sys, name } => {
+            if should_use_core() {
+                match l2p_request_to_core("get", serde_json::json!({"sys": sys, "name": name})) {
+                    Ok(resp) => {
+                        if cli.json {
+                            print_json(&resp);
+                        } else {
+                            let oname = resp.get("name").and_then(|v| v.as_str()).unwrap_or(&name);
+                            let otype = resp.get("type").and_then(|v| v.as_str()).unwrap_or("?");
+                            let osize = resp.get("size").and_then(|v| v.as_u64()).unwrap_or(0);
+                            let ocontent =
+                                resp.get("content").and_then(|v| v.as_str()).unwrap_or("");
+                            println!("Object: {}", oname.bold());
+                            println!("Type:   {}", otype);
+                            println!("Size:   {} bytes", osize);
+                            println!("---");
+                            println!("{}", ocontent);
+                        }
+                    }
+                    Err(e) => error(&e.to_string(), cli.json),
+                }
+            } else {
+                match sub.get(&sys, &name) {
+                    Ok(obj) => {
+                        if cli.json {
+                            print_json(&obj);
+                        } else {
+                            println!("Object: {}", obj.name.bold());
+                            println!("Type:   {}", obj.r#type);
+                            println!("Size:   {} bytes", obj.size);
+                            println!("---");
+                            println!("{}", obj.content);
+                        }
+                    }
+                    Err(e) => error(&e.to_string(), cli.json),
                 }
             }
-            Err(e) => error(&e.to_string(), cli.json),
-        },
+        }
         Commands::Exec {
             policy,
             args,
@@ -1774,7 +1822,10 @@ fn main() -> Result<()> {
                     .or_else(|| policy.clone())
                     .unwrap_or_else(|| "strict".to_string());
 
-                // Create + populate the temporary system (only in privileged context)
+                // Create + populate the temporary system (only in privileged context).
+                // ONESHOT systems are *always* local (transient CLI sugar for "l2 exec file.py").
+                // L2_USE_CORE flag only affects named/persistent systems (to avoid
+                // complexity with materialize + core roundtrips for temp state).
                 if let Err(e) = sub.create(&oneshot_id, &effective_policy) {
                     error(&format!("failed to create oneshot system: {}", e), cli.json);
                 }

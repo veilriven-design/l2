@@ -480,7 +480,9 @@ pub fn try_install_seccomp_enforcing_filter(profile_path: Option<&str>) -> Resul
         #[allow(clippy::vec_init_then_push)]
         let mut filter = Vec::<libc::sock_filter>::with_capacity(32);
 
-        // Arch checks (kill on bad arch)
+        // Arch checks (kill on bad arch). Fixed jump offsets so that on standard
+        // x86_64 or aarch64 we proceed to the nr load + allowlist; unknown arch
+        // is killed immediately. Previous values sent even valid arches to KILL.
         filter.push(libc::sock_filter {
             code: (libc::BPF_LD | libc::BPF_W | libc::BPF_ABS) as u16,
             jt: 0,
@@ -489,14 +491,14 @@ pub fn try_install_seccomp_enforcing_filter(profile_path: Option<&str>) -> Resul
         });
         filter.push(libc::sock_filter {
             code: (libc::BPF_JMP | libc::BPF_JEQ | libc::BPF_K) as u16,
-            jt: 1,
+            jt: 2, // to LD nr (after the KILL sentinel)
             jf: 0,
             k: AUDIT_ARCH_X86_64,
         });
         filter.push(libc::sock_filter {
             code: (libc::BPF_JMP | libc::BPF_JEQ | libc::BPF_K) as u16,
-            jt: 0,
-            jf: 1,
+            jt: 1, // to LD nr
+            jf: 0, // to KILL
             k: AUDIT_ARCH_AARCH64,
         });
         filter.push(libc::sock_filter {
