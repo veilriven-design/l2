@@ -1,0 +1,14 @@
+l2 v0.4.9 is out: prepared for open-source quantum encryption to defend against quantum attacks (prepare prepare prepare)
+
+- New PQC profiles: `l2 crypto --profile hybrid-pqc-mlkem-chacha --apply` (and pqc-mlkem-argon2id) using open-source liboqs (ML-KEM/Kyber, NIST FIPS 203) for quantum-resistant key encapsulation + strong XChaCha/AES + Argon2id hybrid. Defends Shor (classical KEM), Grover (sym/KDF), harvest-now-decrypt-later threats for long-term AI/critical data.
+- liboqs guidance + commands in --apply for KEM keygen/wrap (store ciphertext with headers, protect privkeys ONLY via l2 exec --policy strict-mcp).
+- age PQC plugins recommended for file-level objects.
+- Updated `l2_crypto_redteam_onslaught.c` with quantum harvest attack vector (sim classical broken by CRQC; PQC + l2 North-Star containment only in ws) + SUMMARY.
+- Evidence: crypto-latest.json now includes NIST PQC + NSA Quantum Readiness / CNSA 2.0.
+- Full integration with great-harden, audit --test, North-Star Containment demos (cancer + redteam + full weakness audit), L2_DATA_DIR, --json/--fast/--apply.
+- Aligns to latest NSA/CISA 2026 + NIST PQC standards. l2 substrate isolation is the perfect protector for PQC keys.
+
+Repo: https://github.com/veilriven-design/l2 (update handle)
+#QuantumResistant #PQC #liboqs #NorthStarContainment #l2 #PreparePreparePrepare
+
+(copy-paste ready; update repo/handle as needed)

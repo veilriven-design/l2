@@ -89,7 +89,7 @@
  *   - docs/examples/l2_malware_cancer_resistance_demo.c (AIO includes crypto exfil/tamper vector; see its header for
  *     shared is_in_l2_workspace heuristics + North-Star grand demo pattern).
  *   - HOWTO_execute_crypto_redteam_onslaught_demo.txt (exact 8-step seq, prereqs, expectations, troubleshooting).
- *   - SECURITY.md, README (Crypto & North-Star sections), CHANGELOG (v0.4.7+ crypto + redteam polish), src/main.rs (crypto fn + run_security_audit_tests).
+ *   - SECURITY.md, README (Crypto & North-Star sections), CHANGELOG (v0.4.7+ crypto + redteam polish + v0.4.9 quantum/PQC prep), src/main.rs (crypto fn + run_security_audit_tests).
  *
  * "prepare prepare prepare" — this is the repeatable, auditable evidence that l2 crypto + substrate meets or exceeds
  * NSA-level standards (strong KDF, AEAD/constant-time where applicable, hybrid d-i-d, key isolation via explicit ws/exec,
@@ -409,7 +409,7 @@ int main(void) {
     printf("  - Evidence: l2 audit --test (the 'Crypto profiles for data-at-rest...' check + full standards) + $L2_DATA_DIR/crypto/crypto-latest.json (or ~/.l2) + great-harden-latest.json.\n");
     printf("  - Cross-refs: HOWTO_execute... (exact seq), l2_malware_cancer_resistance_demo.c (AIO crypto vector), great-harden --apply + crypto --apply + put/exec + audit --test closed loop.\n");
     printf("l2 North-Star Containment for crypto: the grand demonstration that l2 meets or exceeds NSA-level cryptography standards (strong Argon2id KDF, AEAD/hybrid d-i-d with no shared weaknesses, constant-time where applicable, key isolation via explicit ws + strict-mcp/great exec, verifiable json evidence + continuous audit; PQC prep with open-source liboqs ML-KEM for quantum resistance) for agentic/MCP/critical/OT/AI systems per CISA AI Data Sec CSI, CPG 2.0 (GOVERN/least-priv/mal-code/adverse), NSA MCP CSI May 2026, Agentic AI CSI (5 risks via isolate/explicit/oversight/audit), NSA Supply Mar 2026, June 2026 sweep, NIST PQC FIPS 203+ + NSA Quantum Readiness.\n");
-    printf("All per the 'prepare prepare prepare' ethos for the world-class north-star repeatable crypto red team onslaught demo. v0.4.8+ quantum prep.\n");
+    printf("All per the 'prepare prepare prepare' ethos for the world-class north-star repeatable crypto red team onslaught demo. v0.4.9 quantum encryption prep (liboqs PQC).\n");
 
     return 0;
 }

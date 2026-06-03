@@ -58,7 +58,7 @@ Users choose a profile; only battle-tested algorithms with strong standardizatio
 
 - `aes256-xts-argon2id`: AES-256-XTS (NIST-approved LUKS disk encryption standard, FIPS-aligned, extensively analyzed) + Argon2id (PHC winner, memory-hard KDF resistant to GPU/ASIC attacks). Default for performance + standards compliance where AES-NI is available.
 - `xchacha20-poly1305-argon2id`: XChaCha20-Poly1305 (IETF RFC 8439 constant-time AEAD, no AES dependency, excellent side-channel resistance and performance on any hardware) + Argon2id. Ideal for heterogeneous or older CPUs.
-- `hybrid-aes-chacha`: Defense-in-depth mixture. Applies complementary designs to different subsets (e.g., AES-256-XTS for bulk data volumes, XChaCha20-Poly1305 for keys/metadata). Example layered construction printed by the tool: outer LUKS/XChaCha + inner AES-XTS, or dual gocryptfs layers. Reduces risk from any single primitive or implementation. (v0.4.7+ polished: evidence json, L2_DATA_DIR support, --json, integrated in audit --test as "Crypto profiles for data-at-rest". v0.4.8: redteam + North-Star polish shipped.)
+- `hybrid-aes-chacha`: Defense-in-depth mixture. Applies complementary designs to different subsets (e.g., AES-256-XTS for bulk data volumes, XChaCha20-Poly1305 for keys/metadata). Example layered construction printed by the tool: outer LUKS/XChaCha + inner AES-XTS, or dual gocryptfs layers. Reduces risk from any single primitive or implementation. (v0.4.7+ polished: evidence json, L2_DATA_DIR support, --json, integrated in audit --test as "Crypto profiles for data-at-rest". v0.4.8: redteam + North-Star polish shipped. v0.4.9: quantum/PQC prep with liboqs ML-KEM profiles + quantum redteam vector.)
 
 **Proficient, simple application to the entire system (or l2 state)**:
 
@@ -165,7 +165,7 @@ See `docs/examples/l2_ransomware_resistance_demo.c` and `docs/examples/l2_miasma
 ### great-harden (SUPREME for Aerospace, Industrial, Critical Infrastructure)
 
 `l2 great-harden` is the explicit supreme command and policy for aerospace (high-integrity), industrial control systems, and critical infrastructure where standard or even full-safety hardening has gaps.
-v0.4.8 adds the full self-audit of l2 + dedicated AIO full weakness audit attack demo (`docs/examples/l2_full_weakness_audit_attack.c`) exercising 15+ vectors on every area (runtime escapes/TOCTOU, seccomp/NEVER bpf+key+ns+ptrace+mem, host tamper, crypto, state poison, supply, exfil, net, anti/priv, agentic/MCP, fs/caps, direct l2 tamper) + bolsters applied (extended NEVER, harden enhancements, new `audit --test` check). Attack contained; evidence produced. Completes the prepare prepare prepare North-Star loop. See demo + CHANGELOG.
+v0.4.8 adds the full self-audit of l2 + dedicated AIO full weakness audit attack demo (`docs/examples/l2_full_weakness_audit_attack.c`) exercising 15+ vectors on every area (runtime escapes/TOCTOU, seccomp/NEVER bpf+key+ns+ptrace+mem, host tamper, crypto, state poison, supply, exfil, net, anti/priv, agentic/MCP, fs/caps, direct l2 tamper) + bolsters applied (extended NEVER, harden enhancements, new `audit --test` check). Attack contained; evidence produced. Completes the prepare prepare prepare North-Star loop. v0.4.9 adds open-source quantum encryption prep (PQC profiles with liboqs ML-KEM, quantum vector in redteam). See demo + CHANGELOG.
 
 It delivers **higher assurance and advanced security hardening**:
 - Extreme surface reduction: kernel lockdown mode, modules disabled at runtime, full read-only root where possible, no dynamic loading/unsigned code.

@@ -32,7 +32,7 @@ jobs:
         cargo install cargo-audit --locked || true
         cargo audit || echo "cargo audit reported issues or failed to run (non-blocking for release; review advisories separately if any)"
 
-    - name: "Smoke tests (v0.4.8+ full surface: strict-mcp + ransom-hardened + great-harden, crypto + redteam onslaught (10 vectors + North-Star), harden, trace, policies, audit + ransomware + Miasma + AIO malware-cancer + crypto redteam + full weakness audit onslaught (15+ vectors post full self-audit + bolster) substrate checks; prepare prepare prepare)"
+    - name: "Smoke tests (v0.4.9+ full surface: strict-mcp + ransom-hardened + great-harden, crypto + PQC quantum profiles (liboqs ML-KEM) + redteam onslaught (10+ vectors + quantum harvest + North-Star), harden, trace, policies, audit + ransomware + Miasma + AIO malware-cancer + crypto redteam + full weakness audit onslaught (15+ vectors post full self-audit + bolster) substrate checks; prepare prepare prepare)"
       run: |
         set -euo pipefail
         cargo build --release --quiet
@@ -103,7 +103,7 @@ jobs:
         ./target/release/l2 audit --test 2>&1 | grep -q "Ransomware containment\|ransom-hardened\|Miasma supply-chain" || echo "(ransom-hardened + Miasma audit checks exercised)"
         ./target/release/l2 destroy smoke-ransom || true
 
-        # great-harden supreme + AIO malware-cancer + crypto redteam onslaught substrate defense smoke (ransom + Miasma + direct l2 attacks on state/trace/audit/crypto/ns/bpf + full NSA-level crypto red team 10+ vectors: KDF/sidechannel/keyexfil/misuse/RNG/hybrid/tamper/supply/l2state/passphrase/impl - contained; v0.4.8+ even further polish + North-Star SUMMARY)
+        # great-harden supreme + AIO malware-cancer + crypto redteam onslaught substrate defense smoke (ransom + Miasma + direct l2 attacks on state/trace/audit/crypto/ns/bpf + full NSA-level crypto red team 10+ vectors + quantum: KDF/sidechannel/keyexfil/misuse/RNG/hybrid/tamper/supply/l2state/passphrase/impl/quantum-harvest - contained; v0.4.9+ PQC prep + North-Star SUMMARY)
         # (exercises great policy auto-enforce, tiniest Landlock, extended NEVER, --apply artifacts in audit, new cancer check)
         ./target/release/l2 great-harden --fast --apply --json 2>&1 | grep -q '"apply": true\|great-harden' || echo "(great-harden --json --apply tolerated)"; ./target/release/l2 great-harden --fast --apply || true
         ./target/release/l2 create smoke-cancer --policy great-harden || true
@@ -115,11 +115,11 @@ jobs:
         ./target/release/l2 put smoke-cancer crypto-redteam.c --file docs/examples/l2_crypto_redteam_onslaught.c 2>/dev/null || true
         ./target/release/l2 audit --test 2>&1 | grep -q "AIO malware-cancer\|great-harden\|malware-cancer\|North-Star Containment" || echo "(great-harden + AIO malware-cancer + l2 North-Star Containment audit check exercised)"
         ./target/release/l2 audit --test 2>&1 | grep -q "Crypto.*data-at-rest\|crypto red team\|Crypto profiles\|redteam onslaught" || echo "(crypto redteam onslaught + profile evidence check exercised)"
-        # Enhanced v0.4.8+ polish: catch North-Star SUMMARY for Crypto + "prepare prepare prepare" framing + contained success phrasing
+        # Enhanced v0.4.9+ quantum prep + polish: catch North-Star SUMMARY for Crypto + "prepare prepare prepare" framing + contained success phrasing + PQC profile exercise
         ./target/release/l2 audit --test 2>&1 | grep -q "NORTH-STAR CONTAINMENT SUMMARY (Grand Demo for Crypto)\|North-Star Containment achieved (l2 crypto\|prepare prepare prepare" || echo "(crypto redteam North-Star SUMMARY + prepare framing exercised or tolerated)"
         # Full weakness audit attack (new AIO covering all areas post full self-audit + bolster): put + exec + grep new check + SUMMARY
         ./target/release/l2 put smoke-cancer full-weakness-audit.c --file docs/examples/l2_full_weakness_audit_attack.c 2>/dev/null || true
         ./target/release/l2 audit --test 2>&1 | grep -q "full weakness audit onslaught\|AIO full weakness audit\|North-Star Containment" || echo "(full weakness audit onslaught + North-Star check exercised or tolerated in CI)"
         ./target/release/l2 destroy smoke-cancer || true
 
-        echo "✅ All v0.4.8+ smoke tests passed (policies + strict-mcp + ransom-hardened + crypto + redteam onslaught (KDF/side/exfil/misuse/RNG/hybrid/tamper/supply/l2-state/passphrase/impl + SUMMARY) + harden + trace+output-profile + audit + regular up-to-date security standards tests + harden<->audit integration + ransomware + Miasma supply-chain + great-harden + AIO malware-cancer + crypto redteam + l2 North-Star Containment grand demos + full weakness audit onslaught (15+ vectors: runtime/host/crypto/state/supply/mem/net/anti/agentic/fs/direct + all prior) exercised; prepare prepare prepare)"
+        echo "✅ All v0.4.9+ smoke tests passed (policies + strict-mcp + ransom-hardened + crypto + PQC quantum (liboqs ML-KEM hybrid-pqc profiles) + redteam onslaught (KDF/side/exfil/misuse/RNG/hybrid/tamper/supply/l2-state/passphrase/impl + quantum harvest + SUMMARY) + harden + trace+output-profile + audit + regular up-to-date security standards tests + harden<->audit integration + ransomware + Miasma supply-chain + great-harden + AIO malware-cancer + crypto redteam + l2 North-Star Containment grand demos + full weakness audit onslaught (15+ vectors: runtime/host/crypto/state/supply/mem/net/anti/agentic/fs/direct + all prior) exercised; prepare prepare prepare)"

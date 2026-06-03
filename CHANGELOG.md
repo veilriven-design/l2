@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.4.9] - 2026-06-06
+
+### Preparation for Open-Source Quantum Encryption to Defend Against Quantum Attacks (prepare prepare prepare)
+- Added support and guidance for open-source post-quantum cryptography (PQC) mechanisms per NIST FIPS 203 (ML-KEM/Kyber), to protect against quantum attacks (Shor's algorithm breaking classical public-key/KEMs, Grover's algorithm speeding up symmetric/KDF searches, and "harvest now, decrypt later" threats to long-lived data).
+- New crypto profiles in `scripts/crypto.sh`:
+  - `hybrid-pqc-mlkem-chacha`: XChaCha20-Poly1305 (data) + ML-KEM (NIST PQC KEM via open-source liboqs) for key encapsulation/wrapping + Argon2id. Hybrid classical + PQC for defense-in-depth and transition.
+  - `pqc-mlkem-argon2id`: Focused on ML-KEM for PQC key protection.
+- Updated profile listing, details, LUKS/gocryptfs setup logic, and `--list --json` output (default now favors quantum-resistant hybrid-pqc).
+- PQC-specific apply guidance: instructions and example commands using liboqs (oqs_kem_keypair / oqs_kem_enc) to generate PQC keypairs and encapsulate master keys for LUKS headers or gocryptfs; recommendations for age with PQC plugins for file-level objects inside l2 systems; emphasis that PQC private keys must only be accessed via `l2 exec --policy strict-mcp` (leveraging the substrate's isolation).
+- Updated `crypto-latest.json` evidence with NIST PQC standards + NSA Quantum Readiness / CNSA 2.0 notes.
+- Bolstered `docs/examples/l2_crypto_redteam_onslaught.c` with new `sim_quantum_harvest_attack` vector (simulates classical layer broken by quantum computer; PQC profile + l2 containment succeeds only inside authorized ws). Updated headers, SUMMARY, alignments (NIST PQC + NSA Quantum Readiness).
+- Updated docs and standards:
+  - README.md (crypto section, table, highlights, examples, status) highlighting quantum prep.
+  - SECURITY.md, STATUS.md, ROADMAP.md, PROTOTYPE_HARDENING_AND_SEL4_PLAN.md, CHANGELOG.md (this section).
+  - `scripts/harden.sh` standards, next-steps, and prepare notes (now reference PQC profiles + quantum vectors).
+- `src/main.rs` crypto function documentation updated.
+- Version bumped to 0.4.9; all changes preserve L2_DATA_DIR, --apply/--json/--fast, evidence loop for `l2 audit --test`, North-Star Containment, no new surfaces. Quantum keys protected by the same explicit authority + great-harden + isolation model.
+- `cargo test`, clippy, fmt, and local L2_DATA_DIR smoke (crypto PQC profiles + apply + json + audit evidence) verified.
+- Prepares l2 as quantum-ready high-assurance substrate for agentic/MCP/AI/critical systems while maintaining compatibility with classical profiles.
+
 ## [0.4.8] - 2026-06-06
 
 ### Full Audit of l2 + True Attack on All Weaknesses + Bolstered Defenses (prepare prepare prepare)
