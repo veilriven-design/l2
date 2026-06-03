@@ -207,6 +207,7 @@ echo "Smoke OK"
 
 # See the dedicated HOWTO for full na + tomato instructions, descriptions, copy-paste sequences, and the complement pattern:
 # docs/guides/HOWTO_na_and_tomato.txt or cat it after cloning.
+# See docs/guides/HOWTO_northstar_attack_demo.txt for the complete North-Star Attack (math evidence, root-local pure-root test instructions, directed payload, l2 usage, audit integration).
 # (L2_DATA_DIR overrides are preserved across any sudo escalation in exec/harden/great-harden paths.)
 ```
 
