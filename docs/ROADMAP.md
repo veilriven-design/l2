@@ -29,7 +29,7 @@ The external interface and mental model must remain the same whether the backend
 
 ## Current State (as of v0.5.0)
 
-See [docs/STATUS.md](STATUS.md) for the authoritative "Done" and "Current Focus" lists. v0.5.9 added North-Star Attack (diabolical binary math net payload) + Defense (l2 containment of inherent FP/int/weird machine flaws).
+See [docs/STATUS.md](STATUS.md) for the authoritative "Done" and "Current Focus" lists. v0.5.9 added (and post-audit improved) North-Star Attack (diabolical binary math net payload with real --gen/--recv directed send/recv) + Defense (l2 containment of inherent FP/int/weird machine flaws; enhanced spirit/na/audit/CI/harden after full codebase audit).
 
 v0.5.0 qualifiers achieved:
 - L2P / core split **mature**: l2::Host (Linux backend impl of L2Core trait) + out-of-proc l2-core (host/core.rs) provide real E2E exercised narrow protocol boundary (create/put/get/destroy/list + exec/revoke intents). L2_USE_CORE=1 drives it; default in-proc for compat. 

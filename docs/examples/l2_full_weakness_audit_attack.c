@@ -64,7 +64,7 @@
  *
  * Cross-references:
  *   - l2_malware_cancer_resistance_demo.c (AIO base: ransom+Miasma+virus+substrate)
- *   - l2_northstar_attack_resistance_demo.c (North-Star Attack: inherent binary math FP/NaN/denormal/weird machine net payload; North-Star Defense via l2)
+ *   - l2_northstar_attack_resistance_demo.c (North-Star Attack improved: inherent binary math FP/NaN/denormal/weird machine net payload + true --gen/--recv directed send/recv sim; North-Star Defense via l2 great + na/tomato + enhanced spirit patterns + audit --test)
  *   - l2_crypto_redteam_onslaught.c (crypto specific 10 vectors)
  *   - docs/guides/HOWTO_execute_crypto... (and similar for cancer)
  *   - src/sandbox.rs (NEVER_ALLOWED + Landlock + seccomp)

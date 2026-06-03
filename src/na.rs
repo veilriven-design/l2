@@ -268,19 +268,24 @@ fn print_packet(num: usize, frame: &[u8], verbose: bool) {
             // IPv4
             if frame.len() > 34 {
                 let ihl = (frame[14] & 0x0f) as usize * 4;
-                let proto = frame[23];
-                let src_ip = &frame[26..30];
-                let dst_ip = &frame[30..34];
-                print!("IPv4 {} -> {} proto={}", ip_to_str(src_ip), ip_to_str(dst_ip), proto);
-                if proto == 6 && frame.len() > ihl + 14 + 20 {
-                    // TCP
-                    let sport = u16::from_be_bytes([frame[14+ihl], frame[14+ihl+1]]);
-                    let dport = u16::from_be_bytes([frame[14+ihl+2], frame[14+ihl+3]]);
-                    print!(" TCP {}>{}", sport, dport);
-                } else if proto == 17 {
-                    let sport = u16::from_be_bytes([frame[14+ihl], frame[14+ihl+1]]);
-                    let dport = u16::from_be_bytes([frame[14+ihl+2], frame[14+ihl+3]]);
-                    print!(" UDP {}>{}", sport, dport);
+                if ihl < 20 || 14 + ihl + 20 > frame.len() {
+                    print!("IPv4 (truncated header, ihl={})", ihl);
+                } else {
+                    let proto = frame[23];
+                    let src_ip = &frame[26..30];
+                    let dst_ip = &frame[30..34];
+                    print!("IPv4 {} -> {} proto={}", ip_to_str(src_ip), ip_to_str(dst_ip), proto);
+                    let l4_off = 14 + ihl;
+                    if proto == 6 && frame.len() > l4_off + 4 {
+                        // TCP
+                        let sport = u16::from_be_bytes([frame[l4_off], frame[l4_off+1]]);
+                        let dport = u16::from_be_bytes([frame[l4_off+2], frame[l4_off+3]]);
+                        print!(" TCP {}>{}", sport, dport);
+                    } else if proto == 17 && frame.len() > l4_off + 4 {
+                        let sport = u16::from_be_bytes([frame[l4_off], frame[l4_off+1]]);
+                        let dport = u16::from_be_bytes([frame[l4_off+2], frame[l4_off+3]]);
+                        print!(" UDP {}>{}", sport, dport);
+                    }
                 }
             }
         }

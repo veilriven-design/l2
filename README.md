@@ -296,11 +296,11 @@ l2 exec cancer-test 'gcc -static -Wall -Wextra -o cancer-sim cancer-sim.c && ./c
 l2 audit --test   # verifies North-Star Containment of AIO malware-cancer (PASS with great-harden json + apply artifacts)
 l2 destroy cancer-test
 
-# North-Star Attack + Defense (binary math inherent flaws over net — NaN bypass, denormal timing, cast overflow, weird machine, etc.)
+# North-Star Attack + Defense (binary math inherent flaws over net — NaN bypass, denormal timing, cast overflow, weird machine, etc.; post full audit improved with directed send/recv)
 l2 create northstar-test --policy great-harden   # (or --policy tomato + put na+tomato for masked net delivery flavor)
 l2 put northstar-test ns.c --file docs/examples/l2_northstar_attack_resistance_demo.c
-l2 exec northstar-test 'gcc -static -Wall -Wextra -o ns ns.c && ./ns'  # receives diabolical payload; CONTAINED SUCCESS only in ws; BLOCKED outside
-l2 audit --test   # new "North-Star attack (binary math ...) containment — l2 North-Star Defense" PASS + SUMMARY
+l2 exec northstar-test 'gcc -static -Wall -Wextra -o ns ns.c && ./ns --gen-payload-hex > p.hex && ./ns --recv-payload p.hex'  # improved: gen the diabolical bits ("send" over channel/na), recv+exploit the received payload; CONTAINED SUCCESS only in ws; BLOCKED outside
+l2 audit --test   # new "North-Star attack (binary math ...) containment — l2 North-Star Defense" PASS + SUMMARY (after AUDIT EVERYTHING + improvements to both attack and defense)
 l2 destroy northstar-test
 ```
 

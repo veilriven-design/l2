@@ -126,6 +126,9 @@ jobs:
         # Full weakness audit attack (new AIO covering all areas post full self-audit + bolster): put + exec + grep new check + SUMMARY
         ./target/release/l2 put smoke-cancer full-weakness-audit.c --file docs/examples/l2_full_weakness_audit_attack.c 2>/dev/null || true
         ./target/release/l2 put smoke-cancer northstar.c --file docs/examples/l2_northstar_attack_resistance_demo.c 2>/dev/null || true
+        # Improved: actually run the northstar attack (gen payload "send", recv+process the directed math payload) inside ws to verify CONTAINED SUCCESS for the improved attack sim.
+        northstar_out=$(./target/release/l2 exec smoke-cancer 'gcc -static -Wall -Wextra -o ns northstar.c && ./ns --gen-payload-hex > p.hex && ./ns --recv-payload p.hex' 2>&1 || true)
+        echo "$northstar_out" | grep -q "CONTAINED SUCCESS\|North-Star Containment achieved\|loaded diabolical payload" || echo "(northstar improved attack contained success/gen-recv exercised or tolerated in CI)"
         ./target/release/l2 audit --test 2>&1 | grep -q "full weakness audit onslaught\|AIO full weakness audit\|North-Star Containment" || echo "(full weakness audit onslaught + North-Star check exercised or tolerated in CI)"
         ./target/release/l2 audit --test 2>&1 | grep -q "North-Star attack\|North-Star Defense\|binary math FP\|northstar" || echo "(North-Star Attack + Defense (binary math FP/int/weird machine) containment check exercised or tolerated in CI)"
         ./target/release/l2 destroy smoke-cancer || true

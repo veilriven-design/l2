@@ -98,16 +98,39 @@
  *     based math isolation (bounds on every number? tagged floats) while keeping
  *     identical external iface + North-Star evidence.
  *
+ * Improved directed "over network" payload delivery (using l2 put authority or na/tomato surfaces):
+ *   The attack now supports generating the exact diabolical bit payload (for "sending" over
+ *   the masked net surface or via l2 put to a "channel" object/file) and receiving/processing
+ *   it (simulating a victim binary that read the payload from net recv, file, or MCP arg,
+ *   then fed the raw bits as doubles/ints into vulnerable math with zero sanitization).
+ *
  * Recommended (use L2_DATA_DIR; sudo escalation in exec preserves it):
  *        export L2_DATA_DIR=$(mktemp -d)
  *        l2 great-harden --fast --apply || true   # North-Star host lockdown
  *        l2 create northstar-test --policy great-harden
- *        # (alt for "over network" flavor: --policy tomato + put na + tomato too;
- *        #   tomato configures wan0/lan0 + firewall; attack "receives on wan0")
+ *        # (alt for "over network" flavor using tomato/na: --policy tomato; put na+tomato+ns.c ;
+ *        #   use tomato to setup wan0; na inject wan0 the-hex-payload ; victim recv on surface)
  *        l2 put northstar-test ns.c --file docs/examples/l2_northstar_attack_resistance_demo.c
- *        l2 exec northstar-test 'gcc -static -Wall -Wextra -o ns ns.c && ./ns'  # grand demo
- *        l2 audit --test   # verifies North-Star Defense (new check + SUMMARY)
+ *        l2 exec northstar-test 'gcc -static -Wall -Wextra -o ns ns.c && ./ns --gen-payload-hex > p.hex && ./ns --recv-payload p.hex'  # send the payload "over net/channel", recv+exploit only in ws
+ *        l2 audit --test   # verifies North-Star Defense (new check + SUMMARY + demo contained success)
  *        l2 destroy northstar-test
+ *
+ *   The --gen/--recv makes the attack a true "sender of diabolical payload" + "victim processor":
+ *   attacker crafts+ "sends" (gen to file or na inject of the hex/bytes), victim "receives" the
+
+ * ROOT-LOCAL / PURE-ROOT TESTING SECURITY (your plan: run the north-star attack binary
+ * as root directly on your own machine to test "against machine-self"):
+ *   See the code at top of main() and the strengthened is_in_l2_workspace() (and the
+ *   double if(is_in...) guards right before every "pwn marker" fopen).
+ *   Direct root run in a normal dir will hit the warning + BLOCKED for all 4 success
+ *   vectors. The only way to see "CONTAINED SUCCESS" + marker files is to either:
+ *     a) use the proper l2 workflow (recommended, gets full Landlock/seccomp/NEVER/etc), or
+ *     b) deliberately craft a cwd/HOME/L2D + USER=l2 that fools the heuristic (which you
+ *        control as the tester, and you can clean the resulting .txt files afterward).
+ *   No code path writes outside cwd, to absolute sensitive paths, or performs real
+ *   host damage. This keeps your local root test safe while still allowing you to
+ *   validate that the attack "only succeeds in authorized ws".
+ *   bits and runs the 8+ math exploits. Only succeeds (marks ws files) inside authorized ws.
  *
  *   ...only files / state inside the l2 ws can be "pwned" by the math catastrophe.
  *   All "exfil", "bypass actions", "weird machine secrets", "sidechannel leaks" are
@@ -130,11 +153,12 @@
  *   - docs/examples/l2_crypto_redteam_onslaught.c (math-adjacent crypto vectors)
  *   - docs/examples/l2_full_weakness_audit_attack.c (15+ including numeric/FP escape)
  *   - docs/examples/l2_miasma_resistance_demo.c , l2_ransomware... (net delivery)
- *   - src/main.rs (run_security_audit_tests new check + spirit --file math patterns + run_rat...)
+ *   - src/main.rs (run_security_audit_tests improved check + spirit --file enhanced math patterns incl --gen/recv + run_rat...)
  *   - docs/SECURITY.md (North-Star Attack & Defense section), docs/ROADMAP.md, docs/STATUS.md
- *   - l2 spirit --audit --file (now flags binary math dangers) + --os + --rat
+ *   - l2 spirit --audit --file (now flags binary math dangers + send/recv patterns) + --os + --rat
  *   - l2 great-harden --apply + policy great-harden + na/tomato surfaces + audit --test
- *   - na (capture/inject on na0 the "payload packets"), tomato (router the "C2 math stream")
+ *   - na (capture/inject on na0 the "payload packets" for directed math attack delivery), tomato (router the "C2 math stream" + monitor for timing sidechannel sim)
+ *   - Improved attack: --gen-payload-hex (the "send" of diabolical bits) + --recv-payload (victim processes received bits) for true over-net simulation.
  *
  * "prepare prepare prepare" — this is the grand demonstration that l2 North-Star
  * Defense renders even the most universal mathematical attack on binary computers
@@ -166,23 +190,46 @@ static void print_header(const char *title) {
 static int is_in_l2_workspace(void) {
     char cwd[PATH_MAX];
     if (getcwd(cwd, sizeof(cwd)) == NULL) return 0;
-    if (strstr(cwd, "/l2-ws-") || strstr(cwd, "l2-ws-") || strstr(cwd, "/tmp/l2-") ||
-        strstr(cwd, "l2-north") || strstr(cwd, "northstar") || strstr(cwd, "cancer") ||
-        strstr(cwd, "ransom") || strstr(cwd, "miasma")) return 1;
+
+    /* Stricter checks for security when testing as root locally (your planned use case).
+     * Direct root execution outside a real l2 ws (no Landlock/seccomp/env sanitization
+     * from l2 exec) must reliably hit the BLOCKED paths to prevent accidental host pwn
+     * during "machine-self as pure root" tests.
+     * Require strong signals: l2-ws- path in cwd or HOME, *or* combination of l2 user env
+     * (set by l2's setup_minimal_l2_env) + l2- in data dir or home.
+     */
+    int has_l2_ws_path = strstr(cwd, "/l2-ws-") || strstr(cwd, "l2-ws-") || strstr(cwd, "/tmp/l2-");
     const char *home = getenv("HOME");
-    if (home && (strstr(home, "/l2-ws-") || strstr(home, "l2-") || strstr(home, "north"))) return 1;
+    int has_l2_home = home && (strstr(home, "/l2-ws-") || strstr(home, "l2-ws-") || strstr(home, "/tmp/l2-"));
     const char *l2d = getenv("L2_DATA_DIR");
-    if (l2d && (strstr(l2d, "l2-") || strstr(l2d, "tmp"))) return 1;
+    int has_l2d = l2d && (strstr(l2d, "l2-ws-") || strstr(l2d, "l2-") || strstr(l2d, "tmp/l2"));
+
+    const char *user = getenv("USER");
+    int has_l2_user = user && (strcmp(user, "l2") == 0);
+    const char *logname = getenv("LOGNAME");
+    int has_l2_logname = logname && (strcmp(logname, "l2") == 0);
+
+    if (has_l2_ws_path || has_l2_home) return 1;
+    if ((has_l2_user || has_l2_logname) && (has_l2d || has_l2_home)) return 1;
+
+    /* Also accept explicit northstar test markers for the demo (but still require l2- style) */
+    if (strstr(cwd, "northstar") && (has_l2d || has_l2_home || has_l2_ws_path)) return 1;
+
     return 0;
 }
 
-/* The diabolical directed network payload.
- * These are the bit patterns "sent over the wire" (as doubles in a stream, or
- * int64 headers, or binary serialized "sensor update" / "MCP arg" / "tensor slice").
- * In a real attack they arrive via socket, HTTP numeric field, MQTT, gRPC, etc.
- * Crafted for max mathematical danger on any IEEE 754 + two's complement binary machine.
+/* The diabolical directed network payload (improved for true "send over net" + "recv+exploit").
+ * These bit patterns are the "sent" payload (via --gen-payload-hex to a channel file or
+ * na inject of the hex/bytes over wan0/lan0/na0). Victim "receives" (via --recv-payload
+ * reading the channel or net data), reinterprets the bits as doubles/ints with NO
+ * sanitization (no isnan, no isfinite, raw casts, accum, pun), feeds into vulnerable
+ * math paths. Only the ws-authorized receiver "pwns" victims.
+ *
+ * In real directed attack: attacker puts or injects the payload bytes (as "sensor data",
+ * "MCP tensor update", "config float array", "protocol header values") to the target
+ * binary computer over net; target blindly does math on them.
  */
-static const uint64_t DIABOLICAL_PAYLOAD[10] = {
+static uint64_t DIABOLICAL_PAYLOAD[10] = {
     0x7ff8000000000ca7ULL, /* QNaN + payload "cat" (attack sig); unordered magic */
     0x0000000000000001ULL, /* tiniest positive subnormal (denormal timing bomb #1) */
     0x0000000000000002ULL, /* next subnormal (timing bomb #2, for bit extraction) */
@@ -195,6 +242,24 @@ static const uint64_t DIABOLICAL_PAYLOAD[10] = {
     0x00000000ffffffffULL, /* all 1s low for wrap/overflow sim */
     0x7ff800000000deadULL, /* another QNaN with "dead" payload for weird machine */
 };
+
+/* Load diabolical payload from "net" sim file (hex one-per-line, as produced by --gen).
+ * This improves the attack to be a true directed send/recv over "network" (put channel,
+ * or na/tomato surface delivery of the hex/bytes). If no file, uses built-in const.
+ * Only ws files can be "sent" this way under l2 put authority.
+ */
+static void load_payload_from_net_sim(const char *hexfile) {
+    FILE *pf = fopen(hexfile, "r");
+    if (!pf) return;
+    for (int i = 0; i < 10; i++) {
+        unsigned long long v = 0;
+        if (fscanf(pf, "%llx", &v) == 1) {
+            DIABOLICAL_PAYLOAD[i] = v;
+        }
+    }
+    fclose(pf);
+    printf("(loaded diabolical payload from %s -- as if received over net surface from sender)\n", hexfile);
+}
 
 /* Helper: load bits as double (the "received net double field") */
 static double bits_to_double(uint64_t bits) {
@@ -253,11 +318,13 @@ static void demonstrate_nan_bypass_and_weird_machine(void) {
         printf("  CONTAINED SUCCESS (NaN made security predicate / self-compare take attacker path; weird machine computed 'grant' 0x%llx from payload bits only)\n",
                (unsigned long long)weird_computed);
         /* "Use the bypass" to mark ws victim (only ws files affected) */
-        FILE *f = fopen("northstar_bypass_grant.txt", "w");
-        if (f) {
-            fprintf(f, "BYPASSED VIA NORTH-STAR MATH PAYLOAD\nweird_computed=0x%llx\nsecret=%s\n",
-                    (unsigned long long)weird_computed, WS_ONLY_SECRET);
-            fclose(f);
+        if (is_in_l2_workspace()) {
+            FILE *f = fopen("northstar_bypass_grant.txt", "w");
+            if (f) {
+                fprintf(f, "BYPASSED VIA NORTH-STAR MATH PAYLOAD\nweird_computed=0x%llx\nsecret=%s\n",
+                        (unsigned long long)weird_computed, WS_ONLY_SECRET);
+                fclose(f);
+            }
         }
         printf("  North-Star Containment achieved (NaN bypass + weird machine only authorized ws victims 'pwned'; l2 substrate + great-harden prevents escape or host impact)\n");
     } else {
@@ -290,10 +357,12 @@ static void demonstrate_denormal_timing_sidechannel(void) {
     int in = is_in_l2_workspace();
     if (in && slow) {
         printf("  CONTAINED SUCCESS (subnormal ops took %ld ns >> normal; timing 'leaked' ws-only secret bit pattern into acc-derived marker)\n", ns);
-        FILE *f = fopen("northstar_timing_leak.txt", "w");
-        if (f) {
-            fprintf(f, "TIMING SIDECHANNEL SUCCESS via denormals\nns=%ld\nsecret_fragment=%s\n", ns, WS_ONLY_SECRET);
-            fclose(f);
+        if (is_in_l2_workspace()) {
+            FILE *f = fopen("northstar_timing_leak.txt", "w");
+            if (f) {
+                fprintf(f, "TIMING SIDECHANNEL SUCCESS via denormals\nns=%ld\nsecret_fragment=%s\n", ns, WS_ONLY_SECRET);
+                fclose(f);
+            }
         }
         printf("  North-Star Containment achieved (denormal timing exfil / DoS only inside authorized ws on masked net surface; great-harden + no /proc limits real sidechannel value)\n");
     } else if (in) {
@@ -320,11 +389,13 @@ static void demonstrate_int_overflow_cast_and_precision_catastrophe(void) {
     if (in) {
         printf("  CONTAINED SUCCESS (net 'len' 0x%x as sint32 cast to size_t=0x%zx (wrap/huge); accum=%.17g 'validated' malicious 'command' or OOB 'read' of ws secret)\n",
                net_len_signed, computed_len, accum);
-        FILE *f = fopen("northstar_overflow_bypass.txt", "w");
-        if (f) {
-            fprintf(f, "INT CAST + FP PRECISION CATASTROPHE\nlen=0x%zx accum=%.17g\nsecret=%s\n",
-                    computed_len, accum, WS_ONLY_SECRET);
-            fclose(f);
+        if (is_in_l2_workspace()) {
+            FILE *f = fopen("northstar_overflow_bypass.txt", "w");
+            if (f) {
+                fprintf(f, "INT CAST + FP PRECISION CATASTROPHE\nlen=0x%zx accum=%.17g\nsecret=%s\n",
+                        computed_len, accum, WS_ONLY_SECRET);
+                fclose(f);
+            }
         }
         printf("  North-Star Containment achieved (cast/precision math 'catastrophe' only ws victims; l2 explicit put/exec + Landlock confines the 'OOB' action)\n");
     } else {
@@ -350,10 +421,12 @@ static void demonstrate_inf_nan_prop_and_consensus_break(void) {
     int in = is_in_l2_workspace();
     if (in) {
         printf("  CONTAINED SUCCESS (Inf/NaN prop 'bad'=%.0f; 'consensus split' forced between binary hosts on same payload; 'split brain' used to 'escalate' in ws sim)\n", bad);
-        FILE *f = fopen("northstar_consensus_split.txt", "w");
-        if (f) {
-            fprintf(f, "INF/NAN + CONSENSUS BREAK\nbad=%.0f split=%d\n", bad, split);
-            fclose(f);
+        if (is_in_l2_workspace()) {
+            FILE *f = fopen("northstar_consensus_split.txt", "w");
+            if (f) {
+                fprintf(f, "INF/NAN + CONSENSUS BREAK\nbad=%.0f split=%d\n", bad, split);
+                fclose(f);
+            }
         }
         printf("  North-Star Containment achieved (propagation + split only inside ws; l2 net isolation + destroy disposes the 'infected' numeric state)\n");
     } else {
@@ -397,9 +470,50 @@ static void print_grand_summary(void) {
 }
 
 int main(int argc, char **argv) {
-    (void)argc; (void)argv;
     printf("l2_northstar_attack_resistance_demo — North-Star Attack (diabolical binary math net payload) + North-Star Defense (l2 containment)\n");
     printf("Inherent flaws of binary computers (IEEE 754 + two's complement + weird math machines) — contained only by l2.\n");
+
+    /* Security hardening for your planned test: run as pure root locally on your own machine.
+     * When invoked directly as root (no `l2 exec --policy great-harden` wrapper), there is
+     * no Landlock, no seccomp NEVER, no env_clear, no HOME=ws sanitization, no ns isolation.
+     * The *only* defense in that scenario is this demo's internal is_in_l2_workspace() logic
+     * + absence of ws "victims"/authority. We make the heuristic stricter (see above) and
+     * print an explicit warning so you (the tester) know the host is not at risk from the
+     * simulated "pwn" markers.
+     */
+    if (geteuid() == 0) {
+        printf("*** WARNING: Running as root (euid=0) on local machine. ***\n");
+        if (!is_in_l2_workspace()) {
+            printf("No strong l2 ws signals (no /l2-ws- in cwd/HOME, L2_DATA_DIR not ws-like, USER/LOGNAME != 'l2').\n");
+            printf("ALL attack 'success' vectors (marker file creation simulating pwn/exfil/bypass) are BLOCKED by demo logic.\n");
+            printf("This protects your host during root-local testing of the North-Star Attack.\n");
+            printf("To observe *contained success*, run via l2: l2 create --policy great-harden; l2 put ...; l2 exec ... gcc+./ns\n");
+            printf("The real l2 great-harden execution path applies additional kernel + LSM containment on top of this.\n");
+        } else {
+            printf("l2 ws signals detected even as root - proceeding with contained sim (markers only in ws).\n");
+        }
+    }
+
+    /* Improved directed attack: support generating the payload for "send" and loading
+     * for "recv+process". This makes the demo a full send/recv over network sim.
+     * Usage in ws (under tomato/na or great): ./ns --gen-payload-hex > p.hex  (the "send")
+     * then ./ns --recv-payload p.hex  (the victim receives the bits over "net" and exploits).
+     * The p.hex can be "delivered" via l2 put (explicit auth) or na inject on the surface.
+     */
+    if (argc > 1 && strcmp(argv[1], "--gen-payload-hex") == 0) {
+        for (int i = 0; i < 10; i++) {
+            printf("%016llx\n", (unsigned long long)DIABOLICAL_PAYLOAD[i]);
+        }
+        return 0;
+    }
+    if (argc > 2 && strcmp(argv[1], "--recv-payload") == 0) {
+        load_payload_from_net_sim(argv[2]);
+    } else if (argc > 1 && strcmp(argv[1], "--recv-payload") == 0) {
+        load_payload_from_net_sim("northstar-payload.hex");
+    } else {
+        /* default: try common ws "received" channel file from prior send/gen */
+        load_payload_from_net_sim("northstar-payload.hex");
+    }
 
     demonstrate_nan_bypass_and_weird_machine();
     demonstrate_denormal_timing_sidechannel();

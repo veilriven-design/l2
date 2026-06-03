@@ -451,6 +451,11 @@ BL2
 -w /root/.l2/ -p wa -k l2-northstar-state
 -w /tmp/l2-ws- -p wa -k l2-northstar-ws
 AUD
+            # North-Star Defense note (v0.5.9+): the above + ws isolation also contains "North-Star Attack"
+            # (diabolical IEEE754/FP/int/weird-machine payloads sent over net to binary targets). Even if
+            # math "succeeds" inside the numeric processor (NaN bypass, denormal timing, cast OOB, etc.),
+            # no escape from ws, no host state tamper, no real net C2 (use tomato/na surfaces for safe test delivery).
+            # Pair with spirit --file (flags raw FP math) + audit --test. See northstar resistance demo.
             if cp /tmp/l2-great-audit.rules /etc/audit/rules.d/l2-great-harden.rules 2>/dev/null || sudo cp /tmp/l2-great-audit.rules /etc/audit/rules.d/l2-great-harden.rules 2>/dev/null; then
                 augenrules --load 2>/dev/null || sudo augenrules --load 2>/dev/null || true
                 APPLIED_LIST="$APPLIED_LIST,audit-rules-applied"
