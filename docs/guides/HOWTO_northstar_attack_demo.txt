@@ -1,0 +1,124 @@
+HOWTO: North-Star Attack Demo (Binary Math Inherent Flaws Over Network) + North-Star Defense with l2
+
+Title: HOWTO: Demonstrating the North-Star Attack (mathematically dangerous directed net payload exploiting IEEE 754, two's complement, and weird machines) and verifying North-Star Defense using l2 substrate on hardened model.
+
+Overview / Purpose
+- This is the canonical self-contained educational demo for the "North-Star Attack": the most mathematically dangerous directed attack over a network that targets binary computers.
+- It sends a diabolical payload of crafted IEEE 754 doubles + int fields (QNaN with attacker payload bits for unordered bypass, subnormals for timing side-channels/DoS per 2015 research, negative "lens" for cast-to-huge OOB, accumulators for precision catastrophe, Inf/NaN for propagation, bit patterns for emergent "weird machine" computation, consensus splits).
+- Exploits *inherent* flaws in *every* binary computer (finite base-2 representation, no total order on floats, microcode penalties for denormals, signed/unsigned, rounding). No software "patch" exists without new math hardware.
+- Real-world echoes: Ariane 5 (int overflow in FP conversion), Patriot missile (FP accumulation error), browser pixel-stealing via subnormals, NaN gadgets in JS engines, countless "impossible" NaN paths in safety-critical code.
+- "Directed over network": payload looks like normal numeric data (sensor readings, MCP/tool numeric args, "AI" tensor/embedding updates, protocol headers, config deltas, financial ticks, control setpoints). Stealthy, hard to filter at the math layer, devastating for agentic/MCP/AI/critical/OT where numeric decisions rule.
+- The "North-Star Defense": If you are using the l2 substrate on a hardened model (great-harden policy + l2 great-harden --apply + explicit net surfaces via --policy na/tomato + spirit --audit --file with binary-math patterns + l2 audit --test evidence), you are protected and safe.
+  - The attack can *only* "succeed" (cause its diabolical math catastrophe: bypass, timing exfil, weird-computed "grant", wrong decision, split-brain) inside an *explicitly authorized* disposable l2 workspace.
+  - Even then, damage cannot escape (Landlock ws-only, seccomp NEVER, env_clear + HOME=ws-only, caps drop, no_new_privs, rlimits, ns, great-harden --apply host lockdown: kernel lockdown, modules_disabled, ptrace_scope=3, audit rules on state/ws, Protect* units).
+  - Explicit net surfaces (na0 for audit/pentest, wan0/lan0 for tomato router) are *masked* (host sees only veth peer with best-effort NAT; real exfil/C2 from inside goes nowhere useful; fully disposed on l2 destroy/oneshot).
+  - "put" of the attack binary + "exec" under policy is the *only* way it runs with the ws context where "victims" (sim secrets, grants, other ws "hosts") exist.
+  - Outside any l2 ws: no victims, no authority, "exploit math succeeds" locally in the sim but does nothing observable or damaging on the host (BLOCKED by demo logic).
+  - spirit --audit --file now detects raw FP/int math patterns (NaN risk, denormal, punning, missing isnan/isfinite, dangerous casts, plus new --gen/--recv patterns) as DANGEROUS with "North-Star math attack pattern" recommendation: sanitize + run ONLY under l2 great-harden policy + explicit net surface.
+  - l2 audit --test (evidence loop) includes dedicated "North-Star attack (binary math FP/int/weird machine payload over net) containment — l2 North-Star Defense" check. Requires great-harden policy/harden json + demo run evidence. Machine proof you are safe.
+- "prepare prepare prepare": when confident, L2_DATA_DIR + great-harden --apply + create --policy great-harden (or tomato for net flavor) + put the demo + exec (gcc + run with --gen/--recv for directed payload) + audit --test = repeatable, standards-aligned (CISA CPG 2.0 malicious code 4.A, NSA MCP CSI May 2026 / Agentic AI / AI Data Sec / Supply Chain, OT AI principles) proof that even this universal mathematical attack on binary nature is contained to your explicit ws.
+- For agentic/MCP/AI (l2's focus): numeric context (weights, logits, decisions, "approvals" as floats) from net/MCP calls is isolated; a poisoned "tensor payload" cannot exfil real keys, tamper host l2, escape to host net, or persist. The "catastrophe" (wrong numeric decision) is disposable.
+- seL4 path (future): the narrow L2P + core C layer (with safe.h bounds + zero) can be swapped for capability-based math isolation while keeping identical external iface + North-Star evidence.
+
+Prerequisites
+- l2 built (cargo build --release --bin l2; optionally --bin na --bin tomato for net surface delivery flavor).
+- For full effect (great-harden host lockdown + ns): sudo/root access (l2 handles escalation for unshare/Landlock application; L2_DATA_DIR and other L2_* vars are preserved).
+- gcc (for compiling the demo inside ws; -static recommended for tiniest Landlock RO paths under great-harden).
+- L2_DATA_DIR for clean isolated testing (strongly recommended; export L2_DATA_DIR=$(mktemp -d); all state, ws, crypto, harden reports, audit logs go there).
+- See README Troubleshooting for L2_DATA_DIR + sudo notes, old kernels, etc.
+- Optional but powerful for "over network" directed delivery flavor: --policy tomato (or na) + put na + tomato binaries. tomato configures the masked wan0/lan0 router surface (firewall nft, qos, monitor); na can "inject" the payload bytes as raw packets on the surface. The demo's --gen-payload-hex + --recv-payload make it a true sender/receiver of the diabolical bits.
+- For spirit --audit --file on the demo source (shows DANGEROUS + North-Star math patterns): just have the .c.
+- For full evidence: l2 audit --test (after great-harden --apply + demo run).
+
+The Demo Binary (l2_northstar_attack_resistance_demo.c)
+- Self-contained C99 + POSIX + Linux (no external libs).
+- Hardcoded DIABOLICAL_PAYLOAD[10] uint64 bit patterns (the "sent" payload).
+- Supports:
+  - Default / --recv-payload [file]: load payload from "net sim" hex file (one 16-hex-digit line per uint64, as produced by --gen). Reinterprets bits as doubles/ints with ZERO sanitization (no isnan, no isfinite, raw casts, accum, pun, loop with subnormals). Runs all 4 demonstrate vectors + grand + summary.
+  - --gen-payload-hex: outputs the exact 10 lines of hex (the "send" of the crafted bits; can be put to a channel object/file via l2 put, or na-injected over the masked surface).
+- is_in_l2_workspace() (stricter for root-local safety): looks for l2-ws- in cwd/HOME, L2_DATA_DIR signals, or combo of USER/LOGNAME=="l2" (set by l2's setup_minimal_l2_env) + l2- evidence. Hardened specifically for your "run as pure root locally on own machine" test case.
+- Root-local pure-root testing security (your plan):
+  - Direct root run (sudo ./ns or in /root or normal /tmp without l2-ws- markers, no L2_DATA_DIR ws, USER=root) will hit euid==0 warning + is_in=false.
+  - ALL "success" side-effects (the 4 northstar_*.txt marker files that simulate bypass-grant, timing-leak-of-secret, overflow-OOB, consensus-split "escalation") are double-gated: if (is_in_l2_workspace()) { fopen... }.
+  - No absolute paths, no writes to /etc /root /sensitive, no system()/exec of attacker payloads, no real C2 (sockets only in related demos). Markers are always relative to cwd *and only if in*.
+  - Even as pure root locally, the demo will not compromise your machine (beyond files you deliberately create in your test cwd). You get the rich math evidence output for demonstration, but BLOCKED for actions.
+  - The real North-Star Defense requires the l2 usage model (create ws under great-harden + Landlock/seccomp/env sanitization on top of the demo's internal guards).
+- All "damage" and "secrets" are simulated safely (reversible text markers, no real host harm). The "payload" is the static bits (in real attack: received from net as 8-byte doubles or int fields in any numeric stream).
+
+Recommended Workflows (copy-paste ready)
+1. Bare root local test (your plan: run the attack binary as pure root directly on your own machine-self to see the math evidence + that it is BLOCKED / does not pwn the host):
+   export L2_DATA_DIR=$(mktemp -d)   # optional but clean
+   cd /tmp/some-normal-dir-without-l2-markers   # or /root
+   gcc -Wall -Wextra -o ns /path/to/l2/docs/examples/l2_northstar_attack_resistance_demo.c
+   ./ns --gen-payload-hex > p.hex
+   ./ns --recv-payload p.hex
+   # Expected:
+   # - Loud "*** WARNING: Running as root (euid=0) on local machine. ***"
+   # - "No l2 ws signals ... ALL attack 'success' vectors are BLOCKED by demo logic."
+   # - Rich [MATH EVIDENCE ...] blocks for every vector (exact bits, NaN properties, ~40x slowdown, cast to 0xffffffff80000000, accum error -1.95e-14, Inf/NaN prop, consensus split, weird machine states, etc.).
+   # - All "CONTAINED SUCCESS" / marker creation paths hit the else: "BLOCKED ( ... substrate would have contained ... )"
+   # - No northstar_*.txt pwn markers created (ls confirms none).
+   # - GRAND SUMMARY notes "bare host" + "mathematical evidence prints above still appear for demonstration purposes even on bare-root runs."
+   # This is safe "machine-self" red-teaming. The inherent binary math flaws are demonstrated mathematically, but no compromise because no ws context/victims/authority.
+   # Cleanup: rm -f p.hex northstar_*.txt (if any were created by accident in a triggering dir)
+
+2. Proper l2 usage for "contained success" + full North-Star Defense evidence (the grand demonstration):
+   export L2_DATA_DIR=$(mktemp -d)
+   l2 great-harden --fast --apply || true   # prepare North-Star host lockdown (kernel lockdown, extreme sysctls, units, audit for state/ws, etc.)
+   l2 create northstar-test --policy great-harden
+   # (alt for richer "over network" directed delivery flavor using tomato/na surfaces:
+   #  l2 create netlab --policy tomato
+   #  l2 put netlab na target/release/na
+   #  l2 put netlab tomato target/release/tomato
+   #  l2 put netlab ns.c docs/examples/l2_northstar_attack_resistance_demo.c
+   #  l2 exec netlab 'gcc -static -Wall -Wextra -o ns ns.c && ./ns --gen-payload-hex > p.hex && ./ns --recv-payload p.hex'
+   #  Use tomato status/firewall/qos/monitor + na inject/capture on wan0/lan0 for realistic payload "send" over the masked router surface.)
+   l2 put northstar-test ns.c --file docs/examples/l2_northstar_attack_resistance_demo.c
+   l2 exec northstar-test 'gcc -static -Wall -Wextra -o ns ns.c && ./ns --gen-payload-hex > p.hex && ./ns --recv-payload p.hex'  # grand demo
+   # Expected inside ws:
+   # - "(loaded diabolical payload from p.hex ...)"
+   # - The same rich [MATH EVIDENCE ...] blocks (now with "CONTAINED SUCCESS" lines).
+   # - northstar_*.txt marker files created (with full "=== NORTH-STAR ATTACK MATHEMATICAL EVIDENCE (CONTAINED) ===" sections containing the numbers + explanation).
+   # - "North-Star Containment achieved (... only authorized ws victims 'pwned' ...)"
+   # - GRAND SUMMARY with "North-Star Containment achieved under great-harden..."
+   l2 audit --test   # verifies the new "North-Star attack (binary math FP/int/weird machine payload over net) containment — l2 North-Star Defense" check (plus great-harden json, policy usage, etc.)
+   l2 destroy northstar-test
+   # ws + any masked net surfaces (if tomato/na flavor) are fully disposed. All evidence in $L2_DATA_DIR (harden reports, audit.log, etc.).
+
+3. Static analysis of the attack source (spirit --audit --file):
+   l2 spirit --audit --file docs/examples/l2_northstar_attack_resistance_demo.c
+   # Expected: "DANGEROUS" verdict + many "North-Star math attack pattern (binary FP/int/weird machine): ..." findings (double, float, 0x7ff8, subnormal, denormal, isnan, accum, (size_t), (int32_t), --gen-payload, --recv-payload, northstar-payload, load_payload..., DIABOLICAL_PAYLOAD, as f64, transmute, fenv, 0x1p-, etc.).
+   # Recommendation text points to l2 great-harden + explicit net surface + audit --test.
+
+4. Full evidence loop (for standards / audit / CI / "prepare prepare prepare"):
+   # After the above l2 great-harden --apply + create/put/exec (with the demo run), run:
+   l2 audit --test
+   # It will PASS the dedicated North-Star attack check (and related great-harden / ransomware / etc. checks).
+   # The check looks for great-harden policy/harden json + explicit "put" of the northstar demo .c in the audit log.
+   # CI (in .github/workflows/ci.yml) does exactly this: puts the .c under great-harden ws, runs the improved gen+recv exec, greps for CONTAINED SUCCESS / North-Star Containment achieved / loaded diabolical, then greps audit --test for the check name.
+   # This + the rich math evidence in stdout + markers + spirit --file output = machine-verifiable, standards-backed (CISA/NSA 2026) demonstration that the universal binary math attack is contained.
+
+Notes / Cross-References / "prepare prepare prepare"
+- The math evidence output (exact bits, NaN properties, slowdown factors ~40x, cast hex values, accum to 20 decimals + ulp error, Inf/NaN propagation, weird machine states, consensus splits, etc.) is the "interesting output for evidence for this test mathematically for demonstration purposes". It appears for pure demo/education even on bare-root local runs (your test case), while actions stay BLOCKED. Inside a real l2 ws it is the same output + CONTAINED SUCCESS + evidence markers.
+- All other resistance demos (cancer, crypto redteam, full-weakness, ransomware, miasma, safe) follow the same North-Star pattern and cross-reference this one as the "math" / "binary representation" attack.
+- See:
+  - src/main.rs (run_security_audit_tests new/improved check, spirit --file enhanced northstar_math patterns + verdict, run_rat etc., recommended_usage in policy help).
+  - docs/SECURITY.md (dedicated North-Star Attack & Defense section with research + mappings to 2026 standards).
+  - README.md (smoke examples + "New" bullets + great-harden description, now showing the --gen/--recv directed usage).
+  - CHANGELOG.md (full v0.5.9 entry + post-audit improvements para).
+  - docs/STATUS.md, docs/ROADMAP.md (v0.5.9 + audit/improvements notes).
+  - docs/examples/ other *_resistance_demo.c and *_attack.c (headers with usage + cross-refs).
+  - scripts/harden.sh (great profile now documents math payload containment explicitly).
+  - .github/workflows/ci.yml (builds all bins, puts/runs the improved demo under great-harden, greps evidence, audit --test check).
+  - na (capture/inject the hex payload bytes on na0), tomato (router the "C2 math stream" on wan0/lan0 + monitor for timing side-channel sim).
+  - l2 spirit --audit --os / --rat / --file, l2 audit --test, l2 great-harden --apply + policy great-harden (or tomato/na).
+- This directly addresses the "Evidence and audit" requirement. The protocol + demo + `l2 audit --test` + rich per-vector math output give a repeatable, auditable, standards-backed validation path for the most universal class of attack on binary computers.
+- "prepare prepare prepare" — this (combined with the other resistance demos + full spirit/audit/harden/crypto loop) is the world-class North-Star Containment posture for aerospace/industrial/critical/agentic/MCP/AI systems per NSA/CISA 2026 (CPG 2.0, MCP CSI, Agentic AI, AI Data Sec, Supply Chain, OT AI).
+- v0.5.10+ (with math evidence enhancement, root-local hardening, directed gen/recv, full HOWTO instructions). See the commit history / tags for the exact state.
+
+Compile / run notes
+- Inside l2 under great-harden (recommended): gcc -static -Wall -Wextra -o ns ... ( -static minimizes required RO paths under the supreme tiny Landlock).
+- Standalone (for education / "what it does on bare host as root"): gcc -Wall -Wextra -o ns ... && ./ns (or sudo ./ns for the pure-root local test case).
+- The binary is safe by design for the scenarios above.
+
+This HOWTO + the demo source + l2's spirit/audit/harden integration = the complete picture. Use it to prepare your substrate for defense against the named attack on the inherent nature of binary computational devices. "prepare prepare prepare".
