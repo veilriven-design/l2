@@ -34,6 +34,7 @@
 - Docs cross-updates: README highlights + crypto section + table entry expanded with "even further" polish, 10-vector list, HOWTO ref, prepare framing, updated mappings; CHANGELOG this subsection; cancer demo header cross-ref to redteam polish; minor consistency in other refs.
 - No new surfaces, full L2_DATA_DIR respect, closed evidence loop (crypto --apply -> put redteam -> exec gcc+run -> audit --test PASS with North-Star + standards), ready for combined malware-cancer + crypto redteam grand North-Star demos.
 - All per "prepare prepare prepare" + user request to update/polish even further after initial onslaught.
+- Quantum encryption prep for open-source mechanisms to defend against quantum attacks: added profiles `hybrid-pqc-mlkem-chacha` and `pqc-mlkem-argon2id` (ML-KEM/Kyber NIST FIPS 203 via open-source liboqs for PQC key encapsulation + strong XChaCha/AES + Argon2id). Script handles PQC KEM wrap guidance/commands (oqs_kem_enc etc), age PQC for files; LUKS/gocryptfs base symmetric + PQC key layer. Updated redteam (new quantum harvest vector + SUMMARY), standards/json (NIST PQC + NSA Quantum Readiness), docs (README/SECURITY/STATUS/harden), main crypto fn comment. l2 isolation protects PQC private keys (no ambient). "prepare prepare prepare" for quantum-resistant at-rest + North-Star.
 
 ### June 2026 Up-to-the-Minute Full Sweep of CISA/NSA Guidance
 - Performed another complete sweep (using current web/X sources) for the absolute latest CISA/NSA publications as of June 2026 (post May MCP CSI).

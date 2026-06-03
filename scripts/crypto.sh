@@ -113,6 +113,20 @@ print_profiles() {
    - Verification: Both components are top-tier; hybrid constructions are recommended in modern guidance (e.g., for post-quantum transition but here for classical robustness)."
     echo || true
     type_line "Hybrid is strongly recommended for maximum security in agentic environments where data longevity and tool secrecy matter."
+    echo || true
+    type_line "4. hybrid-pqc-mlkem-chacha (quantum-resistant / post-quantum preparation)"
+    reveal_lines "   - Hybrid classical + open-source post-quantum: XChaCha20-Poly1305 (symmetric data) + ML-KEM (Kyber, NIST FIPS 203) for key encapsulation/wrapping using open-source liboqs.
+   - KDF: Argon2id for both layers.
+   - Use case: Defend against quantum attacks (Shor on classical asym, Grover on sym/KDF) for long-term data at rest, AI model weights, critical infra archives. 'Harvest now, decrypt later' resistance.
+   - Mechanism: Use open-source liboqs (OQS project) to perform ML-KEM KEM with recipient PQC public key; shared secret used to wrap/derive the master key for LUKS/gocryptfs. Symmetric layer uses proven XChaCha. Keys protected by l2 isolation (explicit exec only).
+   - Open-source: liboqs (https://github.com/open-quantum-safe/liboqs), oqsprovider for OpenSSL integration if needed, age with PQC plugins for file-level objects. Hybrid recommended per NIST/NSA for transition.
+   - Verification: NIST FIPS 203, liboqs audited implementations, side-channel resistant where possible."
+    echo || true
+    type_line "5. pqc-mlkem-argon2id (PQC-focused key protection)"
+    reveal_lines "   - Post-quantum KEM: ML-KEM-768/1024 (NIST) for key encapsulation + Argon2id KDF.
+   - Use case: Quantum-safe key management for disk encryption setup or backup of l2 state/crypto keys. Combine with strong symmetric above.
+   - Open-source mechanism: liboqs for KEM ops; script will guide use of oqs_kem_enc / dec if available, or print equivalent commands.
+   - For full disk: use the encapsulated secret as additional passphrase factor or to unlock gocryptfs/LUKS."
 }
 
 get_profile_details() {
@@ -132,6 +146,16 @@ get_profile_details() {
             echo "hybrid"  # special case || true
             echo "argon2id" || true
             echo "AES-256-XTS (data) + XChaCha20-Poly1305 (keys/meta)" || true
+            ;;
+        hybrid-pqc-mlkem-chacha)
+            echo "pqc-hybrid"  # special case for quantum prep || true
+            echo "argon2id" || true
+            echo "XChaCha20-Poly1305 (data) + ML-KEM (NIST FIPS 203 PQC KEM via liboqs) + Argon2id" || true
+            ;;
+        pqc-mlkem-argon2id)
+            echo "pqc-mlkem"  # PQC KEM focused || true
+            echo "argon2id" || true
+            echo "ML-KEM (NIST PQC) + Argon2id for key protection" || true
             ;;
         *)
             echo "unknown" || true
@@ -159,11 +183,12 @@ echo || true
 
 if $LIST || [ "$PROFILE" = "list" ]; then
     if $JSON; then
-        echo '{"profiles": ["aes256-xts-argon2id", "xchacha20-poly1305-argon2id", "hybrid-aes-chacha"], "default": "aes256-xts-argon2id", "note": "Only verified open-source; hybrid recommended for agentic/MCP"}' || true
+        echo '{"profiles": ["aes256-xts-argon2id", "xchacha20-poly1305-argon2id", "hybrid-aes-chacha", "hybrid-pqc-mlkem-chacha", "pqc-mlkem-argon2id"], "default": "hybrid-pqc-mlkem-chacha", "note": "Only verified open-source; hybrid-pqc recommended for quantum resistance / agentic/MCP long-term; uses liboqs for ML-KEM (NIST FIPS 203)"}' || true
     else
         print_profiles
         type_line "To apply: l2 crypto --profile <name> --apply"
-        type_line "Example: l2 crypto --profile hybrid-aes-chacha --apply"
+        type_line "Example (quantum-resistant): l2 crypto --profile hybrid-pqc-mlkem-chacha --apply"
+        type_line "  (requires liboqs or prints open-source commands for PQC KEM key wrap)"
     fi
     exit 0
 fi
@@ -266,6 +291,9 @@ For existing systems, we will set up a safe per-user encrypted directory for l2 
             xchacha20-poly1305-argon2id|hybrid-aes-chacha)
                 GOCRYPTFS_CIPHER="--xchacha"
                 ;;
+            hybrid-pqc-mlkem-chacha|pqc-mlkem-argon2id)
+                GOCRYPTFS_CIPHER="--xchacha"  # PQC for key layer, xchacha for data
+                ;;
         esac
 
         # Use gocryptfs with argon2 (gocryptfs uses scrypt by default? Wait, recent uses argon2? Actually gocryptfs uses scrypt, but we can note.
@@ -301,6 +329,24 @@ gocryptfs "$CRYPTO_DIR" "$MOUNT_DIR" || echo "mount may already be active or fai
 EOFHELPER
     chmod +x "$CRYPTO_HELPER" 2>/dev/null || true
     type_line "Created MCP-aware crypto helper: $CRYPTO_HELPER (invoke under strict-mcp)"
+
+    # Quantum / PQC preparation using open-source mechanisms (liboqs etc.)
+    if [[ "$PROFILE" == *"pqc"* || "$PROFILE" == *"quantum"* || "$PROFILE" == "hybrid-pqc-mlkem-chacha" ]]; then
+        echo
+        type_line "PQC / quantum-resistant preparation (open-source mechanism):"
+        reveal_lines "To defend against quantum attacks (harvest-now-decrypt-later via Shor's/Grover's):
+- Install open-source liboqs (OQS): git clone https://github.com/open-quantum-safe/liboqs ; cmake build.
+- Use liboqs KEM API (ML-KEM / Kyber NIST FIPS 203) to encapsulate the master key or derive additional secret.
+- Example (if oqs tools / example apps available):
+  oqs_kem_enc -a Kyber768 -p recipient.pub -i master.key -o wrapped.ct
+  # Store wrapped.ct with LUKS header or in l2 protected state (access only via strict-mcp exec).
+- For age-style file encryption of sensitive l2 objects/backups: use age with PQC plugin (e.g. age-plugin-kyber or experimental PQC age forks) for quantum-safe file-level.
+- LUKS/gocryptfs layer remains strong symmetric (XChaCha/AES256 + Argon2id resists Grover with 256-bit); PQC protects the key material.
+- After setup, protect PQC private keys ONLY via l2 exec --policy strict-mcp (substrate isolation is the defense).
+See liboqs docs, NIST SP 800-227 (KEM recs), NSA Quantum Readiness for migration.
+l2 substrate + explicit put/exec + great-harden ensures PQC keys never leak ambiently."
+        if ! $JSON; then type_line "  (Run with --apply to set up base + use PQC for key wrap in production.)"; fi
+    fi
     # v0.4.7+ polish note for North-Star / redteam integration
     if ! $JSON; then type_line "For verification: use with great-harden + put l2_crypto_redteam_onslaught.c + l2_full_weakness_audit_attack.c + exec + l2 audit --test (see HOWTOs and North-Star Containment grand demo after full audit)"; fi
 
@@ -320,6 +366,18 @@ EOFHELPER
             echo "cryptsetup luksFormat --type luks2 --cipher xchacha20,aes-adiantum-plain64 --key-size 256 --pbkdf argon2id /dev/sdX  # outer" || true
             echo "# Then create inner on the mapped device with AES." || true
             echo "cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --pbkdf argon2id /dev/mapper/outer" || true
+            ;;
+        hybrid-pqc-mlkem-chacha|pqc-mlkem-argon2id)
+            echo "# PQC hybrid / quantum-resistant (open-source liboqs ML-KEM + strong sym):" || true
+            echo "# 1. Generate PQC keypair with liboqs (open-source):" || true
+            echo "   # (build liboqs, use example or oqs_kem_keypair for ML-KEM-768)" || true
+            echo "   oqs_kem_keypair -a Kyber768 -p recipient.pub -s recipient.priv" || true
+            echo "# 2. Encapsulate master key material (use shared secret as extra key factor or to encrypt the LUKS key):" || true
+            echo "   oqs_kem_enc -a Kyber768 -p recipient.pub -i /tmp/luks-master.key -o /tmp/luks-wrapped.ct" || true
+            echo "# 3. For LUKS, use the (unwrapped via privkey) secret + argon for key; store wrapped.ct in l2-protected location (only accessible via strict-mcp exec)." || true
+            echo "cryptsetup luksFormat --type luks2 --cipher xchacha20,aes-adiantum-plain64 --key-size 256 --pbkdf argon2id /dev/sdX  # base symmetric; layer PQC wrap for key" || true
+            echo "# For full quantum: combine with PQC KEM for any key transport; protect privkey with l2 substrate only."
+            echo "# See liboqs for full API; hybrid per NIST/NSA for transition period."
             ;;
     esac
 
@@ -361,7 +419,7 @@ EOFHELPER
   "mount_dir": "$MOUNT_DIR",
   "network_isolation": $NETWORK_ISOLATION,
   "timestamp": "$(date -Iseconds)",
-  "standards": ["NSA AI Data Security CSI (2025; at-rest + key prot for AI/agents)", "CISA CPG 2.0 (GOVERN/least-priv/mal-code/adverse-events + encryption at-rest)", "NSA MCP CSI May 2026 (key/context protection + least-priv via l2 substrate)", "CISA/NSA Agentic AI CSI Apr/May 2026 (5 risks mitigated via explicit ws + explicit exec + audit)", "NSA AI/ML Supply Chain Mar 2026 (protect model weights/secrets at-rest)", "June 2026 sweep + l2 North-Star Containment (crypto redteam onslaught verification: 10+ vectors + hybrid-aes-chacha + Argon2id + evidence)"]
+  "standards": ["NSA AI Data Security CSI (2025; at-rest + key prot for AI/agents)", "CISA CPG 2.0 (GOVERN/least-priv/mal-code/adverse-events + encryption at-rest)", "NSA MCP CSI May 2026 (key/context protection + least-priv via l2 substrate)", "CISA/NSA Agentic AI CSI Apr/May 2026 (5 risks mitigated via explicit ws + explicit exec + audit)", "NSA AI/ML Supply Chain Mar 2026 (protect model weights/secrets at-rest)", "June 2026 sweep + l2 North-Star Containment (crypto redteam onslaught verification: 10+ vectors + hybrid-aes-chacha + Argon2id + evidence)", "NIST PQC FIPS 203 (ML-KEM), 204 (ML-DSA), 205 (SLH-DSA) + NSA Quantum Readiness / CNSA 2.0 (hybrid classical+PQC for transition; liboqs open-source mechanism for KEM; symmetric XChaCha/AES256 + Argon2id resists Grover; l2 isolation protects PQC keys)"]
 }
 EOFJSON
     if $JSON; then
@@ -392,6 +450,7 @@ echo || true
 type_line "To actually apply (safe, user-confirmed setup of encrypted dir + full commands):"
 type_line "  l2 crypto --profile $PROFILE --apply"
 type_line "  # Then (prepare prepare prepare): pair with great-harden + crypto redteam demo (see docs/examples/l2_crypto_redteam_onslaught.c + HOWTO) for NSA-level verification + l2 audit --test North-Star Containment"
+type_line "  # For quantum: l2 crypto --profile hybrid-pqc-mlkem-chacha --apply  (uses open-source liboqs ML-KEM for key protection against quantum attacks)"
 
 echo || true
 

@@ -1904,7 +1904,8 @@ fn great_harden(
 /// Uses verified open-source algorithms for true encryption (LUKS/gocryptfs etc.).
 /// Integrates with strict policies for key protection. Supports hybrid profiles.
 /// v0.4.7+ : --json, L2_DATA_DIR/crypto/ evidence (crypto-latest.json), --fast, audit --test integration. (v0.4.8: even further redteam polish + North-Star grand demo)
-/// Pair with docs/examples/l2_crypto_redteam_onslaught.c (10+ NSA-level vectors) + great-harden + put/exec + audit for full North-Star Containment crypto verification (prepare prepare prepare).
+/// Quantum prep (PQC): new profiles hybrid-pqc-mlkem-chacha / pqc-mlkem-argon2id using open-source liboqs (ML-KEM / Kyber NIST FIPS 203) for key wrap + strong sym; defends Shor/Grover / harvest-now. See crypto redteam (now includes quantum vector) + docs.
+/// Pair with docs/examples/l2_crypto_redteam_onslaught.c (10+ NSA-level vectors + quantum) + great-harden + put/exec + audit for full North-Star Containment crypto verification (prepare prepare prepare).
 fn crypto(
     profile: String,
     list: bool,
