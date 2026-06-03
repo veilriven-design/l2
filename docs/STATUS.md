@@ -65,7 +65,7 @@ l2 is the minimal high-assurance Latticra substrate:
 
 2. Better host isolation (seccomp-bpf, capability dropping, tighter Landlock policies, user+mount ns) — Landlock baseline v0.2.0. Phase 0 complete: real `SECCOMP_RET_LOG` + `FLAG_LOG` observer now works (`L2_STRICT_SECCOMP_OBSERVE=1`). Kernel audit logs for strict workloads are available. Phase 1 enforcing active and exercised by strict-mcp + ransom-hardened. See `src/sandbox.rs` + docs/PROTOTYPE_HARDENING_AND_SEL4_PLAN.md for usage. Ready for trace collection → profiles. (Now heavily exercised by `strict-mcp`, `ransom-hardened`, and crypto tooling.)
 
-3. Audit logging: Basic append-only JSONL authority audit log (`audit.log` in data dir) now implemented for create/put/exec/destroy/revoke/escalate/sandbox (and oneshot temp systems). Includes `l2 audit` subcommand. Respects SUDO_USER. See `src/audit.rs`. This directly addresses the "Evidence and audit" requirement in SECURITY.md.
+3. Audit logging: Basic append-only JSONL authority audit log (`audit.log` in data dir) now implemented for create/put/exec/destroy/revoke/escalate/sandbox (and oneshot temp systems). Includes `l2 audit` subcommand. Respects SUDO_USER. See `src/audit.rs`. This directly addresses the "Evidence and audit" requirement in docs/SECURITY.md.
 
 4. Correctness gaps: Deeper work — non-panicking JSON output paths, load_state now warns on corrupt JSON, many silent cleanups now use warn_on_cleanup_err, 17 tests (strong coverage on data_dir, state roundtrips, error paths, isolation helpers). See recent changes in src/main.rs.
 
@@ -76,7 +76,7 @@ l2 is the minimal high-assurance Latticra substrate:
 
 ## How to Use Right Now
 
-See [ROADMAP.md](ROADMAP.md) for the current prioritized direction.
+See [docs/ROADMAP.md](ROADMAP.md) for the current prioritized direction.
 
 See the full install + usage instructions (and the dedicated Troubleshooting subsection) in `README.md` (covers both `cargo build --release` and `cargo install --path . --force`).
 

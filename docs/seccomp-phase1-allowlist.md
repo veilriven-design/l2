@@ -144,7 +144,7 @@ The enforcing filter (Phase 1) + auto profile discovery + cap drop + per-policy 
 
 See also:
 - `src/sandbox.rs` (observer + enforcing filter + policy dispatch for strict-mcp/ransom-hardened/great-harden)
-- `ROADMAP.md`, `STATUS.md`, `SECURITY.md`, README Troubleshooting
+- `docs/ROADMAP.md`, `docs/STATUS.md`, `docs/SECURITY.md`, README Troubleshooting
 - `docs/PROTOTYPE_HARDENING_AND_SEL4_PLAN.md` (hardening plan)
 - `docs/examples/l2_ransomware_resistance_demo.c` (use under ransom-hardened for validation)
 - `docs/examples/l2_malware_cancer_resistance_demo.c` (AIO substrate attack sim; use under great-harden for supreme validation)

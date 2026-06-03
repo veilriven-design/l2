@@ -65,13 +65,13 @@
  * Cross-references:
  *   - l2_malware_cancer_resistance_demo.c (AIO base: ransom+Miasma+virus+substrate)
  *   - l2_crypto_redteam_onslaught.c (crypto specific 10 vectors)
- *   - HOWTO_execute_crypto... (and similar for cancer)
+ *   - docs/guides/HOWTO_execute_crypto... (and similar for cancer)
  *   - src/sandbox.rs (NEVER_ALLOWED + Landlock + seccomp)
  *   - src/main.rs (run_security_audit_tests new check + escalate + apply_strict_sandbox)
  *   - scripts/harden.sh (great-harden --apply + standards)
  *   - scripts/crypto.sh
  *   - l2 audit --test (now includes full weakness check + all prior)
- *   - SECURITY.md, README, CHANGELOG (v0.4.8+ full audit + bolster)
+ *   - docs/SECURITY.md, README, CHANGELOG (v0.4.8+ full audit + bolster)
  *
  * This attack + subsequent bolsters (extended NEVER, more harden rules/sysctls/audit, tightened sbx, new audit check) closes the loop on the full audit of l2.
  * "prepare prepare prepare"
@@ -406,7 +406,7 @@ int main(void) {
     printf("  - Only explicitly authorized ws victims (put + exec under great-harden/crypto) show CONTAINED SUCCESS.\n");
     printf("  - Evidence: l2 audit --test (new 'AIO full weakness audit onslaught containment' check + all prior) + crypto-latest.json + great-harden-latest.json + tamper chain.\n");
     printf("l2 North-Star Containment (full weakness audit): the grand demonstration that l2 meets or exceeds NSA/CISA 2026 for agentic/MCP/critical after exhaustive self-audit + bolster. All vectors from prior cancer/redteam + new covered and contained.\n");
-    printf("Cross-refs: cancer demo, crypto redteam, HOWTOs, SECURITY.md, src/sandbox.rs, main.rs audit, harden/crypto --apply.\n");
+    printf("Cross-refs: cancer demo, crypto redteam, HOWTOs, docs/SECURITY.md, src/sandbox.rs, main.rs audit, harden/crypto --apply.\n");
     printf("All per the 'prepare prepare prepare' for the world-class north-star repeatable full audit attack demo. v0.4.8+.\n");
 
     return 0;

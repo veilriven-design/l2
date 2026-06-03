@@ -17,7 +17,7 @@ The external interface (`l2` CLI + L2P protocol + `l2_sys_*`) must be identical 
 - L2P v1 E2E exercised on Linux: l2::Host (Linux backend impl of L2Core trait in src/lib.rs) + l2-core (host/core.rs) handle create/put/get/destroy/list + exec/revoke intent over narrow stdio protocol. External CLI + demos identical. Grants now structured capabilities (id + rights) inspired by seL4/Capsicum/CHERI/Genode.
 - C side: core/host.c implements portable l2_sys_* (with safe.h bounds/zero, CHERI-inspired memory safety comments); src/core/core.c has PD skeleton + notified L2P stub + exercises narrow interface (v0.5 E2E progress: maps to seL4 caps/PDs in future while producing same North-Star evidence).
 - Operational harden --apply + crypto + great-harden + audit --test close the loop on host; the same artifacts + commands will validate the seL4 PD once wired.
-- `l2.system`, narrow L2P (docs/PROTOCOL.md), and policy protocols (great-harden etc) unchanged. "The external interface must remain the same".
+- `docs/sel4/l2.system`, narrow L2P (docs/PROTOCOL.md), and policy protocols (great-harden etc) unchanged. "The external interface must remain the same".
 - See also STATUS/ROADMAP for "mature Linux Host + credible seL4 traction".
 
 Learned from open-source:

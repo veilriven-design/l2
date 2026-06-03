@@ -1,6 +1,6 @@
 //! Minimal append-only audit log for authority events.
 //!
-//! Fulfills the "Evidence and audit" requirement in SECURITY.md.
+//! Fulfills the "Evidence and audit" requirement in docs/SECURITY.md.
 //! All create/put/exec/destroy/revoke operations that cross the boundary
 //! should call this (best-effort only — never blocks the main operation).
 //!

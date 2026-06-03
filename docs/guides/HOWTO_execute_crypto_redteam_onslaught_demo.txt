@@ -73,6 +73,6 @@ After running, inspect the generated evidence (L2_DATA_DIR respected):
   cat $L2_DATA_DIR/harden/great-harden-latest.json
   # (standards arrays + applied + profile details)
 
-See also: README North-Star/Crypto sections, SECURITY.md, src/main.rs:run_security_audit_tests (9th check), scripts/crypto.sh, the cancer demo for AIO symmetry.
+See also: README North-Star/Crypto sections, docs/SECURITY.md, src/main.rs:run_security_audit_tests (9th check), scripts/crypto.sh, the cancer demo for AIO symmetry.
 
 Enjoy the (contained) show! l2 North-Star Containment: the grand demonstration of what l2 does for cryptography at the NSA level.

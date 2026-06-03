@@ -24,12 +24,12 @@ The external interface and mental model must remain the same whether the backend
 - [docs/TERMINAL_INTERFACE.md](docs/TERMINAL_INTERFACE.md) — The terminal experience north star
 - [docs/PROTOTYPE_HARDENING_AND_SEL4_PLAN.md](docs/PROTOTYPE_HARDENING_AND_SEL4_PLAN.md) — Hardening phases on Linux + seL4 vision
 - [docs/SEL4_INTEGRATION.md](docs/SEL4_INTEGRATION.md) — How the seL4 backend must preserve the narrow interface
-- [STATUS.md](STATUS.md) — Living snapshot of what is actually done and current focus areas
-- [SECURITY.md](SECURITY.md) — Security requirements and philosophy
+- [docs/STATUS.md](STATUS.md) — Living snapshot of what is actually done and current focus areas
+- [docs/SECURITY.md](SECURITY.md) — Security requirements and philosophy
 
 ## Current State (as of v0.5.0)
 
-See [STATUS.md](STATUS.md) for the authoritative "Done" and "Current Focus" lists.
+See [docs/STATUS.md](STATUS.md) for the authoritative "Done" and "Current Focus" lists.
 
 v0.5.0 qualifiers achieved:
 - L2P / core split **mature**: l2::Host (Linux backend impl of L2Core trait) + out-of-proc l2-core (host/core.rs) provide real E2E exercised narrow protocol boundary (create/put/get/destroy/list + exec/revoke intents). L2_USE_CORE=1 drives it; default in-proc for compat. 

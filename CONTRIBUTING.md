@@ -28,7 +28,7 @@ One tight, precise document or section is vastly preferred over many vague ones.
 
 ## Security & Threat Model
 
-See `SECURITY.md`. Anything that could weaken containment or allow escape between systems or to the host is treated as critical.
+See `docs/SECURITY.md`. Anything that could weaken containment or allow escape between systems or to the host is treated as critical.
 
 ## Getting Started
 

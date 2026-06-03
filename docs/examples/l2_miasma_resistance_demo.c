@@ -60,7 +60,7 @@
  *   - See docs/examples/l2_ransomware_resistance_demo.c (WannaCry-class sibling)
  *   - See docs/examples/l2_malware_cancer_resistance_demo.c (AIO "malware-cancer" attack on l2 substrate under great-harden + grand demonstration of l2 North-Star Containment; full substrate defense validation)
  *   - See docs/examples/l2_safe_execution_demo.c (the "good" contrast)
- *   - SECURITY.md (supply chain section + great-harden AIO), ROADMAP, the ransom-hardened / great-harden policy
+ *   - docs/SECURITY.md (supply chain section + great-harden AIO), docs/ROADMAP.md, the ransom-hardened / great-harden policy
  *   - l2 harden --profile ransom-hardened (or strict-mcp) + l2 audit --test ; l2 great-harden --apply for supreme
  *
  * This extends l2's "prepare for real malicious workload testing" story to

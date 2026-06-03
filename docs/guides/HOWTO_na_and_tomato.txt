@@ -174,7 +174,7 @@ IMPORTANT NOTES
   - `l2 policies`
   - `l2 policy na`
   - `l2 policy tomato`
-  - README, STATUS.md, CHANGELOG.md, CI smoke tests, etc. all reference them.
+  - README, docs/STATUS.md, CHANGELOG.md, CI smoke tests, etc. all reference them.
 
 "prepare prepare prepare" — use these tools when you want to do serious contained
 network security work (config a router with tomato, audit it with na) inside the

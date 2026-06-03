@@ -1392,7 +1392,7 @@ fn error(msg: &str, json: bool) -> ! {
 /// Run regular security audit tests based on up-to-date knowledge of
 /// protections needed for high-assurance systems (drawn from CISA/NSA/FBI
 /// guidance for containers/AI agents, Linux hardening (CIS, NSA), zero-trust
-/// principles, and l2's own threat model in SECURITY.md).
+/// principles, and l2's own threat model in docs/SECURITY.md).
 ///
 /// These checks are "automatically implemented" by:
 /// - Being required/enforced via high-assurance policies (strict-mcp for agents; ransom-hardened for ransomware/malicious workload testing)

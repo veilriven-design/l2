@@ -28,7 +28,7 @@
 
 See SEL4_INTEGRATION.md for architecture details.
 
-See [ROADMAP.md](../ROADMAP.md) for the current overall priorities. The sections below are historical context + detailed hardening notes.
+See [docs/ROADMAP.md](ROADMAP.md) for the current overall priorities. The sections below are historical context + detailed hardening notes.
 
 **Status (as of v0.5.6):** Phase 0+1 complete + L2P/core mature + capability model enhanced (grants as seL4/Capsicum/CHERI/Genode-style caps with explicit rights; early CLI Landlock=unveil in main; OpenBSD pledge/unveil mappings throughout). Real working observer/enforcing seccomp (strict-mcp/ransom/great), Landlock, L2P v1 E2E exercised (l2::Host + L2Core trait + l2-core out-of-proc for create/put/exec-intent), operational `l2 harden --apply` (real units/profiles/sysctl/audit/nft + "applied":true evidence for audit --test), PQC + quantum redteam + full-weakness AIO + North-Star Containment grand demos. 
 
@@ -54,4 +54,4 @@ Recent progress on this thread (trace + hardening UX):
 - Improved runtime messaging, `sandbox::print_seccomp_trace_reminder()`, and policy-aware Landlock/seccomp (ransom-hardened is strictest).
 - Better guidance on recommended first workloads and practical capture commands. See also the demo .c headers.
 
-See `src/sandbox.rs`, `l2 sel4-setup --help`, the resistance demo, and the updated `ROADMAP.md` / `STATUS.md`.
+See `src/sandbox.rs`, `l2 sel4-setup --help`, the resistance demo, and the updated [docs/ROADMAP.md](ROADMAP.md) / [docs/STATUS.md](STATUS.md).

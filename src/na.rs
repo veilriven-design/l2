@@ -5,7 +5,7 @@
 //! audit primitives, deauth, basic crack sim) but designed as a *totally new*
 //! minimal high-assurance tool.
 //!
-//! See HOWTO_na_and_tomato.txt (in repo root) for full instructions, descriptions,
+//! See docs/guides/HOWTO_na_and_tomato.txt for full instructions, descriptions,
 //! copy-paste sequences, prerequisites, and the tomato complement pattern.
 //!
 //! Key properties (fits l2 North-Star Containment):

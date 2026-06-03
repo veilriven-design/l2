@@ -7,7 +7,7 @@ Terminal-first CLI for explicit, strongly-isolated execution contexts with post-
 
 **v0.5.0 + major sweep (L2P E2E + operational harden --apply + seL4 traction + L2D consistency):** L2P v1 E2E via l2::Host + l2-core. `harden --apply` fully operational ("applied":true + artifacts). L2D sweep for consistency. seL4 PD traction. All North-Star/PQC/checks/prepare/NSA preserved stronger. See CHANGELOG. New PQC profiles in `l2 crypto` using open-source liboqs (ML-KEM/Kyber per NIST FIPS 203) for key encapsulation in hybrid with strong symmetric (XChaCha/AES + Argon2id), plus guidance for PQC key wrapping with liboqs tools and age PQC for files. l2 substrate isolation protects PQC private keys. Includes full redteam vector for quantum harvest in `l2_crypto_redteam_onslaught.c`. Updated standards, docs, evidence (crypto-latest.json now includes NIST PQC + NSA Quantum Readiness). Builds on v0.4.8 full self-audit + attack + bolster, previous sweeps (CPG 2.0, NSA MCP CSI May 2026, Agentic AI, AI/ML supply chain Mar 2026, OT AI, AI data sec). Cryptography improvements + even further polish: hybrid-aes-chacha d-i-d, L2_DATA_DIR/crypto/ + --json/--fast/--apply evidence (crypto-latest.json), 9th+ audit check, dedicated 10-vector NSA-level crypto redteam onslaught demo (l2_crypto_redteam_onslaught.c + HOWTO) for KDF/side/exfil/misuse/RNG/hybrid/tamper/supply/l2-state/passphrase/impl attacks (North-Star Contained to ws only, full GRAND SUMMARY, prepare prepare prepare). Quantum/PQC prep: open-source profiles hybrid-pqc-mlkem-chacha (liboqs ML-KEM FIPS 203 + XChaCha for quantum resistance / harvest-now defense), redteam now includes quantum vector. Updates to harden.sh (expanded standards/comments with exact mappings), main.rs (policy descs + audit --test standards), all docs/README/SECURITY/STATUS/CHANGELOG/ROADMAP with how l2 meets/exceeds (strict-mcp/great as the secure MCP/agentic substrate per NSA CSI + Agentic best practices; GOVERN evidence via explicit + tamper audit + --apply json; least priv/MCP isolation via Landlock+seccomp+env+no_new_privs+ws-only). Builds on prior Miasma + malware-cancer North-Star Containment grand demo + great-harden + ransom-hardened. `ransom-hardened` full-safety policy protocol for ransomware/malicious workload containment testing (WannaCry-class) and supply-chain worms (Miasma: Red Hat npm credential-stealing worm with preinstall, OIDC/GitHub exfil, tarball repack, "Miasma: The Spreading Blight" propagation); new self-contained `docs/examples/l2_ransomware_resistance_demo.c` + `l2_miasma_resistance_demo.c` (only succeed inside explicit l2 ws); `l2 harden --profile ransom-hardened` + `l2 audit --test` integration (Ransomware + Miasma containment checks, --apply for operational artifacts); dedicated harden profile. **NEW: `l2 great-harden`** for aerospace & industrial - supreme higher-assurance mode that makes servers impenetrable to all known malware/worms/viruses, closes logic gaps, aerospace-grade extreme hardening (kernel lockdown, full ro, no dynamic, great policy). **AIO "malware-cancer" attack sim** (`docs/examples/l2_malware_cancer_resistance_demo.c`): named comprehensive attack on the l2 substrate (ransom + Miasma + viruses + direct: state/trace/audit/crypto tamper, ns/bpf/setns/unshare escapes, fork/priv-esc on l2, git/pip/ELF/anti); prepared + validated under great-harden for the **grand demonstration of l2 North-Star Containment**. All additive, preserves prior guarantees. See full details in CHANGELOG.md.
 
-See the dedicated **[Crypto & Hardening](#crypto--hardening-v040)** section (collapsible) and [SECURITY.md](SECURITY.md) for full v0.4.0+ crypto/hardening/strict-mcp/ransom-hardened details, plus [ROADMAP.md](ROADMAP.md) and [STATUS.md](STATUS.md).
+See the dedicated **[Crypto & Hardening](#crypto--hardening-v040)** section (collapsible) and [SECURITY.md](docs/SECURITY.md) for full v0.4.0+ crypto/hardening/strict-mcp/ransom-hardened details, plus [ROADMAP.md](docs/ROADMAP.md) and [STATUS.md](docs/STATUS.md).
 
 ## Install
 
@@ -103,7 +103,7 @@ l2 policy strict-mcp
 
 - `strict`: Strong baseline (Landlock + no_new_privs + seccomp).
 - `strict-mcp`: Current flagship — stricter defaults for agentic/MCP/tool workloads (seccomp enforcing auto-on, tighter Landlock). Pair with `l2 harden --profile strict-mcp`.
-- `ransom-hardened`: Full safety for ransomware/malicious code testing (WannaCry-class) and supply-chain worms (Miasma npm credential exfil + propagation). Auto-enforce + minimal ws-only surface. See `l2 policy ransom-hardened`, the demos in docs/examples/ (ransomware + miasma), and SECURITY.md.
+- `ransom-hardened`: Full safety for ransomware/malicious code testing (WannaCry-class) and supply-chain worms (Miasma npm credential exfil + propagation). Auto-enforce + minimal ws-only surface. See `l2 policy ransom-hardened`, the demos in docs/examples/ (ransomware + miasma), and [SECURITY.md](docs/SECURITY.md).
 - `great-harden`: **SUPREME** (via `l2 great-harden` command) for aerospace, industrial, critical systems. Higher assurance, advanced hardening, closes gaps, makes servers impenetrable to malware/worms/viruses (incl. AIO "malware-cancer" substrate attacks). Extreme configs + great policy. See `l2 great-harden --help`, `l2 policy great-harden`, README Troubleshooting.
   - Example (with `L2_DATA_DIR` for clean tests; sudo escalation preserves it):
     ```bash
@@ -124,7 +124,7 @@ l2 crypto --list
 l2 crypto --profile hybrid-aes-chacha --apply --network-isolation --fast
 ```
 
-Only battle-tested, verified open-source algos (AES-256-XTS NIST, XChaCha20-Poly1305 IETF, Argon2id PHC). Hybrid mixes complementary designs for defense-in-depth. Applies proficiently via LUKS2/gocryptfs; `--apply` is confirmed + paced; generates units + crypto-latest.json evidence (for `l2 audit --test`); respects L2_DATA_DIR; keys protected via `l2 exec --policy strict-mcp`. (v0.4.7+ polish: --json, audit check, L2_DATA_DIR, network notes; even further: redteam 10-vector onslaught + deeper June 2026 NSA/CISA mappings + North-Star SUMMARY refinements.) Quantum / PQC preparation: new open-source profiles hybrid-pqc-mlkem-chacha and pqc-mlkem-argon2id using liboqs (ML-KEM / Kyber NIST FIPS 203) for key encapsulation + strong symmetric; defends quantum attacks (Shor/Grover, harvest-now-decrypt-later). Dedicated red-team demo `docs/examples/l2_crypto_redteam_onslaught.c` (run under crypto + great-harden) for NSA-level crypto onslaught verification (10+ vectors + quantum harvest; PQC defense) - all North-Star Contained to ws + crypto-latest.json + audit evidence. See HOWTO_execute_crypto_redteam_onslaught_demo.txt for exact seq + "prepare prepare prepare".
+Only battle-tested, verified open-source algos (AES-256-XTS NIST, XChaCha20-Poly1305 IETF, Argon2id PHC). Hybrid mixes complementary designs for defense-in-depth. Applies proficiently via LUKS2/gocryptfs; `--apply` is confirmed + paced; generates units + crypto-latest.json evidence (for `l2 audit --test`); respects L2_DATA_DIR; keys protected via `l2 exec --policy strict-mcp`. (v0.4.7+ polish: --json, audit check, L2_DATA_DIR, network notes; even further: redteam 10-vector onslaught + deeper June 2026 NSA/CISA mappings + North-Star SUMMARY refinements.) Quantum / PQC preparation: new open-source profiles hybrid-pqc-mlkem-chacha and pqc-mlkem-argon2id using liboqs (ML-KEM / Kyber NIST FIPS 203) for key encapsulation + strong symmetric; defends quantum attacks (Shor/Grover, harvest-now-decrypt-later). Dedicated red-team demo `docs/examples/l2_crypto_redteam_onslaught.c` (run under crypto + great-harden) for NSA-level crypto onslaught verification (10+ vectors + quantum harvest; PQC defense) - all North-Star Contained to ws + crypto-latest.json + audit evidence. See docs/guides/HOWTO_execute_crypto_redteam_onslaught_demo.txt for exact seq + "prepare prepare prepare".
 - New: exhaustive self-audit of l2 + `docs/examples/l2_full_weakness_audit_attack.c` (AIO "true attack on all areas of weakness": 15+ vectors covering runtime/Landlock/TOCTOU, seccomp/NEVER bpf/key/unshare/setns/ptrace/process_vm/userfaultfd, host tamper, crypto deeper, state/audit poison, supply, mem/proc, net, anti/priv, agentic/MCP, fs/caps, direct l2 tamper). Only succeeds inside explicit ws under great-harden + crypto; full GRAND SUMMARY + new `l2 audit --test` check. Bolsters applied (extended NEVER, harden rules, audit integration). Cross-refs prior cancer/redteam. "prepare prepare prepare" for the complete North-Star Containment after full audit.
 
 ### `l2 harden` — Concrete Host Hardening
@@ -143,7 +143,7 @@ l2 trace --policy strict-mcp ./workload --analyze trace.log
 
 Collects under chosen policy; `--analyze` produces minimal allowlists loadable by enforcing filter or systemd `SystemCallFilter`.
 
-**Full v0.4.0+ specifics** (exact algorithms + rationale, hybrid construction, strict-mcp/ransom-hardened differences, concrete hardening commands/steps, generated artifacts, substrate integration for protecting crypto/keys, no-new-surfaces guarantees, data-driven loop, paced UX, explicit protocols) live in [SECURITY.md](SECURITY.md#cryptography-and-host-hardening-v040).
+**Full v0.4.0+ specifics** (exact algorithms + rationale, hybrid construction, strict-mcp/ransom-hardened differences, concrete hardening commands/steps, generated artifacts, substrate integration for protecting crypto/keys, no-new-surfaces guarantees, data-driven loop, paced UX, explicit protocols) live in [SECURITY.md](docs/SECURITY.md#cryptography-and-host-hardening-v040).
 
 </details>
 
@@ -205,7 +205,7 @@ l2 destroy smoke
 echo "Smoke OK"
 
 # See the dedicated HOWTO for full na + tomato instructions, descriptions, copy-paste sequences, and the complement pattern:
-# HOWTO_na_and_tomato.txt (in repo root) or cat it after cloning.
+# docs/guides/HOWTO_na_and_tomato.txt or cat it after cloning.
 # (L2_DATA_DIR overrides are preserved across any sudo escalation in exec/harden/great-harden paths.)
 ```
 
@@ -236,7 +236,7 @@ If you invoke `sudo l2 ...` manually, include the override on the command line:
 L2_DATA_DIR=/tmp/my-test sudo l2 exec ...
 ```
 
-See the resistance demo headers, the `ransom-hardened` policy example in this README, and SECURITY.md for typical usage with `export L2_DATA_DIR=$(mktemp -d)`.
+See the resistance demo headers, the `ransom-hardened` policy example in this README, and [SECURITY.md](docs/SECURITY.md) for typical usage with `export L2_DATA_DIR=$(mktemp -d)`.
 
 ### Sudo / privilege escalation for `exec`
 
@@ -313,7 +313,7 @@ If you hit something else, the source of truth is the narrow terminal interface 
 
 See the dedicated Troubleshooting subsection above for common issues (especially `L2_DATA_DIR` with sudo escalation, the resistance demos, etc.).
 
-See [STATUS.md](STATUS.md) for the full current state and [ROADMAP.md](ROADMAP.md) for direction.
+See [STATUS.md](docs/STATUS.md) for the full current state and [ROADMAP.md](docs/ROADMAP.md) for direction.
 
 **Core delivered (v0.4.0+ focus):**
 - Explicit policy protocols (`strict-mcp` as main focus for agentic/MCP; `ransom-hardened` for full-safety ransomware/malicious testing) with clear guarantees.
@@ -332,7 +332,7 @@ See [STATUS.md](STATUS.md) for the full current state and [ROADMAP.md](ROADMAP.m
 
 ## Contributing & License
 
-See `CONTRIBUTING.md`, `SECURITY.md`, and `docs/`.
+See `CONTRIBUTING.md`, [SECURITY.md](docs/SECURITY.md), and `docs/`.
 
 This project is dual-licensed under **MIT OR Apache-2.0** (at your option).
 
@@ -345,4 +345,4 @@ The SPDX identifier is `MIT OR Apache-2.0`.
 
 **v0.1.0** remains available as an immutable historical baseline for evaluation and integrity checks against v0.4.9 and future releases.
 
-See `CHANGELOG.md`, `STATUS.md`, `ROADMAP.md`, and the `docs/` directory for the complete picture of what v0.4.4 provides for users building high-assurance agentic/AI/MCP systems on the l2 substrate (including full-safety ransomware testing support).
+See `CHANGELOG.md`, [STATUS.md](docs/STATUS.md), [ROADMAP.md](docs/ROADMAP.md), and the `docs/` directory for the complete picture of what v0.4.4 provides for users building high-assurance agentic/AI/MCP systems on the l2 substrate (including full-safety ransomware testing support).

@@ -16,7 +16,7 @@
 //! OpenBSD pledge(2)/unveil(2) logic is embedded in the sandbox used by Host paths
 //! (Landlock for unveil-style FS, seccomp+NEVER for pledge-style syscalls). See sandbox.rs.
 //!
-//! See docs/PROTOCOL.md, STATUS.md, ROADMAP.md, and src/main.rs for usage.
+//! See docs/PROTOCOL.md, docs/STATUS.md, docs/ROADMAP.md, and src/main.rs for usage.
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
