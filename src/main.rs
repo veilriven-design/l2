@@ -22,6 +22,11 @@ use colored::Colorize;
 use serde::Serialize;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use std::io::IsTerminal;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread;
+use std::time::Duration;
 mod audit;
 mod sandbox;
 
@@ -1704,6 +1709,9 @@ fn run_security_audit_tests(
 /// cron persistence vectors, ssh backdoors, passwd anomalies, etc.
 /// Outputs machine-verifiable style for `l2 audit --test` integration potential.
 /// Note: full scans benefit from privileges; some dirs skipped for speed/safety.
+/// When run interactively (no --json, on a TTY) a [N/7] progress + spinner is shown on stderr
+/// while each find runs (especially useful for the initial full-/ SUID scan under root), and
+/// each ✅/❌ result line is printed live as soon as that check completes.
 /// "prepare prepare prepare" — pair with great-harden policy for containment.
 fn run_os_malware_audit(json: bool) -> Result<()> {
     if !json {
@@ -1731,9 +1739,47 @@ fn run_os_malware_audit(json: bool) -> Result<()> {
         }
     }
 
+    // Live progress + spinner for long-running checks (e.g. full-filesystem SUID scan under root).
+    // Only active for human TTY runs (!json && stdout.is_terminal()). Spinner animates on stderr
+    // using \r so it doesn't pollute stdout or logs. N/7 gives clear progress bar feel.
+    // When check completes we clear the spinner line and emit the terse PASS/FAIL result immediately
+    // (live feedback instead of waiting until end). Non-TTY / --json / CI paths are unchanged.
+    let interactive = !json && std::io::stdout().is_terminal();
+
+    let start_progress = |num: usize, label: &str| -> Option<Arc<AtomicBool>> {
+        if !interactive {
+            return None;
+        }
+        let done = Arc::new(AtomicBool::new(false));
+        let done2 = Arc::clone(&done);
+        let label = label.to_string();
+        thread::spawn(move || {
+            let chars = ['|', '/', '-', '\\'];
+            let mut i = 0usize;
+            while !done2.load(Ordering::Relaxed) {
+                eprint!("\r[{}/7] {} ... {}", num, label, chars[i]);
+                let _ = std::io::Write::flush(&mut std::io::stderr());
+                i = (i + 1) % 4;
+                thread::sleep(Duration::from_millis(100));
+            }
+        });
+        Some(done)
+    };
+
+    let stop_progress = |sp: Option<Arc<AtomicBool>>| {
+        if let Some(d) = sp {
+            d.store(true, Ordering::Relaxed);
+            thread::sleep(Duration::from_millis(30));
+            eprint!("\r\x1b[K"); // CR + ANSI clear to EOL
+            let _ = std::io::Write::flush(&mut std::io::stderr());
+        }
+    };
+
     // 1. SUID/SGID binaries that are world-writable or in temp-like dirs (common malware drop)
     // Bad logic: suid root + writable = priv esc vector.
+    let sp = start_progress(1, "SUID/SGID");
     let suid_bad = run_find("find / -type f \\( -perm -4000 -o -perm -2000 \\) \\( -perm -o=w -o -path '*/tmp/*' -o -path '*/dev/shm/*' -o -path '*/var/tmp/*' \\) 2>/dev/null");
+    stop_progress(sp);
     let suid_count = suid_bad.lines().filter(|l| !l.trim().is_empty()).count();
     let suid_pass = suid_count == 0;
     results.push((
@@ -1745,9 +1791,15 @@ fn run_os_malware_audit(json: bool) -> Result<()> {
             format!("Found {} suspicious SUID/SGID (writable or in /tmp/shm/var/tmp): review with ls -l. Mitigate via great-harden (modules, ro, etc.). First few: {}", suid_count, suid_bad.lines().take(3).collect::<Vec<_>>().join("; "))
         },
     ));
+    if interactive {
+        let status = if suid_pass { "✅ PASS" } else { "❌ FAIL/REVIEW" };
+        println!("{}  {}: {}", status, "SUID/SGID binaries not world-writable or in temp dirs", results.last().unwrap().2);
+    }
 
     // 2. World-writable files in critical system dirs (bad logic, malware can replace bins)
+    let sp = start_progress(2, "world-writable system");
     let ww_sys = run_find("find /etc /bin /sbin /usr/bin /usr/sbin /lib /usr/lib -type f -perm -o=w 2>/dev/null | head -10");
+    stop_progress(sp);
     let ww_count = ww_sys.lines().filter(|l| !l.trim().is_empty()).count();
     let ww_pass = ww_count == 0;
     results.push((
@@ -1763,12 +1815,18 @@ fn run_os_malware_audit(json: bool) -> Result<()> {
             )
         },
     ));
+    if interactive {
+        let status = if ww_pass { "✅ PASS" } else { "❌ FAIL/REVIEW" };
+        println!("{}  {}: {}", status, "No world-writable files in /etc /bin /sbin /usr/* system paths", results.last().unwrap().2);
+    }
 
     // 3. Executables or scripts in temp dirs with download/eval patterns (Miasma/ransomware dropper style)
     // Exclude common build caches (cargo, rustc, target) that legitimately contain code-like strings or binary data matching patterns.
+    let sp = start_progress(3, "temp droppers");
     let tmp_bad = run_find(
         r#"find /tmp /var/tmp /dev/shm -type f \( -perm -111 -o -name '*.sh' -o -name '*.py' \) ! -path '*/cargo-*' ! -path '*/rustc-*' ! -path '*/target/*' ! -path '*/.cargo/*' 2>/dev/null | xargs grep -l -E 'curl|wget.*sh|base64 -d|eval|nc -e|python -c.*socket|/dev/tcp|setsid|LD_PRELOAD|nohup .*&|socat' 2>/dev/null | head -5"#,
     );
+    stop_progress(sp);
     let tmp_count = tmp_bad.lines().filter(|l| !l.trim().is_empty()).count();
     let tmp_pass = tmp_count == 0;
     results.push((
@@ -1780,12 +1838,18 @@ fn run_os_malware_audit(json: bool) -> Result<()> {
             format!("Found {} suspicious temp files with curl/wget/base64/eval (common in malware-cancer vectors): inspect/delete. {}", tmp_count, tmp_bad.lines().take(2).collect::<Vec<_>>().join("; "))
         },
     ));
+    if interactive {
+        let status = if tmp_pass { "✅ PASS" } else { "❌ FAIL/REVIEW" };
+        println!("{}  {}: {}", status, "No suspicious executables/scripts in /tmp /var/tmp /dev/shm with dropper patterns", results.last().unwrap().2);
+    }
 
     // 4. Cron / at / systemd user timers with bad patterns (persistence)
     // Only user/custom dirs; exclude stock /lib/systemd (distro units often contain 'sh' in ExecStart wrappers, which would false-positive)
+    let sp = start_progress(4, "cron/systemd");
     let cron_bad = run_find(
         r#"find /etc/cron* /var/spool/cron /etc/systemd/system -type f 2>/dev/null | xargs grep -l -E 'curl|wget.*\|.*sh|base64 -d|eval|python -c.*socket|nc -e|/dev/tcp|setsid|LD_PRELOAD|backdoor' 2>/dev/null | head -5"#,
     );
+    stop_progress(sp);
     let cron_count = cron_bad.lines().filter(|l| !l.trim().is_empty()).count();
     let cron_pass = cron_count == 0;
     results.push((
@@ -1801,10 +1865,16 @@ fn run_os_malware_audit(json: bool) -> Result<()> {
             )
         },
     ));
+    if interactive {
+        let status = if cron_pass { "✅ PASS" } else { "❌ FAIL/REVIEW" };
+        println!("{}  {}: {}", status, "No cron/at/systemd jobs with download/eval/persistence bad logic", results.last().unwrap().2);
+    }
 
     // 5. .ssh/authorized_keys anomalies (backdoor keys). Do not flag normal user id_* private/public keys or known_hosts.
     // Focus only on authorized_keys content (backdoors are typically appended there).
+    let sp = start_progress(5, "SSH authorized_keys");
     let ssh_bad = run_find("find /root/.ssh /home/*/.ssh -name authorized_keys -type f 2>/dev/null | xargs cat 2>/dev/null | grep -E 'ssh-rsa |ssh-ed25519 |ssh-dss ' | head -5");
+    stop_progress(sp);
     let ssh_count = ssh_bad.lines().filter(|l| !l.trim().is_empty()).count();
     let ssh_pass = ssh_count == 0;
     results.push((
@@ -1820,10 +1890,16 @@ fn run_os_malware_audit(json: bool) -> Result<()> {
             )
         },
     ));
+    if interactive {
+        let status = if ssh_pass { "✅ PASS" } else { "❌ FAIL/REVIEW" };
+        println!("{}  {}: {}", status, "No obvious SSH backdoor keys in authorized_keys", results.last().unwrap().2);
+    }
 
     // 6. /etc/passwd / shadow anomalies (bad logic: users with /tmp shells, no password)
     // Only flag root if shell is in temp (not standard /bin/bash); normal root must not trigger.
+    let sp = start_progress(6, "passwd/shadow");
     let passwd_bad = run_find("awk -F: '($3 == 0 && $7 ~ /\\/tmp|\\/var\\/tmp|\\/dev\\/shm/) || ($2 == \"\" && $1 != \"root\")' /etc/passwd /etc/shadow 2>/dev/null | head -5");
+    stop_progress(sp);
     let passwd_count = passwd_bad.lines().filter(|l| !l.trim().is_empty()).count();
     let passwd_pass = passwd_count == 0;
     results.push((
@@ -1840,9 +1916,15 @@ fn run_os_malware_audit(json: bool) -> Result<()> {
             )
         },
     ));
+    if interactive {
+        let status = if passwd_pass { "✅ PASS" } else { "❌ FAIL/REVIEW" };
+        println!("{}  {}: {}", status, "No anomalous users in /etc/passwd/shadow (root shells in /tmp, empty pw non-root)", results.last().unwrap().2);
+    }
 
     // 7. World-writable in PATH (bad logic for hijack)
+    let sp = start_progress(7, "PATH writable");
     let path_ww = run_find("echo $PATH | tr ':' '\n' | while read d; do find \"$d\" -type f -perm -o=w 2>/dev/null; done | head -5");
+    stop_progress(sp);
     let path_count = path_ww.lines().filter(|l| !l.trim().is_empty()).count();
     let path_pass = path_count == 0;
     results.push((
@@ -1858,6 +1940,10 @@ fn run_os_malware_audit(json: bool) -> Result<()> {
             )
         },
     ));
+    if interactive {
+        let status = if path_pass { "✅ PASS" } else { "❌ FAIL/REVIEW" };
+        println!("{}  {}: {}", status, "No world-writable files in $PATH directories", results.last().unwrap().2);
+    }
 
     if json {
         let json_results: Vec<_> = results
@@ -1867,7 +1953,8 @@ fn run_os_malware_audit(json: bool) -> Result<()> {
         print_json(
             &serde_json::json!({"os_malware_audit": json_results, "standards": "CISA CPG 2.0 malicious code 4.A + ransomware/worm + l2 AIO malware-cancer + full weakness audit (15+ vectors) + North-Star Containment. Run regularly; combine with l2 great-harden --apply + crypto for host protection."}),
         );
-    } else {
+    } else if !interactive {
+        // Non-TTY (piped/CI/script): preserve original batch output behavior.
         println!();
         for (name, passed, detail) in results {
             let status = if passed {
@@ -1877,6 +1964,13 @@ fn run_os_malware_audit(json: bool) -> Result<()> {
             };
             println!("{}  {}: {}", status, name, detail);
         }
+        println!();
+        println!("OS scan complete. For l2 North-Star spirit: use --policy great-harden for any follow-up,");
+        println!("l2 great-harden --apply for host lockdown, `l2 audit --test` for substrate, and l2 spirit --audit for code safety.");
+        println!("If issues found, investigate with great-harden policy + l2_malware_cancer_resistance_demo.c style.");
+    } else {
+        // Interactive TTY: results were emitted live after each check (with spinner during the find).
+        // Still emit the standard terse closing guidance.
         println!();
         println!("OS scan complete. For l2 North-Star spirit: use --policy great-harden for any follow-up,");
         println!("l2 great-harden --apply for host lockdown, `l2 audit --test` for substrate, and l2 spirit --audit for code safety.");
