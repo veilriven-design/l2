@@ -203,6 +203,9 @@ l2 create net-test --policy na; l2 put net-test na target/release/na; l2 exec --
 l2 create router --policy tomato; l2 put router tomato target/release/tomato; l2 exec --policy tomato router 'tomato --help; tomato na'  # v0.5.8: tomato router tool (Tomato firmware modeled) complements na on wan0/lan0 masked surface; destroy to dispose
 l2 destroy smoke
 echo "Smoke OK"
+
+# See the dedicated HOWTO for full na + tomato instructions, descriptions, copy-paste sequences, and the complement pattern:
+# HOWTO_na_and_tomato.txt (in repo root) or cat it after cloning.
 # (L2_DATA_DIR overrides are preserved across any sudo escalation in exec/harden/great-harden paths.)
 ```
 

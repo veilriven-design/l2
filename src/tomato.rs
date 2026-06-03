@@ -4,6 +4,9 @@
 //! QoS, bandwidth monitoring, wireless-like controls) as a contained,
 //! disposable tool inside l2 workspaces under --policy tomato.
 //!
+//! See HOWTO_na_and_tomato.txt (in repo root) for full instructions, descriptions,
+//! copy-paste sequences, prerequisites, and the na complement pattern.
+//!
 //! - Runs from within a substrate system (masked net surface).
 //! - Sets up / manages a "router-grade" network surface: wan0 (egress, NATed/masked to host),
 //!   lan0 (internal protected LAN), with IP forwarding, configurable firewall (nft),

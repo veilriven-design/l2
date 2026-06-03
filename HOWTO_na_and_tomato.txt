@@ -1,0 +1,181 @@
+HOW TO USE `na` (NETWORK AUDIT/PENTEST) AND `tomato` (ROUTER NETWORK TOOL) WITH l2
+==========================================================================================
+
+These are specialized companion binaries for l2 (not subcommands of the l2 CLI itself).
+They are designed to run *inside* isolated l2 systems under matching policies, and they
+receive special masked "substrate network surfaces" that are completely isolated from
+the host and fully disposed when you `l2 destroy` the system.
+
+- `na`: Network audit / pentest tool (modeled after Wireshark + Aircrack-ng but a fresh,
+  contained implementation). Use it for packet capture, dissection, scanning, injection,
+  WiFi sims (via mac80211_hwsim if available), and combined audits — all from within
+  a disposable l2 workspace on a masked interface (na0).
+
+- `tomato`: Router network tool (inspired by Tomato firmware concepts). Use it to
+  configure router-grade networking on the surface: WAN/LAN setup, firewall (nft),
+  QoS/bandwidth limiting (tc), monitoring, routes, etc. It complements `na` perfectly:
+  stand up a "router" with tomato, then audit/pen-test it with na (all contained).
+
+Both tools follow the l2 model:
+- Explicit policy (`--policy na` or `--policy tomato`)
+- Put the binary into the workspace via `l2 put`
+- Execute under the policy via `l2 exec --policy ...`
+- Everything (including the special network interfaces and netns) is disposed on destroy
+- Still fully under l2 sandboxing (Landlock, seccomp with appropriate net/raw allowances,
+  no_new_privs, env clearing, etc.)
+- L2_DATA_DIR, sudo escalation, audit logging, and North-Star Containment all apply
+
+They are **not hidden features**. They are first-class, documented extensions:
+- `l2 policies` lists them
+- `l2 policy na` and `l2 policy tomato` give full descriptions + examples
+- They appear in README, STATUS, CHANGELOG, CI smoke tests, etc.
+- The surface setup happens automatically inside `l2 exec` when the policy matches
+
+PREREQUISITES
+- l2 built (v0.5.8+)
+- `cargo build --release --bin na --bin tomato` (or the full workspace)
+- sudo access (for namespace isolation / netns / veth setup in the surface creation)
+- A real interactive terminal (non-tty shells can cause sudo/unshare issues)
+- (Optional but powerful) `mac80211_hwsim` kernel module for contained WiFi sims with na
+- (For full effect) tools like `nft`, `tc`, `ip`, `ss` available inside the ws (normally
+  provided by the host RO paths allowed under the policy)
+
+RECOMMENDED EXACT SEQUENCE (copy-paste friendly; use a fresh L2_DATA_DIR for testing)
+
+```bash
+# 0. Fresh isolated data dir (recommended for hermetic tests)
+export L2_DATA_DIR=$(mktemp -d)
+echo "L2_DATA_DIR=$L2_DATA_DIR"
+
+# 1. Build the tools (they are separate binaries you put into l2 systems)
+cargo build --release --bin na --bin tomato
+
+# === USING `na` (network audit / pentest) ===
+l2 create audit-ws --policy na
+l2 put audit-ws na target/release/na
+
+# Basic discovery inside the masked surface
+l2 exec --policy na audit-ws 'na --help'
+l2 exec --policy na audit-ws 'na list'                    # shows na0 + lo (the substrate surface)
+
+# Packet capture (AF_PACKET when possible; modeled on tshark text mode)
+l2 exec --policy na audit-ws 'na capture na0 -c 20 -v'
+
+# Port/service scan + banner grab from the masked surface
+l2 exec --policy na audit-ws 'na scan 192.168.1.1 --ports common'
+
+# Raw injection (useful for testing, deauth sims, etc.)
+l2 exec --policy na audit-ws 'na inject na0 --deauth --bssid 00:11:22:33:44:55'
+
+# Combined audit run
+l2 exec --policy na audit-ws 'na audit 8.8.8.8'
+
+# WiFi / 802.11 oriented tests (aircrack-ng style)
+# If you have mac80211_hwsim loaded, you can create virtual radios inside the ns:
+l2 exec --policy na audit-ws 'na wifi sim --count 2'
+l2 exec --policy na audit-ws 'na wifi list'
+l2 exec --policy na audit-ws 'na wifi deauth mon0'
+
+# Clean up (the special na0 netns + veth surface is fully disposed)
+l2 destroy audit-ws
+
+# === USING `tomato` (router network tool) ===
+l2 create router-ws --policy tomato
+l2 put router-ws tomato target/release/tomato
+
+# Router-grade configuration on the masked surface (wan0 + lan0)
+l2 exec --policy tomato router-ws 'tomato --help'
+l2 exec --policy tomato router-ws 'tomato status'
+
+# WAN (egress, masked to host)
+l2 exec --policy tomato router-ws 'tomato wan status'
+
+# LAN (protected internal)
+l2 exec --policy tomato router-ws 'tomato lan set 192.168.1.1/24'
+
+# Firewall (nft-based, Tomato-style)
+l2 exec --policy tomato router-ws 'tomato firewall enable'
+l2 exec --policy tomato router-ws 'tomato firewall add allow tcp 80 443'
+l2 exec --policy tomato router-ws 'tomato firewall list'
+
+# QoS / bandwidth (tc-based)
+l2 exec --policy tomato router-ws 'tomato qos wan 50mbit'
+l2 exec --policy tomato router-ws 'tomato qos lan 10mbit'
+
+# Monitoring (like Tomato real-time bandwidth graphs, text mode)
+l2 exec --policy tomato router-ws 'tomato monitor --watch 10'
+
+# Routes
+l2 exec --policy tomato router-ws 'tomato route list'
+
+# Apply a simple "config" (reproducible setups)
+l2 exec --policy tomato router-ws 'tomato apply --config "firewall=protect qos=wan:100mbit"'
+
+# Reset to surface defaults
+l2 exec --policy tomato router-ws 'tomato reset'
+
+# Clean up (wan0 + lan0 + netns + veths + everything disappears)
+l2 destroy router-ws
+
+# === THE POWERFUL COMPLEMENT PATTERN (tomato + na together) ===
+# Use tomato to stand up / protect a "router" on the substrate surface,
+# then use na (from the same workspace or a related one) to audit/pen-test it.
+# Everything stays masked, contained, and disposable.
+
+l2 create net-lab --policy tomato
+l2 put net-lab tomato target/release/tomato
+l2 put net-lab na     target/release/na
+
+# Configure the router
+l2 exec --policy tomato net-lab 'tomato firewall enable'
+l2 exec --policy tomato net-lab 'tomato qos wan 50mbit'
+l2 exec --policy tomato net-lab 'tomato lan set 192.168.1.1/24'
+
+# Now audit the router you just configured (from inside the same isolated system)
+l2 exec --policy tomato net-lab 'na list'                    # wan0 + lan0 visible
+l2 exec --policy tomato net-lab 'na capture lan0 -c 10 -v'
+l2 exec --policy tomato net-lab 'na capture wan0 -c 5'
+l2 exec --policy tomato net-lab 'na scan 192.168.1.100 --ports 22,80,443'
+
+# Or run the built-in tomato helper that explains the pairing
+l2 exec --policy tomato net-lab 'tomato na'
+
+l2 destroy net-lab
+
+# (optional) clean the temp dir
+# rm -rf "$L2_DATA_DIR"
+```
+
+IMPORTANT NOTES
+- The special network surfaces (na0 for `na`, wan0/lan0 for `tomato`) are created
+  automatically by l2 when you use `l2 exec --policy na` or `--policy tomato`.
+  They are veth-based, masked from the host's primary network stack, and use a
+  dedicated netns. On destroy, l2 cleans them up (best-effort ip netns del + link del).
+
+- These tools only get their full power (and the masked interfaces) when run via
+  `l2 exec --policy ...`. Running the binaries directly on the host does not give
+  you the l2 substrate surfaces or the isolation guarantees.
+
+- Both tools still respect all l2 hardening: Landlock (workspace + minimal RO paths),
+  seccomp (with net/raw allowances only for these policies; NEVER list for escapes
+  still active), no_new_privs, env sanitization, etc.
+
+- For WiFi work with `na`, load `mac80211_hwsim` on the host (if your host policy
+  allows it) and then use `na wifi sim` inside the na workspace. The virtual radios
+  appear only inside that isolated ns — nothing touches the host's real WiFi.
+
+- `tomato` has a built-in `tomato na` subcommand that prints usage examples of the
+  complement pattern.
+
+- All activity is logged via l2's audit log. You can verify containment with
+  `l2 audit --test` (the na/tomato policies and surface usage will be reflected).
+
+- These are explicitly documented, not hidden:
+  - `l2 policies`
+  - `l2 policy na`
+  - `l2 policy tomato`
+  - README, STATUS.md, CHANGELOG.md, CI smoke tests, etc. all reference them.
+
+"prepare prepare prepare" — use these tools when you want to do serious contained
+network security work (config a router with tomato, audit it with na) inside the
+l2 North-Star Containment model. Everything is explicit, auditable, and disposable.
