@@ -164,8 +164,8 @@ git checkout v0.1.0
 | `l2 destroy <name>`              | Remove system and all objects |
 | `l2 sel4-setup [--fast/-f]`      | One-shot seL4/Microkit dev environment (paced output; `--fast` for CI/old hardware) |
 | `l2 trace [--policy <protocol>] [--enforce] ...` | Collect seccomp traces (Phase 1). `--analyze <log>` generates real profiles. |
-| `l2 harden --profile <name> [--apply] ...` | NSA/CISA/FBI-aligned host/container hardening for agentic era (with `--network-isolation`, seccomp gen, systemd units). `--apply` makes it operational (writes live artifacts + evidence for `audit --test`). Paced output. | 
-| `l2 great-harden [--apply] ...` | Supreme aerospace/industrial 'great-harden' mode: extreme higher-assurance lockdown to make servers impenetrable to malware/worms/viruses. Closes logic gaps, aerospace-grade (kernel lockdown etc). Forces great policy. Paced. |
+| `l2 harden --profile <name> [--apply] ...` | NSA/CISA/FBI-aligned host/container hardening for agentic era (with `--network-isolation`, seccomp gen, systemd units). `--apply` (non-int w/ --fast/--json) makes operational (writes live artifacts + evidence json for `audit --test`). `--json` for automation. Paced output. | 
+| `l2 great-harden [--apply] ...` | Supreme aerospace/industrial 'great-harden' mode: extreme higher-assurance lockdown to make servers impenetrable to malware/worms/viruses. Closes logic gaps, aerospace-grade (kernel lockdown etc). Forces great policy. `--apply` + `--json`/`--fast` for non-int operational + evidence. Paced. | 
 | `l2 crypto --profile <name> [--apply] ...` | Choose/apply verified crypto profile (AES-256-XTS-Argon2id, XChaCha20-Poly1305-Argon2id, or hybrid) for system encryption via LUKS/gocryptfs + l2 isolation. Paced output. (v0.4.7+ polished + even further: L2_DATA_DIR/crypto/, json evidence + audit check, --json/--fast, crypto-latest.json; 10-vector redteam onslaught for NSA verification). Dedicated `docs/examples/l2_crypto_redteam_onslaught.c` + HOWTO for NSA-level red team crypto onslaught verification (KDF/side/exfil/misuse/RNG/hybrid/tamper/supply/l2-state/passphrase/impl - all North-Star Contained to ws, GRAND SUMMARY, prepare prepare prepare, full 2026 standards + audit loop). |
 | `l2 policies` / `l2 policy <name>` | Discover and inspect policy protocols (e.g. `strict-mcp`, `ransom-hardened`). |
 | `l2 audit ...`                   | View/manage tamper-evident authority audit log. |
@@ -184,9 +184,9 @@ l2 crypto --list
 echo 'fake trace' > /tmp/trace.log
 l2 harden --profile strict-mcp --dry-run --fast --generate-seccomp /tmp/trace.log || true
 # The beautiful operational loop: --apply writes live units/profiles/confs + updates evidence json
-l2 harden --profile strict-mcp --fast --generate-seccomp /tmp/trace.log --apply || true
+l2 harden --profile strict-mcp --fast --generate-seccomp /tmp/trace.log --apply --json || true
 # Supreme great-harden for aerospace/industrial (new)
-l2 great-harden --fast --apply || true
+l2 great-harden --fast --apply --json || true
 l2 create smoke --policy strict-mcp
 l2 put smoke hello.txt --content 'hello from v0.4.8'
 l2 get smoke hello.txt | grep -q 'v0.4.8'

@@ -22,6 +22,7 @@ FAST=false
 NETWORK_ISOLATION=false
 GENERATE_SECCOMP=""
 APPLY=false
+JSON=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -32,13 +33,15 @@ while [[ $# -gt 0 ]]; do
         --network-isolation) NETWORK_ISOLATION=true; shift ;;
         --generate-seccomp) GENERATE_SECCOMP="$2"; shift 2 ;;
         --apply)   APPLY=true; shift ;;
+        --json)    JSON=true; shift ;;
         *) echo "Unknown argument: $1"; exit 1 ;;
     esac
 done
 
 # Apply fast mode to paced output
-if $FAST; then
+if $FAST || $JSON; then
     export L2_FAST=1
+    FAST=true
 fi
 
 # -----------------------------------------------------------------------------
@@ -455,8 +458,13 @@ if $APPLY; then
     type_line "[APPLY MODE] Making hardening operational for $PROFILE..."
     reveal_lines "We will write live artifacts (systemd units, seccomp profiles, sysctl/audit/nft configs) and attempt to apply them. Dangerous steps will use sudo (if available) or write ready-to-run apply scripts. You control everything."
     echo
-    type_line "About to apply real changes for profile '$PROFILE' (target $TARGET). Have you reviewed the guidance above? (y/N)"
-    read -r REPLY || true
+    if $FAST || $JSON; then
+        REPLY="y"
+        if ! $JSON; then type_line "(non-interactive due to --fast/--json)"; fi
+    else
+        type_line "About to apply real changes for profile '$PROFILE' (target $TARGET). Have you reviewed the guidance above? (y/N)"
+        read -r REPLY || true
+    fi
     if [[ "$REPLY" =~ ^[Yy]$ ]]; then
         type_line "Applying... (paced for review)"
         # Ensure dirs
@@ -756,6 +764,11 @@ elif ! $DRY_RUN; then
     echo || true
     echo "To make it real (write units + update evidence): l2 harden --profile $PROFILE --apply" || true
     echo "Next verification step: l2 audit --test   # confirms harden + ${PROFILE} meet the listed standards" || true
+fi
+
+if $JSON; then
+    # Structured output for automation / audit integration (like crypto --json)
+    cat "$LATEST_JSON" 2>/dev/null || echo '{"error": "no json produced"}'
 fi
 
 echo || true

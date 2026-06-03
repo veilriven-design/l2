@@ -1843,6 +1843,9 @@ fn great_harden(
     if apply {
         cmd.arg("--apply");
     }
+    if json {
+        cmd.arg("--json");
+    }
 
     let status = cmd.status()?;
     if !status.success() {
