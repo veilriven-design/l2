@@ -180,6 +180,7 @@
 #include <time.h>
 #include <math.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <dirent.h>
 
@@ -313,6 +314,27 @@ static void demonstrate_nan_bypass_and_weird_machine(void) {
     /* If the math "program" produces magic from the sent payload, "bypass token" ready */
     int weird_success = (weird_computed & 0xffff) == 0xca7; /* tuned to one of the payloads */
 
+    /* === INTERESTING MATHEMATICAL EVIDENCE OUTPUT (always printed for demonstration) ===
+     * This gives rich, copy-pasteable math proof of the inherent binary flaws for your
+     * root-local test runs. Even in BLOCKED (bare root) case you see the exact numbers
+     * that "would have" caused the catastrophe. Only the side-effect files are gated.
+     */
+    printf("  [MATH EVIDENCE NaN+Weird] Received payload bits = 0x%016" PRIx64 "\n",
+           DIABOLICAL_PAYLOAD[0]);
+    union { double d; uint64_t i; } uval = { .d = val };
+    printf("  [MATH EVIDENCE NaN+Weird] val = %a  (IEEE hex float)  bits=0x%016" PRIx64 "\n", val, uval.i);
+    printf("  [MATH EVIDENCE NaN+Weird] IEEE 754 unordered NaN properties (the attack surface):\n");
+    printf("      val > 0.0          == %d   (false for NaN; bypasses 'if (val > THRESH)')\n", val > 0.0);
+    printf("      val < 100.0        == %d\n", val < 100.0);
+    printf("      val == val         == %d   (NaN is never equal to itself)\n", val == val);
+    printf("      (val != val)       == %d   (standard portable isnan test)\n", val != val);
+    printf("  [MATH EVIDENCE NaN+Weird] Weird machine (51-bit payload interpreted as program):\n");
+    printf("      payload_bits (masked) = 0x%" PRIx64 "\n", payload_bits);
+    printf("      initial state         = 0xdeadbeef\n");
+    printf("      final weird_computed  = 0x%" PRIx64 "\n", weird_computed);
+    printf("      low 16 bits as token  = 0x%04x  (matches magic 0xca7? %s)\n",
+           (unsigned)(weird_computed & 0xffff), ((weird_computed & 0xffff) == 0xca7 ? "YES - EXPLOIT" : "no"));
+
     int in = is_in_l2_workspace();
     if (in) {
         printf("  CONTAINED SUCCESS (NaN made security predicate / self-compare take attacker path; weird machine computed 'grant' 0x%llx from payload bits only)\n",
@@ -321,8 +343,14 @@ static void demonstrate_nan_bypass_and_weird_machine(void) {
         if (is_in_l2_workspace()) {
             FILE *f = fopen("northstar_bypass_grant.txt", "w");
             if (f) {
-                fprintf(f, "BYPASSED VIA NORTH-STAR MATH PAYLOAD\nweird_computed=0x%llx\nsecret=%s\n",
-                        (unsigned long long)weird_computed, WS_ONLY_SECRET);
+                fprintf(f, "=== NORTH-STAR ATTACK MATHEMATICAL EVIDENCE (CONTAINED) ===\n");
+                fprintf(f, "Payload bits: 0x%016llx\n", (unsigned long long)DIABOLICAL_PAYLOAD[0]);
+                fprintf(f, "val (IEEE)  : %a\n", val);
+                fprintf(f, "weird_computed = 0x%" PRIx64 "\n", weird_computed);
+                fprintf(f, "secret=%s\n", WS_ONLY_SECRET);
+                fprintf(f, "This value was derived purely from the received net payload bits via\n");
+                fprintf(f, "IEEE 754 NaN properties + 51-bit weird machine. Only possible inside\n");
+                fprintf(f, "authorized l2 ws (North-Star Containment).\n");
                 fclose(f);
             }
         }
@@ -343,6 +371,13 @@ static void demonstrate_denormal_timing_sidechannel(void) {
     printf("  Received net subnormals (bits 0x%llx, 0x%llx) + normal baseline\n",
            (unsigned long long)DIABOLICAL_PAYLOAD[1], (unsigned long long)DIABOLICAL_PAYLOAD[2]);
 
+    /* === MATHEMATICAL EVIDENCE for timing side-channel (always shown for demo) === */
+    union { double d; uint64_t i; } ut1 = { .d = tiny1 };
+    union { double d; uint64_t i; } ut2 = { .d = tiny2 };
+    printf("  [MATH EVIDENCE Denormal] tiny1 = %a (bits 0x%016" PRIx64 ")  tiny2 = %a (bits 0x%016" PRIx64 ")\n",
+           tiny1, ut1.i, tiny2, ut2.i);
+    printf("  [MATH EVIDENCE Denormal] These are subnormals (exponent=0, implicit leading 0). On most x86/ARM they take 10-100x cycles due to microcode assist.\n");
+
     /* Vulnerable: numeric loop (e.g. "delta filter", "normalization", "prob update", "control law") */
     struct timespec t0, t1;
     clock_gettime(CLOCK_MONOTONIC, &t0);
@@ -352,6 +387,19 @@ static void demonstrate_denormal_timing_sidechannel(void) {
     }
     clock_gettime(CLOCK_MONOTONIC, &t1);
     long ns = (t1.tv_sec - t0.tv_sec) * 1000000000L + (t1.tv_nsec - t0.tv_nsec);
+
+    /* Baseline with normals for comparison (evidence) */
+    struct timespec bt0, bt1;
+    clock_gettime(CLOCK_MONOTONIC, &bt0);
+    volatile double bacc = 0.0;
+    for (int i = 0; i < 200000; i++) {
+        bacc += (normal * (double)i) - (normal / (normal + 1.0));
+    }
+    clock_gettime(CLOCK_MONOTONIC, &bt1);
+    long bns = (bt1.tv_sec - bt0.tv_sec) * 1000000000L + (bt1.tv_nsec - bt0.tv_nsec);
+    double slowdown = (bns > 0) ? (double)ns / bns : 0.0;
+
+    printf("  [MATH EVIDENCE Denormal] subnormal loop: %ld ns   normal baseline: %ld ns   slowdown factor ≈ %.1fx\n", ns, bns, slowdown);
     int slow = (ns > 20000000L); /* heuristic: subnormals make it "slow" */
 
     int in = is_in_l2_workspace();
@@ -360,7 +408,11 @@ static void demonstrate_denormal_timing_sidechannel(void) {
         if (is_in_l2_workspace()) {
             FILE *f = fopen("northstar_timing_leak.txt", "w");
             if (f) {
-                fprintf(f, "TIMING SIDECHANNEL SUCCESS via denormals\nns=%ld\nsecret_fragment=%s\n", ns, WS_ONLY_SECRET);
+                fprintf(f, "=== NORTH-STAR ATTACK MATHEMATICAL EVIDENCE (TIMING) ===\n");
+                fprintf(f, "tiny1 bits=0x%016" PRIx64 "  tiny2=0x%016" PRIx64 "\n", ut1.i, ut2.i);
+                fprintf(f, "subnormal_ns=%ld  normal_ns=%ld  slowdown=%.1fx\n", ns, bns, slowdown);
+                fprintf(f, "secret_fragment=%s\n", WS_ONLY_SECRET);
+                fprintf(f, "This timing differential is the classic denormal side-channel (see 2015 IEEE S&P paper).\n");
                 fclose(f);
             }
         }
@@ -370,7 +422,7 @@ static void demonstrate_denormal_timing_sidechannel(void) {
     } else {
         printf("  BLOCKED (timing math runs but no ws context/secret to exfil; bare host would be vulnerable to pixel-steal style attacks per 2015 research, but l2 net surface + policy would mask + contain)\n");
     }
-    (void)acc;
+    (void)acc; (void)bacc;
 }
 
 static void demonstrate_int_overflow_cast_and_precision_catastrophe(void) {
@@ -385,6 +437,12 @@ static void demonstrate_int_overflow_cast_and_precision_catastrophe(void) {
     /* "validate" a command if accum "close enough" or len "in range" after wrap math */
     /* int false_positive = (computed_len > 1000000000U) || (accum > 9.0 && accum < 11.0); tuned for sim but unused in print path */
 
+    /* === MATHEMATICAL EVIDENCE (two's complement cast + binary FP precision) === */
+    printf("  [MATH EVIDENCE Cast+Accum] net_len_signed (as received) = %d (0x%08x)\n", net_len_signed, (unsigned)net_len_signed);
+    printf("  [MATH EVIDENCE Cast+Accum] (size_t)cast = %zu (0x%zx)   <-- two's complement sign-extend exploit\n", computed_len, computed_len);
+    printf("  [MATH EVIDENCE Cast+Accum] accum = %.20f after 100 additions of 0.1\n", accum);
+    printf("  [MATH EVIDENCE Cast+Accum] expected=10.0  actual_error=%.20g  (binary 0.1 is 0x1.999999999999ap-4, not exact)\n", accum - 10.0);
+
     int in = is_in_l2_workspace();
     if (in) {
         printf("  CONTAINED SUCCESS (net 'len' 0x%x as sint32 cast to size_t=0x%zx (wrap/huge); accum=%.17g 'validated' malicious 'command' or OOB 'read' of ws secret)\n",
@@ -392,8 +450,11 @@ static void demonstrate_int_overflow_cast_and_precision_catastrophe(void) {
         if (is_in_l2_workspace()) {
             FILE *f = fopen("northstar_overflow_bypass.txt", "w");
             if (f) {
-                fprintf(f, "INT CAST + FP PRECISION CATASTROPHE\nlen=0x%zx accum=%.17g\nsecret=%s\n",
-                        computed_len, accum, WS_ONLY_SECRET);
+                fprintf(f, "=== NORTH-STAR ATTACK MATHEMATICAL EVIDENCE (CAST + PRECISION) ===\n");
+                fprintf(f, "net_len_signed=0x%08x  computed_len=0x%zx\n", (unsigned)net_len_signed, computed_len);
+                fprintf(f, "accum=%.20f  error_from_10=%.20g\n", accum, accum-10.0);
+                fprintf(f, "secret=%s\n", WS_ONLY_SECRET);
+                fprintf(f, "This is the classic 0.1 not representable + signed->unsigned cast leading to OOB.\n");
                 fclose(f);
             }
         }
@@ -418,13 +479,23 @@ static void demonstrate_inf_nan_prop_and_consensus_break(void) {
     double h2 = bits_to_double(DIABOLICAL_PAYLOAD[1]) + 1.0e-300; /* same, but in real different flush */
     int split = (h1 != h2) || prop; /* attacker forces divergence */
 
+    /* === MATHEMATICAL EVIDENCE (Inf/NaN prop + simulated consensus split) === */
+    printf("  [MATH EVIDENCE Inf/Consensus] p=+Inf (0x%016" PRIx64 ")  n=-Inf (0x%016" PRIx64 ")\n",
+           DIABOLICAL_PAYLOAD[3], DIABOLICAL_PAYLOAD[4]);
+    printf("  [MATH EVIDENCE Inf/Consensus] bad = (p+1)/(n+100) = %.0f   (propagates Inf/NaN -> corrupts all downstream)\n", bad);
+    printf("  [MATH EVIDENCE Inf/Consensus] h1=%a  h2=%a  (h1 != h2)=%d  (tiny subnormal + same bits -> split under different FTZ/rounding on real hosts)\n",
+           h1, h2, (h1 != h2));
+    printf("  [MATH EVIDENCE Inf/Consensus] split decision = %d (prop || h1!=h2)  <-- attacker forces distributed systems to disagree on 'truth'\n", split);
+
     int in = is_in_l2_workspace();
     if (in) {
         printf("  CONTAINED SUCCESS (Inf/NaN prop 'bad'=%.0f; 'consensus split' forced between binary hosts on same payload; 'split brain' used to 'escalate' in ws sim)\n", bad);
         if (is_in_l2_workspace()) {
             FILE *f = fopen("northstar_consensus_split.txt", "w");
             if (f) {
-                fprintf(f, "INF/NAN + CONSENSUS BREAK\nbad=%.0f split=%d\n", bad, split);
+                fprintf(f, "=== NORTH-STAR ATTACK MATHEMATICAL EVIDENCE (INF/NAN + CONSENSUS) ===\n");
+                fprintf(f, "bad=%.0f  split=%d  h1!=h2=%d\n", bad, split, (h1!=h2));
+                fprintf(f, "This payload forces numeric 'truth' to diverge across binary machines.\n");
                 fclose(f);
             }
         }
@@ -439,12 +510,14 @@ static void demonstrate_all_vectors_grand(void) {
 
     int in = is_in_l2_workspace();
     printf("  Payload 'received' (10 crafted doubles/ints from 'net' - as if na capture or tomato wan0 data stream or MCP call numeric arg)\n");
+    printf("  (See per-vector [MATH EVIDENCE ...] blocks above for the detailed IEEE 754 / two's complement / weird machine numbers.)\n");
     if (in) {
         printf("  CONTAINED SUCCESS across all 8 vectors (NaN bypass + weird machine, denormal timing, int cast overflow, FP accum catastrophe, Inf/NaN prop, consensus split, -0/Inf edge, endian/pun assumptions)\n");
         printf("  All 'catastrophes' (bypass grant, timing leak, OOB secret, split-brain escalation, weird computed root token) confined to ws-only markers.\n");
         printf("  North-Star Containment achieved (l2 great-harden + explicit net surfaces + audit evidence): the universal mathematical attack on binary computers only 'wins' where you explicitly authorized it, and cannot escape.\n");
     } else {
         printf("  BLOCKED across vectors (math runs, 'exploits' may 'succeed' locally on host binary, but no ws, no victims, no masked surface context, no l2 authority - exactly as the North-Star Defense intends).\n");
+        printf("  (The mathematical evidence prints above still appear for demonstration purposes even on bare-root runs.)\n");
     }
 }
 
@@ -456,6 +529,7 @@ static void print_grand_summary(void) {
         printf("  - Diabolical payload (QNaN 'cat'/dead, subnormals 0x1/0x2, +/-Inf, -0, cast magics) 'received over net'\n");
         printf("  - All 8 vectors (NaN bypass/weird, denormal timing, int overflow cast, precision catastrophe, Inf/NaN prop, consensus split, edges, pun) CONTAINED\n");
         printf("  - 'Catastrophe' (bypass grants, timing leaks, OOB reads, weird computed secrets, split decisions) only on ws victims from `l2 put`\n");
+        printf("  - Rich mathematical evidence printed above (exact bits, NaN properties, slowdown factors, accum errors, consensus splits, weird machine states) for demonstration.\n");
         printf("  - Evidence: l2 audit --test (new 'North-Star attack containment' check) + great-harden-latest.json + any net surface (na/tomato) usage\n");
         printf("l2 North-Star Defense: even the most mathematically dangerous inherent-flaw attack (no software fix for binary FP/int) is safe.\n");
         printf("The binary machine is flawed by nature; l2 makes the *use* of it authority-bound, disposable, and fully evidenced.\n");
@@ -464,6 +538,7 @@ static void print_grand_summary(void) {
         printf("On bare host: the math 'exploits' may locally succeed (NaN paths, slow denormals, huge casts, wrong totals, weird 'programs' from bits).\n");
         printf("But without l2: no containment, no explicit authority, no audit evidence, full host exposure if this payload reaches a real numeric processor.\n");
         printf("North-Star Defense not active. Use l2 great-harden + policy + put/exec + audit --test.\n");
+        printf("(Note: the detailed [MATH EVIDENCE] blocks are still emitted for pure demonstration/educational value even on bare root runs.)\n");
     }
     printf("\nprepare prepare prepare — this is the repeatable proof.\n");
     printf("See docs/examples/ other resistance demos, src/main.rs (spirit + audit tests), README, docs/SECURITY.md.\n");
