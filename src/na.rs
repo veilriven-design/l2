@@ -1,4 +1,4 @@
-//! na - Network Audit / Pentest tool for l2 substrate (v0.5.7+)
+//! na - Network Audit / Pentest tool for l2 substrate (v0.5.8+)
 //!
 //! "na" = network-audit. A fresh, self-contained implementation inspired by
 //! Wireshark (live capture + dissection) and Aircrack-ng (injection, 802.11
