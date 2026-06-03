@@ -1,6 +1,6 @@
 [package]
 name = "l2"
-version = "0.5.8"
+version = "0.5.9"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "High-assurance terminal substrate for agentic/MCP/AI systems with PQC crypto, explicit isolation, North-Star Containment, l2 spirit --audit ( --os / --file / --rat ), and v0.5.8 network tools: `na` (network-audit/pentest, Wireshark+aircrack modeled) + `tomato` (router network, Tomato firmware modeled; complements na) on masked disposable substrate surfaces via --policy na/tomato"

@@ -126,6 +126,7 @@ l2 crypto --profile hybrid-aes-chacha --apply --network-isolation --fast
 
 Only battle-tested, verified open-source algos (AES-256-XTS NIST, XChaCha20-Poly1305 IETF, Argon2id PHC). Hybrid mixes complementary designs for defense-in-depth. Applies proficiently via LUKS2/gocryptfs; `--apply` is confirmed + paced; generates units + crypto-latest.json evidence (for `l2 audit --test`); respects L2_DATA_DIR; keys protected via `l2 exec --policy strict-mcp`. (v0.4.7+ polish: --json, audit check, L2_DATA_DIR, network notes; even further: redteam 10-vector onslaught + deeper June 2026 NSA/CISA mappings + North-Star SUMMARY refinements.) Quantum / PQC preparation: new open-source profiles hybrid-pqc-mlkem-chacha and pqc-mlkem-argon2id using liboqs (ML-KEM / Kyber NIST FIPS 203) for key encapsulation + strong symmetric; defends quantum attacks (Shor/Grover, harvest-now-decrypt-later). Dedicated red-team demo `docs/examples/l2_crypto_redteam_onslaught.c` (run under crypto + great-harden) for NSA-level crypto onslaught verification (10+ vectors + quantum harvest; PQC defense) - all North-Star Contained to ws + crypto-latest.json + audit evidence. See docs/guides/HOWTO_execute_crypto_redteam_onslaught_demo.txt for exact seq + "prepare prepare prepare".
 - New: exhaustive self-audit of l2 + `docs/examples/l2_full_weakness_audit_attack.c` (AIO "true attack on all areas of weakness": 15+ vectors covering runtime/Landlock/TOCTOU, seccomp/NEVER bpf/key/unshare/setns/ptrace/process_vm/userfaultfd, host tamper, crypto deeper, state/audit poison, supply, mem/proc, net, anti/priv, agentic/MCP, fs/caps, direct l2 tamper). Only succeeds inside explicit ws under great-harden + crypto; full GRAND SUMMARY + new `l2 audit --test` check. Bolsters applied (extended NEVER, harden rules, audit integration). Cross-refs prior cancer/redteam. "prepare prepare prepare" for the complete North-Star Containment after full audit.
+- New: `docs/examples/l2_northstar_attack_resistance_demo.c` (the "North-Star Attack": most mathematically dangerous directed net payload exploiting *inherent* binary flaws — IEEE 754 NaN/denormal timing, two's complement cast/overflow, precision accum, Inf/NaN prop, weird machine from payload bits, consensus split. Universal to all binary computers; no sw fix. "North-Star Defense": l2 great-harden + explicit net (na/tomato) + spirit --file (raw FP math patterns now DANGEROUS) + `l2 audit --test` (new check) = contained to ws only, fully evidenced, safe for agentic/MCP even if math "succeeds". See its header for payload bits + 8 vectors + usage).
 
 ### `l2 harden` — Concrete Host Hardening
 
@@ -294,6 +295,13 @@ l2 put cancer-test cancer-sim.c --file docs/examples/l2_malware_cancer_resistanc
 l2 exec cancer-test 'gcc -static -Wall -Wextra -o cancer-sim cancer-sim.c && ./cancer-sim'  # grand demo of l2 North-Star Containment
 l2 audit --test   # verifies North-Star Containment of AIO malware-cancer (PASS with great-harden json + apply artifacts)
 l2 destroy cancer-test
+
+# North-Star Attack + Defense (binary math inherent flaws over net — NaN bypass, denormal timing, cast overflow, weird machine, etc.)
+l2 create northstar-test --policy great-harden   # (or --policy tomato + put na+tomato for masked net delivery flavor)
+l2 put northstar-test ns.c --file docs/examples/l2_northstar_attack_resistance_demo.c
+l2 exec northstar-test 'gcc -static -Wall -Wextra -o ns ns.c && ./ns'  # receives diabolical payload; CONTAINED SUCCESS only in ws; BLOCKED outside
+l2 audit --test   # new "North-Star attack (binary math ...) containment — l2 North-Star Defense" PASS + SUMMARY
+l2 destroy northstar-test
 ```
 
 Inside the ws (only files you `put`), the sim "ransom"s, "infects", drops notes, etc. — everywhere else is BLOCKED by the substrate (Landlock ws-only + tiniest RO + no /proc/no /etc, seccomp Phase 1 ENFORCING with extended NEVER for net/ptrace/bpf/setns/unshare/keyctl/mknod, env sanitization + HOME=ws, caps/no_new_privs, rlimits, host great-harden --apply lockdown). The audit --test + harden json is the machine-readable evidence of North-Star Containment.
@@ -324,7 +332,7 @@ See [STATUS.md](docs/STATUS.md) for the full current state and [ROADMAP.md](docs
 - `l2 policies` / `l2 policy <name>` for discovery.
 - Stronger defaults and deeper integration between policies, crypto, host hardening, and audit (`l2 audit --test`).
 - `ransom-hardened` + `l2_ransomware_resistance_demo.c` + `l2_miasma_resistance_demo.c` + harden/audit integration for repeatable WannaCry-class + Miasma supply-chain worm containment validation.
-- `l2 great-harden` (supreme command) + great-harden policy + `l2_malware_cancer_resistance_demo.c` for aerospace/industrial: higher assurance, closes gaps, AIO "malware-cancer" (direct substrate attack) defense, **grand demonstration of l2 North-Star Containment**, impenetrable servers for critical complexes.
+- `l2 great-harden` (supreme command) + great-harden policy + `l2_malware_cancer_resistance_demo.c` + `l2_northstar_attack_resistance_demo.c` for aerospace/industrial: higher assurance, closes gaps, AIO "malware-cancer" (direct substrate attack) defense, **North-Star Attack & Defense** (universal binary math FP/int/weird machine net payloads contained), **grand demonstration of l2 North-Star Containment**, impenetrable servers for critical complexes.
 
 **Ongoing:**
 - Production seL4/Microkit integration (l2-core as protection domain).

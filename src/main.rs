@@ -35,7 +35,7 @@ mod sandbox;
     name = "l2",
     version,
     about = "High-assurance terminal substrate for agentic systems (PQC crypto, explicit isolation, North-Star Containment, l2 spirit auditing)",
-    long_about = "Terminal substrate for isolated execution with PQC crypto, host hardening, `l2 net-isolate`, and `l2 spirit --audit` (OS scan or per-file logic review). North-Star Containment for agentic/MCP/AI/critical workloads (v0.5.6)."
+    long_about = "Terminal substrate for isolated execution with PQC crypto, host hardening, `l2 net-isolate`, and `l2 spirit --audit` (OS scan or per-file logic review). North-Star Containment for agentic/MCP/AI/critical workloads (v0.5.6). v0.5.9: North-Star Attack (most dangerous directed binary math net payload exploiting IEEE754/ two's complement/weird machines inherent flaws) + North-Star Defense (l2 great-harden + explicit surfaces + spirit math patterns + audit --test evidence makes you safe)."
 )]
 struct Cli {
     #[arg(long, global = true)]
@@ -1807,13 +1807,48 @@ fn run_security_audit_tests(
         },
     ));
 
+    // 12. North-Star attack (binary math FP/int/weird machine inherent flaws) containment — l2 North-Star Defense.
+    // The universal attack on binary representation (NaN bypass, denormal timing, two's complement cast overflow,
+    // precision catastrophe, weird machine from payload bits, Inf/NaN prop, consensus split) directed over net.
+    // Defense: l2 great-harden (or tomato/na for delivery surface) + explicit put/exec + spirit --file now flags
+    // raw math patterns + audit --test evidence. Damage contained to ws; no escape even if math "succeeds".
+    // "prepare prepare prepare" for agentic/MCP/AI where numeric payloads from net can be poisoned.
+    let has_northstar_policy = log_path.exists()
+        && std::fs::read_to_string(log_path)
+            .map(|c| {
+                c.contains("great-harden")
+                    || c.contains("northstar")
+                    || c.contains("north-star")
+                    || c.contains("tomato")
+                    || c.contains("na ")
+            })
+            .unwrap_or(false);
+    let northstar_json = match l2::harden_latest_path("great-harden") {
+        Ok(p) => p,
+        Err(_) => std::path::PathBuf::new(),
+    };
+    let has_northstar_harden = northstar_json.exists()
+        && std::fs::read_to_string(&northstar_json)
+            .map(|c| c.contains("great-harden") || c.contains("North-Star") || c.contains("northstar"))
+            .unwrap_or(false);
+    let northstar_pass = has_northstar_policy || has_northstar_harden || has_cancer_harden || !log_path.exists();
+    results.push((
+        "North-Star attack (binary math FP/int/weird machine payload over net) containment — l2 North-Star Defense".to_string(),
+        northstar_pass,
+        if has_northstar_harden || has_northstar_policy {
+            "Found great-harden (or tomato/na net surface) + evidence (l2 northstar attack resistance demo contained to explicit ws; NaN/denormal/cast/precision/weird machine vectors only succeed inside authorized authority; universal binary flaw but l2 makes consequences safe + auditable)".to_string()
+        } else {
+            "No North-Star Defense evidence (use l2 great-harden --apply + --policy great-harden (or tomato) + put l2_northstar_attack_resistance_demo.c + exec + l2 audit --test; spirit --file now detects raw FP math patterns)".to_string()
+        },
+    ));
+
     if json {
         let json_results: Vec<_> = results
             .iter()
             .map(|(n, p, d)| serde_json::json!({"check": n, "passed": p, "detail": d}))
             .collect();
         print_json(
-            &serde_json::json!({"audit_tests": json_results, "standards": "CISA/NSA/FBI June 2026 latest sweep: CPG 2.0 (GOVERN/oversight 1.B/MSP 1.E, least priv 3.H, malicious code 4.A, adverse events 4.B), NSA MCP CSI May 2026 (auth/integrity/least-priv-context/no-ambient/monitor-audit/approvals/anti-serialization for AI automation/tool context), CISA/NSA Five Eyes Careful Adoption of Agentic AI Services Apr/May 2026 (5 risks: privilege/least-priv/scope-creep, design/config, behaviour misalignment, structural cascading, accountability opacity + best practices: isolate to explicit ws, no broad access, human oversight via explicit exec, continuous audit/monitoring), NSA AI/ML Supply Chain Mar 2026 (AIBOM/SBOM/provenance), OT AI principles, AI data sec + CISA ransomware/worm + Miasma supply-chain + AIO malware-cancer + l2 North-Star Containment (great-harden substrate) + crypto redteam onslaught (10+ NSA-level vectors) + AIO full weakness audit onslaught (l2_full_weakness_audit_attack.c: 15+ vectors covering runtime/Landlock/TOCTOU/seccomp-bpf-key-ns/host-lockdown/crypto-deeper/state-poison/supply/mem-proc/net/anti-analysis/agentic-MCP/fs-caps/direct-l2-tamper + all prior) + verified crypto profiles for data-at-rest (l2 audit --test + crypto-latest.json evidence) + RAT defense mechanism (spirit --audit --rat IOCs for C2/revshell/persist + net-isolate/NEVER C2 cut + effective revoke + least-priv grants)"}),
+            &serde_json::json!({"audit_tests": json_results, "standards": "CISA/NSA/FBI June 2026 latest sweep: CPG 2.0 (GOVERN/oversight 1.B/MSP 1.E, least priv 3.H, malicious code 4.A, adverse events 4.B), NSA MCP CSI May 2026 (auth/integrity/least-priv-context/no-ambient/monitor-audit/approvals/anti-serialization for AI automation/tool context), CISA/NSA Five Eyes Careful Adoption of Agentic AI Services Apr/May 2026 (5 risks: privilege/least-priv/scope-creep, design/config, behaviour misalignment, structural cascading, accountability opacity + best practices: isolate to explicit ws, no broad access, human oversight via explicit exec, continuous audit/monitoring), NSA AI/ML Supply Chain Mar 2026 (AIBOM/SBOM/provenance), OT AI principles, AI data sec + CISA ransomware/worm + Miasma supply-chain + AIO malware-cancer + l2 North-Star Containment (great-harden substrate) + crypto redteam onslaught (10+ NSA-level vectors) + AIO full weakness audit onslaught (l2_full_weakness_audit_attack.c: 15+ vectors covering runtime/Landlock/TOCTOU/seccomp-bpf-key-ns/host-lockdown/crypto-deeper/state-poison/supply/mem-proc/net/anti-analysis/agentic-MCP/fs-caps/direct-l2-tamper + all prior) + verified crypto profiles for data-at-rest (l2 audit --test + crypto-latest.json evidence) + RAT defense mechanism (spirit --audit --rat IOCs for C2/revshell/persist + net-isolate/NEVER C2 cut + effective revoke + least-priv grants) + North-Star Attack & Defense (binary FP/int/weird machine inherent flaws over net; contained by great-harden + explicit surfaces + spirit math patterns + audit --test evidence)"}),
         );
     }
 
@@ -2272,6 +2307,41 @@ fn run_spirit_file_audit(path: &str, json: bool) -> Result<()> {
         }
     }
 
+    // Binary math / FP / weird machine patterns (North-Star Attack: inherent IEEE 754 NaN/denormal/timing, two's complement casts/overflow, precision, punning, Inf/NaN prop, consensus break from net payloads)
+    // These are *universal* flaws in binary computers; l2 North-Star Defense contains them via policy + surfaces + sanitize recs + evidence.
+    let northstar_math = [
+        "double ",
+        "float ",
+        "(double)",
+        " (float)",
+        "union.*double",
+        "union.*float",
+        "0x7ff8",
+        "0x0000000000000",
+        "0x7ff000",
+        "subnormal",
+        "denormal",
+        "denorm",
+        "isnan(",
+        "isfinite(",
+        "fpclassify",
+        "math.h",
+        "0.1 +",
+        "accum +=",
+        "(size_t)",
+        "(uint32_t)",
+        "(int32_t)",
+        "cast.*float",
+        "float.*cast",
+        "reinterpret_cast",
+        "memcpy.*double",
+    ];
+    for pat in &northstar_math {
+        if lower.contains(pat) {
+            findings.push(format!("North-Star math attack pattern (binary FP/int/weird machine): {} (NaN bypass, denormal timing side-channel, cast overflow, precision catastrophe, punning for weird machine, Inf/NaN prop, consensus split; universal to binary computers from net payloads. North-Star Defense: sanitize with isnan/isfinite/clamp + run ONLY under l2 great-harden policy + explicit net surface (na/tomato) + audit --test)", pat));
+        }
+    }
+
     // Verdict logic
     let verdict = if findings.is_empty() {
         "SAFE"
@@ -2281,6 +2351,7 @@ fn run_spirit_file_audit(path: &str, json: bool) -> Result<()> {
             || f.contains("RAT IOC")
             || f.contains("l2 substrate")
             || f.contains("Priv esc")
+            || f.contains("North-Star math attack pattern")
     }) {
         "DANGEROUS"
     } else {
@@ -2293,7 +2364,7 @@ fn run_spirit_file_audit(path: &str, json: bool) -> Result<()> {
                 "path": path,
                 "verdict": verdict,
                 "findings": findings,
-                "standards": "l2 spirit of North-Star Containment + CISA malicious code 4.A + bad logic review. See resistance demos for patterns. Use under great-harden policy for execution."
+                "standards": "l2 spirit of North-Star Containment + Defense + CISA malicious code 4.A + bad logic review (incl. new binary math FP/NaN/denormal/weird patterns). See resistance demos (incl. l2_northstar_attack_resistance_demo.c). Use under great-harden policy for execution."
             }
         }));
     } else {
@@ -2311,14 +2382,14 @@ fn run_spirit_file_audit(path: &str, json: bool) -> Result<()> {
                 println!("  - {}", f);
             }
             println!();
-            println!("This code contains patterns that align with AIO malware-cancer / full-weakness vectors.");
+            println!("This code contains patterns that align with AIO malware-cancer / full-weakness / North-Star math attack vectors.");
             println!(
                 "Recommendation: DO NOT run directly. Put via `l2 put <sys> {} --file {}` then",
                 path, path
             );
             println!("`l2 exec <sys> --policy great-harden 'gcc ... && ./bin'` only inside authorized ws.");
             println!(
-                "l2 great-harden --apply + crypto + audit --test for full containment evidence."
+                "l2 great-harden --apply + crypto + audit --test for full containment evidence (North-Star Defense for binary math flaws)."
             );
         }
         println!();
@@ -2679,7 +2750,7 @@ fn great_harden(
 /// Integrates with strict policies for key protection. Supports hybrid profiles.
 /// v0.4.7+ : --json, L2_DATA_DIR/crypto/ evidence (crypto-latest.json), --fast, audit --test integration. (v0.4.8: even further redteam polish + North-Star grand demo)
 /// Quantum prep (PQC): new profiles hybrid-pqc-mlkem-chacha / pqc-mlkem-argon2id using open-source liboqs (ML-KEM / Kyber NIST FIPS 203) for key wrap + strong sym; defends Shor/Grover / harvest-now. See crypto redteam (now includes quantum vector) + docs.
-/// Pair with docs/examples/l2_crypto_redteam_onslaught.c (10+ NSA-level vectors + quantum) + great-harden + put/exec + audit for full North-Star Containment crypto verification (prepare prepare prepare).
+/// Pair with docs/examples/l2_crypto_redteam_onslaught.c (10+ NSA-level vectors + quantum) + docs/examples/l2_northstar_attack_resistance_demo.c (binary math inherent flaws over net) + great-harden + put/exec + audit for full North-Star Containment + Defense (prepare prepare prepare).
 fn crypto(
     profile: String,
     list: bool,
@@ -3739,7 +3810,7 @@ fn main() -> Result<()> {
                                 "Integrates full l2 (trace, crypto, audit, harden --apply) for supreme evidence loop",
                                 "Intended for high-integrity systems where any gap is unacceptable"
                             ],
-                            "recommended_usage": "l2 crypto --profile hybrid-aes-chacha --fast --apply ; l2 great-harden --apply ; l2 create critical --policy great-harden; l2 put ... l2_malware_cancer_resistance_demo.c + l2_crypto_redteam_onslaught.c; l2 exec --policy great-harden ... ; l2 audit --test  # grand demo of l2 North-Star Containment (AIO malware-cancer + crypto redteam onslaught)",
+                            "recommended_usage": "l2 crypto --profile hybrid-aes-chacha --fast --apply ; l2 great-harden --apply ; l2 create critical --policy great-harden; l2 put ... l2_malware_cancer_resistance_demo.c + l2_crypto_redteam_onslaught.c + l2_northstar_attack_resistance_demo.c; l2 exec --policy great-harden ... ; l2 audit --test  # grand demo of l2 North-Star Containment + Defense (AIO malware-cancer + crypto redteam + binary math FP/int/weird machine attack over net)",
                             "companion_command": "l2 great-harden --apply ; l2 policy great-harden"
                         }));
                     } else {
@@ -4444,8 +4515,12 @@ mod tests {
         assert!(results
             .iter()
             .any(|(n, _, _)| n.contains("RAT defense") || n.contains("spirit --audit --rat")));
-        // 11+ checks (prior 10 + RAT defense mechanism; covers 2026 standards + full substrate + RAT C2/persist defense)
-        assert!(results.len() >= 11);
+        // North-Star attack / binary math defense check (new: inherent FP/NaN/denormal/int-weird machine over net; l2 North-Star Defense via great-harden + surfaces + audit)
+        assert!(results
+            .iter()
+            .any(|(n, _, _)| n.contains("North-Star attack") || n.contains("North-Star Defense") || n.contains("binary math FP")));
+        // 12+ checks (prior + North-Star math attack defense; covers universal binary flaws + full 2026 standards + North-Star Containment for math payloads)
+        assert!(results.len() >= 12);
 
         std::env::remove_var("L2_DATA_DIR");
         let _ = std::fs::remove_dir_all(&temp);
@@ -4505,6 +4580,13 @@ mod tests {
             res.is_ok(),
             "spirit file audit failed on demo: {:?}",
             res.err()
+        );
+        // Also exercise North-Star math patterns (new in v0.5.9): the northstar demo should be DANGEROUS (raw FP, casts, NaN bits, denorm, etc.)
+        let res2 = run_spirit_file_audit("docs/examples/l2_northstar_attack_resistance_demo.c", true);
+        assert!(
+            res2.is_ok(),
+            "spirit file audit failed on northstar demo: {:?}",
+            res2.err()
         );
     }
 

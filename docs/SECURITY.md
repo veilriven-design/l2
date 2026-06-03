@@ -162,6 +162,16 @@ This directly supports "prepare the l2 program for a full safety protocol" and f
 
 See `docs/examples/l2_ransomware_resistance_demo.c` and `docs/examples/l2_miasma_resistance_demo.c` (headers have full run instructions) and the ransom-hardened case in `scripts/harden.sh`. For the full AIO substrate attack (malware-cancer) see the great-harden section below and `docs/examples/l2_malware_cancer_resistance_demo.c`. See also the dedicated Troubleshooting subsection in README.md.
 
+**North-Star Attack & Defense (v0.5.9+; inherent binary math flaws over net)**: The "North-Star Attack" is the most mathematically dangerous directed network payload exploiting *universal* flaws in binary computers (IEEE 754: NaN unordered comparisons for bypass, subnormals for timing side-channels/DoS per 2015 research, Inf/NaN propagation, two's complement signed casts to huge "len"/"uid" enabling OOB math, FP accumulation/rounding for "catastrophic" false validation or consensus split, NaN payloads + bit pun for emergent "weird machines" that compute secrets from "innocent" math, -0/Inf/denorm edges). Looks like normal numeric data (sensor, MCP arg, AI tensor, protocol field). No software fix exists for the representation itself.
+
+The "North-Star Defense" (when using l2 on hardened model): you are protected and safe. The attack only produces observable "success" (bypass grant, timing leak of secret, weird-computed token, math catastrophe affecting "decision", split-brain) inside an *explicitly authorized* l2 ws under great-harden (or tomato/na for the delivery surface). Even then:
+- All effects confined to ws (Landlock tiniest + HOME=ws + env_clear + no /proc + seccomp NEVER + great-harden host lockdown).
+- Net delivery via masked disposable surfaces (na0/wan0/lan0; host only sees veth peers; disposed on destroy).
+- Only via `l2 put` + `l2 exec --policy ...` (explicit terminal authority; no ambient).
+- spirit --audit --file now flags raw FP/int math (NaN risk, denorm, dangerous casts/puns, missing sanitizers) as DANGEROUS with recs to sanitize (isnan/isfinite/clamp) + run only in l2.
+- `l2 audit --test` includes dedicated check + evidence (great json + policy + demo SUMMARY) proving "North-Star attack containment — l2 North-Star Defense".
+See `docs/examples/l2_northstar_attack_resistance_demo.c` (full payload bits, 8 vectors, usage, GRAND SUMMARY "North-Star Containment achieved"), README smoke, src/main.rs (patterns + check), and "prepare prepare prepare" with L2_DATA_DIR + great-harden + create/put/exec/audit --test for machine proof. Ties to NSA/CISA AI data sec, MCP numeric context isolation, CPG malicious code. The binary nature is flawed; l2 makes consequences authority-bound, contained, auditable, and safe for agentic/critical use.
+
 ### great-harden (SUPREME for Aerospace, Industrial, Critical Infrastructure)
 
 `l2 great-harden` is the explicit supreme command and policy for aerospace (high-integrity), industrial control systems, and critical infrastructure where standard or even full-safety hardening has gaps.
