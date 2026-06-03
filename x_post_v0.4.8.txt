@@ -1,0 +1,16 @@
+l2 v0.4.8 is out: "update the program and polish it even further"
+
+Even more complete crypto red-team onslaught (now 10 NSA-level vectors: weak KDF, side-channel, key exfil, cipher misuse, RNG, hybrid breaks, tamper, supply-chain, l2 state, passphrase/impl flaw) + polished is_in_l2_workspace, richer North-Star Containment phrasing + SUMMARY (Grand Demo for Crypto), full cross-refs to HOWTO + cancer AIO demo + great-harden + audit.
+
+Deeper June 2026 NSA/CISA mappings (CPG 2.0, MCP CSI, Agentic 5 risks, AI Data Sec, Supply) across code/docs/evidence.
+
+Closed loop: crypto --profile hybrid-aes-chacha --fast --apply (writes L2_DATA_DIR/crypto/crypto-latest.json), great-harden --apply, create/put redteam.c (or cancer), exec 'gcc -static ... && ./...', audit --test (PASS on Crypto profiles... + redteam evidence + AIO malware-cancer + North-Star + all standards).
+
+"prepare prepare prepare" — run the grand demos (see HOWTO_execute_crypto_redteam_onslaught_demo.txt and the cancer one) when confident. l2 North-Star Containment: the repeatable, auditable demonstration that the minimal substrate meets/exceeds latest NSA/CISA for agentic/MCP/AI/OT/critical (explicit ws authority, isolation, crypto at-rest + key prot via substrate, continuous audit/evidence, resistance verified only in authorized ws).
+
+Repo: https://github.com/veilriven-design/l2 (or whatever the actual; use correct handle)
+Handles: @yourhandle etc.
+
+#NorthStarContainment #l2 #AgenticAI #MCP #Cybersec #NSA #CISA #PreparePreparePrepare
+
+( copy-paste ready; update repo/handle )
