@@ -41,7 +41,7 @@ pub fn log(op: &str, details: Value) {
     if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&p) {
         let _ = writeln!(f, "{}", line);
     }
-    // Intentionally silent on failure — audit is advisory for the prototype.
+    // Intentionally silent on failure — audit is best-effort evidence (mature Host + L2P still treat it as non-fatal for robustness).
 }
 
 /// Compute a simple chain hash of the last line in the audit log (for tamper evidence).
@@ -67,30 +67,19 @@ fn last_entry_hash(p: &PathBuf) -> Option<String> {
 
 /// Returns the full path to the audit log file for the current user/context.
 /// Public so the CLI can implement `l2 audit` without duplicating logic.
+/// Uses the centralized l2::data_dir (which handles L2_DATA_DIR first, then SUDO_USER,
+/// then HOME) so audit.log always lands in the same place as state + reports.
+/// This was a source of inconsistency in prior versions (mixed ~/.l2 and L2D).
 pub fn path() -> PathBuf {
-    // Mirror the logic in main.rs::data_dir() so SUDO_USER works correctly
-    // after privilege escalation for exec.
-    if let Ok(dir) = std::env::var("L2_DATA_DIR") {
-        return PathBuf::from(dir).join("audit.log");
-    }
-
-    if let Ok(sudo_user) = std::env::var("SUDO_USER") {
-        if let Some(home) = get_home_for_user(&sudo_user) {
-            return PathBuf::from(home).join(".l2").join("audit.log");
+    // Prefer the shared implementation in the library for perfect L2_DATA_DIR + sudo consistency.
+    // Fall back to a safe default only on error (should be rare).
+    match l2::audit_log_path() {
+        Ok(p) => p,
+        Err(_) => {
+            // Last resort (e.g. no HOME and no L2_DATA_DIR) — use cwd/.l2 to avoid panic.
+            std::path::PathBuf::from(".l2").join("audit.log")
         }
     }
-
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
-    PathBuf::from(home).join(".l2").join("audit.log")
-}
-
-fn get_home_for_user(username: &str) -> Option<String> {
-    let output = std::process::Command::new("getent")
-        .args(["passwd", username])
-        .output()
-        .ok()?;
-    let line = std::str::from_utf8(&output.stdout).ok()?;
-    line.split(':').nth(5).map(|h| h.trim().to_string())
 }
 
 /// Verify the tamper-evident hash chain of an audit log.

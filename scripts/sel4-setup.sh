@@ -20,7 +20,15 @@
 
 set -euo pipefail
 
-WORKSPACE="$HOME/l2-sel4-workspace"
+# Respect L2_SEL4_WORKSPACE or derive from L2_DATA_DIR for consistency with runtime state.
+# (seL4 workspace is dev/build area, not runtime .l2 data, but we honor the spirit of L2D overrides.)
+if [ -n "${L2_SEL4_WORKSPACE:-}" ]; then
+    WORKSPACE="$L2_SEL4_WORKSPACE"
+elif [ -n "${L2_DATA_DIR:-}" ]; then
+    WORKSPACE="$(dirname "$L2_DATA_DIR")/l2-sel4-workspace"
+else
+    WORKSPACE="$HOME/l2-sel4-workspace"
+fi
 L2_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Parse command-line arguments (supports being called directly or via `l2 sel4-setup --fast`)
@@ -163,15 +171,8 @@ section() {
 }
 
 type_line "=== l2 sel4-setup ==="
-type_line "One-command seL4/Microkit + l2 development environment"
-type_line "Workspace: $WORKSPACE"
+type_line "seL4/Microkit env for l2 (ws: $WORKSPACE; SDK fast path; full CAmkES opt-in)."
 echo
-
-if should_type_slowly; then
-    type_line "(Output is being revealed slowly so you can read along."
-    type_line " Set L2_FAST=1 to get instant output.)"
-    breathe 0.9
-fi
 
 # 1. Basic host tools check (non-fatal hints)
 section "[1/6] Checking host prerequisites..."
@@ -292,20 +293,7 @@ if [[ "${ID:-}" =~ ^(fedora|rhel|centos|rocky|almalinux|ol)$ ]] && [ "$CONTAINER
     breathe 0.25
 
     # Reveal the big warning at a readable pace instead of slamming the user
-    reveal_lines "$(cat << 'HEAVY_WARN'
-    The official seL4/CAmkES/L4v container (the thing 'make user' builds) is a HEAVY
-    optional path. It is NOT required for l2 + Microkit work.
-
-    What it actually does:
-      - Pulls several large pre-built images (trustworthysystems/{sel4,camkes,l4v})
-      - Runs the upstream Makefile which adds user-mapping layers on top
-      - The L4v image alone carries a full Isabelle installation + proof sessions
-
-    Realistic first-time wall time (the numbers the spinner will show):
-      - Fast modern desktop / good SSD / 16+ GB RAM:   2–8 hours typical
-      - 2015–2018 era hardware:                         8–20+ hours common
-      - Ancient / low-spec machines (X200-class ThinkPads, early 2010s EliteBooks,
-        mechanical HDDs, 4–8 GB RAM):                  15–40+ HOURS or more is normal.
+    type_line "HEAVY optional: full seL4/CAmkES/L4v container (NOT needed for l2/Microkit/PD work). ~10-40hrs build on typical hw, 10s of GB. SDK path (default) is fast/ sufficient for l2 substrate."
         Rootless Podman on RHEL uses fuse-overlayfs; layer commits + extraction
         become I/O bound and memory pressure causes heavy swapping.
 

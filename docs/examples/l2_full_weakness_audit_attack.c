@@ -1,8 +1,9 @@
 /*
  * l2_full_weakness_audit_attack.c
  *
- * A canonical "true attack on all areas of weakness" demonstration: the AIO Full
- * Weakness Audit Attack (or "substrate-audit-onslaught") against the l2 substrate.
+ * A canonical "true attack on all areas of weakness" demonstration (v0.5.0 sweep):
+ * the AIO Full Weakness Audit Attack (or "substrate-audit-onslaught") against the l2
+ * substrate. Exercises mature L2P/Host + operational harden --apply + crypto.
  *
  * Purpose:
  *   This is the comprehensive "full audit" red-team sim targeting *every* known

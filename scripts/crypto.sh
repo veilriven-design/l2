@@ -89,44 +89,13 @@ reveal_lines() {
 # All are in widespread use, audited, standardized (NIST, IETF, etc.)
 # -----------------------------------------------------------------------------
 print_profiles() {
-    reveal_lines "Available l2 crypto profiles (verified open-source only):"
-    echo || true
-    type_line "1. aes256-xts-argon2id"
-    reveal_lines "   - Symmetric: AES-256 in XTS mode (NIST-approved, most analyzed disk cipher).
-   - KDF: Argon2id (memory-hard, winner of Password Hashing Competition, side-channel resistant).
-   - Use case: Standard high-security full disk / data encryption.
-   - Performance: Excellent on CPUs with AES-NI.
-   - Verification: FIPS 140-2/3, extensively cryptanalyzed for decades."
-    echo || true
-    type_line "2. xchacha20-poly1305-argon2id"
-    reveal_lines "   - Symmetric: XChaCha20-Poly1305 (IETF standard, constant-time, no AES dependency).
-   - KDF: Argon2id (same as above).
-   - Use case: Modern encryption for all hardware, great on low-power/embedded for agents.
-   - Performance: Fast in software, resistant to timing attacks.
-   - Verification: Used in libsodium, WireGuard, age, etc. Rigorously reviewed."
-    echo || true
-    type_line "3. hybrid-aes-chacha"
-    reveal_lines "   - Mixture: AES-256-XTS for bulk data volumes + XChaCha20-Poly1305 for key wrapping, metadata, and small sensitive objects.
-   - KDF: Argon2id for both.
-   - Use case: Defense-in-depth for critical systems. Algorithms complement each other (different designs, no shared weaknesses).
-   - Why robust: If one cipher has future weakness, the other provides independent security. Ideal for long-term archive or high-value MCP data.
-   - Verification: Both components are top-tier; hybrid constructions are recommended in modern guidance (e.g., for post-quantum transition but here for classical robustness)."
-    echo || true
-    type_line "Hybrid is strongly recommended for maximum security in agentic environments where data longevity and tool secrecy matter."
-    echo || true
-    type_line "4. hybrid-pqc-mlkem-chacha (quantum-resistant / post-quantum preparation)"
-    reveal_lines "   - Hybrid classical + open-source post-quantum: XChaCha20-Poly1305 (symmetric data) + ML-KEM (Kyber, NIST FIPS 203) for key encapsulation/wrapping using open-source liboqs.
-   - KDF: Argon2id for both layers.
-   - Use case: Defend against quantum attacks (Shor on classical asym, Grover on sym/KDF) for long-term data at rest, AI model weights, critical infra archives. 'Harvest now, decrypt later' resistance.
-   - Mechanism: Use open-source liboqs (OQS project) to perform ML-KEM KEM with recipient PQC public key; shared secret used to wrap/derive the master key for LUKS/gocryptfs. Symmetric layer uses proven XChaCha. Keys protected by l2 isolation (explicit exec only).
-   - Open-source: liboqs (https://github.com/open-quantum-safe/liboqs), oqsprovider for OpenSSL integration if needed, age with PQC plugins for file-level objects. Hybrid recommended per NIST/NSA for transition.
-   - Verification: NIST FIPS 203, liboqs audited implementations, side-channel resistant where possible."
-    echo || true
-    type_line "5. pqc-mlkem-argon2id (PQC-focused key protection)"
-    reveal_lines "   - Post-quantum KEM: ML-KEM-768/1024 (NIST) for key encapsulation + Argon2id KDF.
-   - Use case: Quantum-safe key management for disk encryption setup or backup of l2 state/crypto keys. Combine with strong symmetric above.
-   - Open-source mechanism: liboqs for KEM ops; script will guide use of oqs_kem_enc / dec if available, or print equivalent commands.
-   - For full disk: use the encapsulated secret as additional passphrase factor or to unlock gocryptfs/LUKS."
+    type_line "Profiles (verified open-source only; 1-line each):"
+    type_line "1. aes256-xts-argon2id: AES-256-XTS + Argon2id (NIST disk cipher + memory KDF; FIPS, high perf AES-NI)."
+    type_line "2. xchacha20-poly1305-argon2id: XChaCha20-Poly1305 + Argon2id (IETF, constant-time, no AES; good for all hw)."
+    type_line "3. hybrid-aes-chacha: AES-256-XTS (bulk) + XChaCha (keys/meta) + Argon2id (defense-in-depth, independent algos)."
+    type_line "4. hybrid-pqc-mlkem-chacha: XChaCha + ML-KEM (NIST FIPS 203 PQC via liboqs) + Argon2id (quantum harvest-now resist; l2 protects keys)."
+    type_line "5. pqc-mlkem-argon2id: ML-KEM (PQC KEM) + Argon2id (quantum-safe key mgmt for archives/state)."
+    type_line "Default/recommended for agentic: hybrid or hybrid-pqc (pair with great-harden)."
 }
 
 get_profile_details() {
@@ -167,18 +136,10 @@ get_profile_details() {
 # Main
 # -----------------------------------------------------------------------------
 echo "=== l2 crypto ===" || true
-type_line "Cryptography profiles for true system encryption via the l2 substrate"
-type_line "Profile: $PROFILE"
-if $LIST; then type_line "Mode: LIST"; fi
-if $APPLY; then type_line "Mode: APPLY"; fi
+type_line "Crypto profiles for true encryption (LUKS/gocryptfs + l2 key prot via policy)."
+type_line "Profile: $PROFILE" ; if $LIST; then type_line "  (list mode)"; fi ; if $APPLY; then type_line "  (apply mode)"; fi
 echo || true
-
-reveal_lines "This tool lets you select and apply verified cryptography profiles across your system.
-Only the most effective, widely audited open-source algorithms are offered.
-Profiles are applied proficiently using standard Linux tools (cryptsetup/LUKS, gocryptfs).
-Keys and operations are protected by the l2 isolation substrate (e.g. strict-mcp policies).
-Hybrid mode mixes complementary algorithms for robust, defense-in-depth security."
-
+type_line "Only verified open-source (AES/ChaCha/Argon2/PQC-ML-KEM via liboqs). Hybrid for depth. Keys in explicit l2 ws only."
 echo || true
 
 if $LIST || [ "$PROFILE" = "list" ]; then
@@ -218,44 +179,27 @@ CIPHER=$(echo "$PROFILE_DETAILS" | head -1)
 KDF=$(echo "$PROFILE_DETAILS" | head -2 | tail -1)
 DESC=$(echo "$PROFILE_DETAILS" | tail -1)
 
-type_line "[2/5] Profile details"
-reveal_lines "Selected: $DESC
-Cipher mode: $CIPHER
-Key derivation: $KDF
-This profile uses only algorithms with decades of public scrutiny, formal analysis,
-and real-world deployment in high-security environments."
+type_line "[2/5] Profile: $DESC | cipher $CIPHER | KDF $KDF (verified open-source only)."
 
 echo || true
 
-type_line "[3/5] How l2 crypto applies this to the entire system"
-reveal_lines "The l2 substrate enables true system encryption by:
-- Using isolation (strict-mcp etc.) to protect encryption keys and processes.
-- Applying the profile to data at rest via LUKS (full volumes) or gocryptfs (per-directory, easy for users).
-- For hybrid: different algorithms protect different layers (e.g. bulk data vs. keys/metadata).
-- Integration: after setup, access the encrypted data only through l2 exec --policy strict-mcp to keep keys isolated.
-This is proficient and simple: one command chooses the profile, the script handles the correct cryptsetup/gocryptfs parameters."
+type_line "[3/5] l2 applies via LUKS/gocryptfs + isolation (keys only in strict/great ws); hybrid layers for depth; PQC for quantum; evidence json for audit."
 
 echo || true
 
 # Handle apply
 if $APPLY; then
     if $JSON || $FAST; then
-        # non-interactive for json/CI/fast
         REPLY="y"
     else
-        type_line "[4/5] Applying profile: $PROFILE"
-        reveal_lines "WARNING: This will set up encryption. Have backups! For full system encryption, this is best done on a fresh install or for a separate data partition/home.
-For existing systems, we will set up a safe per-user encrypted directory for l2 data and sensitive files using gocryptfs (user-space, no root for basic use)."
-
-        echo
-        type_line "Do you want to proceed with applying encryption for profile '$PROFILE'? (y/N)"
+        type_line "[4/5] Apply $PROFILE? (backups!; gocryptfs for ~/.l2 or data; y/N)"
         read -r REPLY || true
     fi
     if [[ ! "$REPLY" =~ ^[Yy]$ ]]; then
         if $JSON; then
             echo '{"crypto": {"profile": "'$PROFILE'", "applied": false, "reason": "user aborted"}}' || true
         else
-            type_line "Aborted by user."
+            type_line "Aborted."
         fi
         echo "=== l2 crypto finished ===" || true
         exit 0
@@ -347,32 +291,27 @@ See liboqs docs, NIST SP 800-227 (KEM recs), NSA Quantum Readiness for migration
 l2 substrate + explicit put/exec + great-harden ensures PQC keys never leak ambiently."
         if ! $JSON; then type_line "  (Run with --apply to set up base + use PQC for key wrap in production.)"; fi
     fi
-    # v0.4.7+ polish note for North-Star / redteam integration
-    if ! $JSON; then type_line "For verification: use with great-harden + put l2_crypto_redteam_onslaught.c + l2_full_weakness_audit_attack.c + exec + l2 audit --test (see HOWTOs and North-Star Containment grand demo after full audit)"; fi
+    if ! $JSON; then type_line "Verify w/ great-harden + redteam demo + audit --test (North-Star)."; fi
 
     echo
-    type_line "For full system encryption (LUKS), use these verified commands with the profile:"
+    type_line "LUKS cmds (example; full in report):"
     echo
 
     case "$PROFILE" in
         aes256-xts-argon2id)
-            echo "cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --pbkdf argon2id --pbkdf-memory 1048576 --pbkdf-parallel 4 --pbkdf-force-iterations 4 /dev/sdX" || true
+            echo "cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --pbkdf argon2id /dev/sdX" || true
             ;;
         xchacha20-poly1305-argon2id)
-            echo "cryptsetup luksFormat --type luks2 --cipher xchacha20,aes-adiantum-plain64 --key-size 256 --pbkdf argon2id --pbkdf-memory 1048576 --pbkdf-parallel 4 --pbkdf-force-iterations 4 /dev/sdX" || true
+            echo "cryptsetup luksFormat --type luks2 --cipher xchacha20,aes-adiantum-plain64 --key-size 256 --pbkdf argon2id /dev/sdX" || true
             ;;
         hybrid-aes-chacha)
-            echo "# Hybrid: outer layer XChaCha, inner AES (or vice versa). Example two-layer setup:" || true
-            echo "cryptsetup luksFormat --type luks2 --cipher xchacha20,aes-adiantum-plain64 --key-size 256 --pbkdf argon2id /dev/sdX  # outer" || true
-            echo "# Then create inner on the mapped device with AES." || true
-            echo "cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --pbkdf argon2id /dev/mapper/outer" || true
+            echo "# Hybrid example: chacha outer, aes inner." || true
             ;;
         hybrid-pqc-mlkem-chacha|pqc-mlkem-argon2id)
-            echo "# PQC hybrid / quantum-resistant (open-source liboqs ML-KEM + strong sym):" || true
-            echo "# 1. Generate PQC keypair with liboqs (open-source):" || true
-            echo "   # (build liboqs, use example or oqs_kem_keypair for ML-KEM-768)" || true
-            echo "   oqs_kem_keypair -a Kyber768 -p recipient.pub -s recipient.priv" || true
-            echo "# 2. Encapsulate master key material (use shared secret as extra key factor or to encrypt the LUKS key):" || true
+            echo "# PQC: use liboqs ML-KEM KEM for key wrap + sym layer." || true
+            ;;
+        *) ;;
+    esac
             echo "   oqs_kem_enc -a Kyber768 -p recipient.pub -i /tmp/luks-master.key -o /tmp/luks-wrapped.ct" || true
             echo "# 3. For LUKS, use the (unwrapped via privkey) secret + argon for key; store wrapped.ct in l2-protected location (only accessible via strict-mcp exec)." || true
             echo "cryptsetup luksFormat --type luks2 --cipher xchacha20,aes-adiantum-plain64 --key-size 256 --pbkdf argon2id /dev/sdX  # base symmetric; layer PQC wrap for key" || true
@@ -390,20 +329,10 @@ l2 substrate + explicit put/exec + great-harden ensures PQC keys never leak ambi
     type_line "After mount: ln -s $MOUNT_DIR ~/.l2-secure-data  (protect keys with isolation)"
 
     echo
-    type_line "[5/5] Post-apply steps"
-    reveal_lines "1. Use the generated systemd unit or gocryptfs mount for your data.
-2. Run all crypto-sensitive work with: l2 exec --policy strict-mcp <your command>
-3. Protect your l2 state itself: after mount, move ~/.l2 into $MOUNT_DIR (or symlink) and access only via strict-mcp.
-4. Collect traces under the MCP protocol: l2 trace --policy strict-mcp ...
-5. Re-run l2 crypto --profile $PROFILE --apply after changes.
-6. For hybrid, the mixture provides complementary security: AES for speed/verified bulk, ChaCha for side-channel resistance.
-7. Use l2 harden --profile strict-mcp --network-isolation together with this profile.
-8. prepare prepare prepare: run the crypto redteam onslaught demo (l2 create ...; l2 put ... l2_crypto_redteam_onslaught.c; l2 exec 'gcc... && ./...'; l2 audit --test) + cancer demo for full North-Star Containment evidence (crypto profiles + substrate key prot + 2026 standards). See HOWTO_execute_crypto_redteam_onslaught_demo.txt and docs/examples/."
-
+    type_line "[5/5] Post: use via l2 exec --policy; protect ~/.l2 on mount; trace/exec/audit --test + great-harden (North-Star)."
     echo
-    type_line "=== l2 crypto setup complete for profile '$PROFILE' ==="
-    echo
-    type_line "Remember: Encryption is only as good as your passphrase and key management. Use the l2 substrate's isolation (strict-mcp) to protect passphrases and plaintext (e.g. store creds as l2 objects under strict-mcp policy only)."
+    type_line "=== l2 crypto $PROFILE done ==="
+    type_line "Passphrases via l2 only."
 
     # Write evidence for audit --test (always, even if json)
     CRYPTO_JSON_DIR="${L2_DATA_DIR:-$HOME/.l2}/crypto"
@@ -436,28 +365,9 @@ EOFJSON
 fi
 
 # Non-apply mode: just guidance
-type_line "[4/5] Guidance for applying $PROFILE"
-
-reveal_lines "To apply this profile proficiently:
-- For easy per-user encryption: use gocryptfs with the profile's cipher on a directory (e.g. ~/secure-data).
-- For full system: use cryptsetup LUKS2 with the exact cipher and argon2id as shown when you use --apply.
-- Hybrid: set up layered encryption (outer + inner volume) for defense in depth.
-- Integrate with l2: after mounting the encrypted volume, access it only via l2 exec --policy strict-mcp to keep keys and processes isolated from the rest of the system.
-This ensures true system encryption where the substrate's isolation complements the crypto."
+type_line "[4/5] Guidance: l2 crypto --profile $PROFILE --apply (gocryptfs/LUKS per profile; access only in l2 exec --policy)."
 
 echo || true
-
-type_line "To actually apply (safe, user-confirmed setup of encrypted dir + full commands):"
-type_line "  l2 crypto --profile $PROFILE --apply"
-type_line "  # Then (prepare prepare prepare): pair with great-harden + crypto redteam demo (see docs/examples/l2_crypto_redteam_onslaught.c + HOWTO) for NSA-level verification + l2 audit --test North-Star Containment"
-type_line "  # For quantum: l2 crypto --profile hybrid-pqc-mlkem-chacha --apply  (uses open-source liboqs ML-KEM for key protection against quantum attacks)"
-
-echo || true
-
-type_line "[5/5] l2 crypto guidance complete."
-
-echo || true
-type_line "Use --apply to perform the proficient setup. Keep your profiles and keys protected via the l2 substrate."
-
-echo || true
+type_line "  Pair w/ great-harden + redteam + audit (North-Star + PQC quantum via liboqs)."
+type_line "[5/5] l2 crypto guidance done. --apply to setup; protect via l2."
 echo "=== l2 crypto finished ===" || true

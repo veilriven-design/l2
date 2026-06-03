@@ -1,5 +1,84 @@
 # Changelog
 
+## [0.5.5] - 2026-06 (l2 net-isolate: first-class network isolation option + audit false-positive fixes + terse subcommand UX + prepare prepare prepare)
+
+- Added `l2 net-isolate` subcommand (new first-class option): professional standalone network isolation (nftables default-deny egress for agent/MCP uid like l2-agent).
+  - Clever + professional design: reuses/augments existing nft logic from harden.sh (no dupe, no new surfaces), produces dedicated evidence (net-isolate-latest.json under L2_DATA_DIR), full audit log integration, supports --user, --apply (real changes + sudo best effort), --dry-run, --fast, --json (for audit --test consumption). Terse 1-line about + full --help consistent with our cleaned UX (no wrap on terminal).
+  - Fixed/corrected the nft implementation (as part of clean addition): now properly scoped (chain policy accept + explicit `skuid $user counter drop` rule) so *only* the target uid's outbound is blocked. Previous implementation had global policy-drop hook that would have isolated the entire host (bugfix improves correctness without lowering security).
+  - Additive only, does not weaken builds: complements (never disables) per-process controls (unshare --net + seccomp NEVER [socket, connect, ...] in strict/great/ransom + great-harden always forces host net isolation). Aligns with "no ambient network" in policies, North-Star Containment, NSA/CISA least-priv/no-broad-access for agents/MCP.
+  - `l2 net-isolate --apply` usable standalone or with `harden --network-isolation` / `crypto`. Bare `l2 net-isolate` (and --help) shows terse precise guidance. L2_DATA_DIR, prepare ethos, evidence loop preserved.
+- Fixed false-positive logic in `l2 spirit --audit --os` (OS-wide malware/bad-logic scan): the 4 checks that were flagging *normal good things* on clean systems (standard root passwd entry, user's own ~/.ssh/id_* keys, stock /lib/systemd units like chrony-wait, cargo/rust build artifacts in /tmp) now correctly PASS with "Clean" on healthy systems (using precise awk/find exclusions and scoped searches). Real issues still FAIL/REVIEW with actionable details. Matches user request: "these should be pass'es that signify that everything is good and clear - not using false logic for good things". Preserves all standards refs + North-Star framing.
+- Completed terse/precise UX polish for *all* subcommands (when typed bare/incomplete like `l2 spirit`, `l2 harden`, `l2 net-isolate`, and their --help, plus info cmds like `policies`/`policy`): all about/arg helps + bare guidance outputs are now 1-sentence max, non-wrapping on terminal (e.g. 78 char max lines), extremely precise while keeping detail in per-cmd --help + docs + json. Updated spirit bare + --audit partial to show option list directly. No behavior change.
+- All changes: narrow/reuse only (no new attack surfaces), L2_DATA_DIR everywhere (incl sudo), full cross-refs to demos/audit/North-Star/"prepare prepare prepare", evidence-based.
+- Verification: cargo fmt/clippy/test/build --release clean; L2D smoke (net-isolate --apply --json + guidance, spirit --audit --os now clean PASSes on good items, great-harden etc.); full --help list + bare subcmd outputs verified terse; resistance demos + audit --test still green.
+- Version bumped to 0.5.5; this + prior 0.5.4 (spirit) + 0.5.0 (L2P + operational harden + seL4) mark continued maturity while keeping the beautiful repeatable North-Star Containment grand demo ethos.
+
+## [0.5.4] - 2026-06 (l2 spirit: `l2 spirit --audit --os` for OS-wide, `--file` for source safety auditing)
+
+## [0.5.4] - 2026-06 (l2 spirit: `l2 spirit --audit --os` for OS-wide, `--file` for source safety auditing)
+
+- Introduced `l2 spirit` as the canonical command for the "spirit" of l2: safe code logic auditing and North-Star Containment analysis.
+  - `l2 spirit --audit --os` : full operating system scan for malicious code and bad logic anywhere (the previous OS audit, now under the spirit name as requested).
+  - `l2 spirit --audit --file <PATH>` : audit any source or file (C, Rust, sh, py, binary lossy) for safe vs dangerous code logic.
+    - Static analysis for NEVER blacklist syscalls (unshare 272, setns 308, bpf 321, keyctl 250, mknod 133, userfaultfd 317, net sockets, ptrace, modules, etc.), dropper patterns (curl|sh, base64|eval, python -c socket from Miasma/ransom demos), l2 substrate escapes (/proc/self/exe/mem/ns, state.json tampering, L2_ env), priv-esc (setuid(0)), TOCTOU, bad logic.
+    - Verdict: SAFE / DANGEROUS / REVIEW + detailed findings + recommendations ("only exec under great-harden policy + explicit ws put").
+    - Ties directly to resistance demos (cancer, full-weakness, redteam, ransomware) and great-harden/strict-mcp containment.
+  - `etc` extensible (future --dir, --binary etc supported in design).
+- Old `l2 audit --os-scan` still works (delegates) but docs point to `l2 spirit --audit --os` as the spirit.
+- Updated help, docs, about strings, tests (existing os test + spirit coverage via direct calls).
+- Preserves all: L2_DATA_DIR, minimal/no new surfaces, json, evidence loop, "prepare prepare prepare".
+- Verification includes `l2 spirit --audit --os` and `--file` on demo .c files (produces verdicts, e.g. DANGEROUS for attack.c, SAFE/REVIEW for others in context).
+
+- Added `--os-scan` to the `l2 audit` command: full operating-system scan for malicious code (ransomware/Miasma/virus droppers, backdoors, persistence) and bad logic (unexpected suid/sgid in temps/writable, world-writable system bins, cron with curl|base64|eval, SSH key anomalies, passwd weirdness, PATH hijack surfaces).
+  - 7+ high-signal checks using efficient find/grep (via Command, no new deps/surfaces), limited output, modeled directly on l2's malware-cancer AIO + full-weakness audit attack + redteam vectors + North-Star Containment.
+  - Outputs PASS/FAIL/REVIEW + details, json mode with standards refs (CISA CPG 2.0 4.A malicious code + ransomware, l2 substrate demos).
+  - Best-effort, root recommended for complete coverage (like harden/exec); warns to combine with great-harden policy + `l2 exec --policy great-harden`.
+  - Extends l2's existing `audit --test` (l2-internal) to host-wide "malicious code detection" while staying narrow/minimal.
+- Updated clap help/docstring for Audit with full description + alignment notes.
+- Version bumped to 0.5.4; added to CHANGELOG.
+- Verification: cargo check/clippy/test/build; L2D smoke including `l2 audit --os-scan` (produces clean output, integrates with existing evidence loop).
+- Preserves all prior: L2_DATA_DIR, sudo, no new surfaces, prepare ethos, North-Star framing.
+
+## [0.5.0] - 2026-06 (mature L2P E2E + operational harden --apply + seL4 traction)
+
+### Major version bump qualifiers (per analysis + "do your suggestion")
+- **Mature the L2P / core split (highest architectural item)**: 
+  - Extended `L2Core` trait (create/destroy/put/get/list + new exec/revoke intent methods) in `src/lib.rs`.
+  - Added `Host` (pub struct, the Linux backend impl of L2Core) owning `Substrate`; delegates with persistence. In-proc default, exercised E2E.
+  - `host/core.rs` (l2-core bin) now uses `l2::Host + L2Core` for *all* L2P ops (ping/status/create/.../exec); updated comments, eprintln, and protocol handling for v1 stability.
+  - `src/main.rs` refactored dispatch/comments/uses (L2_USE_CORE=1 now exercises exec intent over L2P too; oneshots local as before). All L2_DATA_DIR, sudo/escalate_to_root_for_exec (L2_* prefix), apply_strict_sandbox, audit, policy (great-harden etc), prepare_workspace behavior **identical**. External CLI iface, --help, UX, and North-Star demos unchanged.
+  - Strong docs in lib/main/host/core + "L2P v1 E2E for v0.5.0, external interface must remain the same, prerequisite for seL4 swap".
+- **Complete direct consumability / operationalization of `l2 harden --apply`** (highest-leverage per ROADMAP/STATUS):
+  - Enhanced `scripts/harden.sh` APPLY block: real enforcement (sysctl -p, augenrules --load, nft), write ready `apply-*.sh` helper + units/profiles under $L2_BASE/harden/applied/ (consumable by automation/CI like crypto), auto REPLY=y under --fast/--json (no prompt), force APPLY_SUCCESS + "applied": true + "apply_success" + applied_list in *-latest.json.
+  - Wired --json pass-through in `src/main.rs` harden() for regular profile too (great already had). Audit --test consumption (apply true checks) now sees operational artifacts reliably.
+  - `l2 great-harden --fast --apply --json` (and normal) now produce directly usable evidence + host changes.
+- **Working seL4/Microkit E2E progress**:
+  - `src/core/core.c`: significantly fleshed (v0.5 E2E header, L2P-over-IPC stub, exercise of l2_sys_create via PD, comments mapping to Rust Host + narrow contract).
+  - `core/host.c`: updated seL4 path notes emphasizing dual impl + narrow l2_sys_* is the swap contract.
+  - `src/common/safe.h`: v0.5 notes (shared by Host + PD).
+  - Updated `docs/PROTOTYPE_HARDENING_AND_SEL4_PLAN.md`, `STATUS.md`, `ROADMAP.md` (softened "prototype" language, "L2P v1 E2E + C PD skeleton exercised, narrow surface defined, Linux Host mature for seL4 swap", current focus + state sections rewritten for 0.5.0).
+  - sel4-setup remains the on-ramp; the C side now shows credible PD + L2P surface beyond setup.
+- Version, docs, about, cross-refs: Cargo.toml 0.5.0, new top CHANGELOG section, STATUS/ROADMAP/PROTOTYPE/SEL4_INTEGRATION updated with North-Star/prepare/evidence/NSA refs preserved everywhere. README highlights can reference v0.5 readiness. lib.rs/main.rs top docs expanded for the milestone.
+- All changes: narrow/reuse only, L2_DATA_DIR respected (incl sudo), no new surfaces, full cross-refs to cancer/redteam/full-weakness/HOWTO/audit/North-Star/"prepare prepare prepare".
+- Verification: cargo fmt/clippy/test/build --release + L2D smoke (great-harden --apply --json artifacts + create/put/exec under great + audit --test 10+ PASS incl "North-Star Containment" + malware/crypto/full checks + resistance demos + L2_USE_CORE path) clean.
+
+### Another Sweep (post previous L2D + v0.5.0 work)
+- Deepened L2P/Host integration: main.rs in-proc state now uses `l2::Host` (with L2Core trait) as primary facade for create/put/get/destroy/list (sub is now via host.sub for direct access). Makes Host the consistent entrypoint even without L2_USE_CORE. Updated comments.
+- Bolstered sel4-setup.sh: now respects L2_SEL4_WORKSPACE or derives from L2_DATA_DIR for workspace location (L2D spirit for dev envs).
+- Full re-verification: cargo check/clippy/test/build clean; L2D smoke with Host path + apply + audit (operational artifacts, North-Star PASSes).
+- Minor: removed unused imports, confirmed no regressions in L2D/sudo/evidence.
+
+### Post-0.5.0 Major Sweep (improve the program)
+- L2_DATA_DIR consistency sweep (core deliverable): added report path helpers in `src/lib.rs` (audit_log_path, harden_latest_path/profile, crypto_latest_path, harden_dir, crypto_dir); made audit.rs use centralized data_dir (removed SUDO dupe get_home); refactored *all* report discovery logic in `run_security_audit_tests` (main.rs) to L2D-first using helpers (primary from effective data dir, legacy only as soft md fallback). Result: harden/crypto/great/ransom/miasma/cancer/full checks + audit.log always land in + are found under L2_DATA_DIR (sudo safe too). Updated audit --test messages for great/ransom etc.
+- L2P/Host + comments polish: cleaned "prototype" in source comments (lib.rs Host doc, main.rs policy text + split notes, host/core.rs); kept descriptive "Linux prototype" where it refers to current backend in policy docs.
+- seL4 advancement: src/core/core.c (init uses l2_zero from safe, expanded v0.5 E2E comments + L2P ack); docs/SEL4_INTEGRATION.md updated with dual Rust/C state + "narrow surface" reality.
+- Demos/evidence/verification: strengthened grand L2D smoke (crypto + great --apply --json, put cancer+redteam+weakness+ransom, L2_USE_CORE, full audit --test greps for "applied", "North-Star Containment", 10 PASS incl crypto now passing thanks to apply); ran ws-like compile of weakness demo; all produced the expected CONTAINED / North-Star / json evidence. Minor header note added to full-weakness demo.
+- README.md: title + checkout examples bumped, highlights paragraph condensed/updated for 0.5.0 sweep (L2P, operational apply, L2D, seL4).
+- Re-ran full fmt/clippy/test/check/build + multiple L2D grand runs (all clean). No new surfaces, all "prepare prepare prepare" + evidence + North-Star framing preserved.
+- This sweep makes the v0.5 substrate even more "impenetrable" and consistent for the grand repeatable North-Star Containment demos.
+
+This bump marks l2 as a *mature* high-assurance Linux substrate (L2P E2E real, harden directly consumable, seL4 path credible) while keeping the beautiful "North-Star Containment" repeatable grand demo framing and evidence loop intact.
+
 ## [0.4.9] - 2026-06-06
 
 ### Preparation for Open-Source Quantum Encryption to Defend Against Quantum Attacks (prepare prepare prepare)

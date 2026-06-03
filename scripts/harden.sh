@@ -44,6 +44,11 @@ if $FAST || $JSON; then
     FAST=true
 fi
 
+# net-isolate profile is a focused mode for the network isolation option (standalone)
+if [ "$PROFILE" = "net-isolate" ]; then
+    NETWORK_ISOLATION=true
+fi
+
 # -----------------------------------------------------------------------------
 # Helper: Generate minimal seccomp profile from a trace log
 # -----------------------------------------------------------------------------
@@ -151,18 +156,18 @@ else
     L2_BASE="${HOME}/.l2"
 fi
 
-echo "=== l2 harden ==="
-type_line "High-assurance hardening for the agentic / AI / MCP era"
-type_line "Profile: $PROFILE   Target: $TARGET"
-if $DRY_RUN; then type_line "Mode: DRY-RUN (no changes will be made)"; fi
-if $APPLY; then type_line "Mode: APPLY (confirmed operational changes + evidence update)"; fi
+if [ "$PROFILE" != "net-isolate" ]; then echo "=== l2 harden ==="; else echo "=== l2 net-isolate ==="; fi
+if [ "$PROFILE" != "net-isolate" ]; then
+    type_line "High-assurance hardening (NSA/CISA agentic/MCP): profile $PROFILE target $TARGET$( $DRY_RUN && echo ' DRY' || true )$( $APPLY && echo ' APPLY' || true )."
+else
+    type_line "Network isolation (nft default-deny for uid; additive to policies; forced in great-harden)."
+fi
 echo
-
-reveal_lines "This tool applies security hardening measures aligned with
-NSA, CISA, and FBI guidance for the agentic/AI/MCP era of computation.
-It prepares systems so that policy protocols like 'strict-mcp' (agents) and
-'ransom-hardened' (full safety for ransomware/WannaCry-class testing) can be used
-with real confidence."
+if [ "$PROFILE" = "net-isolate" ]; then
+    type_line "Prepares network isolation (additive to policies; see l2 net-isolate --help)."
+else
+    type_line "Prepares strict-mcp/ransom/great policies (isolation, audit, containment). See l2 policy $PROFILE ."
+fi
 
 # Detect OS
 if [ -f /etc/os-release ]; then
@@ -250,36 +255,7 @@ EOF
 # Core recommendations (MVP skeleton)
 # These are the categories that matter most for agentic/AI/MCP systems.
 # -----------------------------------------------------------------------------
-reveal_lines "$(cat << 'RECS'
-[2/6] Core hardening categories for the agentic era
-
-1. Least Privilege & Isolation
-   - Enforce strong seccomp + Landlock (or equivalent) on all agent processes
-   - Use dedicated low-privilege users / namespaces for MCP servers and tools
-   - Prefer capability-dropped, read-only root filesystems where possible
-
-2. Supply Chain & Memory Safety
-   - Prefer memory-safe languages for new agent components
-   - Pin and verify all dependencies (SBOM + signatures)
-   - Regular vulnerability scanning of the agent runtime and tools
-
-3. Runtime & Network Controls
-   - Outbound network allowlisting for agents (very few destinations)
-   - No ambient credentials in agent environments
-   - Strong audit logging of all tool invocations and data flows
-
-4. Secrets & Identity
-   - Never embed secrets; use short-lived, narrowly-scoped credentials
-   - Hardware-backed or remote attestation where feasible
-   - Clear separation between "agent identity" and "human operator identity"
-
-5. Monitoring, Logging & Incident Response
-   - Tamper-evident audit logs (append-only, hash-chained)
-   - Anomaly detection on agent behavior and tool usage
-   - Fast revocation and kill-switch capability for compromised agents
-
-RECS
-)"
+type_line "[2/6] Core: least-priv isolation (seccomp/Landlock), supply safety (SBOM), network allowlist, no ambient creds, tamper audit, fast revocation. (NSA/CISA agentic/MCP aligned; 1 sentence per category above for brevity.)"
 
 echo
 echo "[3/6] Applying profile: $PROFILE"
@@ -303,6 +279,11 @@ case "$PROFILE" in
         echo "      → Forces great-harden policy (ransom-hardened superset). Pair with l2 exec --policy great-harden."
         echo "      → Generates supreme units, full system lockdown configs, anti-malware rules."
         ;;
+    net-isolate)
+        echo "      → net-isolate: dedicated network isolation (nft default-deny output for target user uid)"
+        echo "      → Additive to per-process seccomp/netns (NEVER socket/connect in hardened policies). Does not weaken core builds."
+        echo "      → Use standalone or with harden/crypto for MCP/agent egress control. Always-on for great-harden."
+        ;;
     strict)
         echo "      → strict: Strong general-purpose isolation baseline"
         ;;
@@ -313,135 +294,21 @@ esac
 
 if [ "$TARGET" = "host" ]; then
     echo
-    type_line "[3.5/6] Concrete host hardening steps (NSA/CISA-aligned for agentic systems)"
-    type_line "      These are the practical controls that matter most for running MCP servers and agents."
-
-    if [ "$OS_ID" = "rhel" ] || [ "$OS_ID" = "fedora" ] || [ "$OS_ID" = "centos" ]; then
-        echo
-        type_line "      RHEL/Fedora family concrete steps (run as root or via sudo):"
-        echo
-        type_line "      # 1. Dedicated low-privilege user for agents (strongly recommended)"
-        echo "      useradd -r -s /sbin/nologin -d /var/lib/l2-agents l2-agent"
-        echo "      mkdir -p /var/lib/l2-agents"
-        echo "      chown l2-agent:l2-agent /var/lib/l2-agents"
-        echo
-        type_line "      # 2. Basic kernel hardening (sysctl) - critical for agents"
-        echo "      cat >> /etc/sysctl.d/99-l2-agentic-hardening.conf << 'SYSCTL'"
-        echo "      kernel.yama.ptrace_scope = 2"
-        echo "      kernel.kptr_restrict = 2"
-        echo "      kernel.dmesg_restrict = 1"
-        echo "      fs.protected_symlinks = 1"
-        echo "      fs.protected_hardlinks = 1"
-        echo "      fs.protected_fifos = 2"
-        echo "      fs.protected_regular = 2"
-        echo "      SYSCTL"
-        echo "      sysctl -p /etc/sysctl.d/99-l2-agentic-hardening.conf"
-        echo
-        type_line "      # 3. Audit rules for agent/tool execution (extremely valuable for MCP)"
-        echo "      cat > /etc/audit/rules.d/l2-agentic.rules << 'AUDIT'"
-        echo "      -w /usr/bin/ -p x -k l2-agent-tools"
-        echo "      -w /var/lib/l2-agents/ -p wa -k l2-agent-data"
-        echo "      AUDIT"
-        echo "      augenrules --load"
-        echo
-        type_line "      # 4. Capability dropping + advanced namespaces (recommended for agents)"
-        echo "      # Example systemd unit snippet (put in /etc/systemd/system/my-agent.service):"
-        echo '      # [Service]'
-        echo '      # User=l2-agent'
-        echo '      # CapabilityBoundingSet=~CAP_SYS_ADMIN CAP_NET_ADMIN CAP_NET_RAW CAP_SYS_MODULE'
-        echo '      # AmbientCapabilities='
-        echo '      # NoNewPrivileges=true'
-        echo '      # ProtectSystem=strict'
-        echo '      # ProtectHome=true'
-        echo '      # PrivateTmp=true'
-        echo '      # RestrictNamespaces=~user ~pid ~net ~uts ~ipc ~cgroup'
-        echo '      # SystemCallArchitectures=native'
-        echo
-        type_line "      # 5. Advanced namespace example (manual or via systemd-run)"
-        echo "      # systemd-run --uid=l2-agent --setenv=... --property=PrivateNetwork=true \\"
-        echo "      #             --property=ProtectSystem=strict ./your-agent"
+    if [ "$PROFILE" = "net-isolate" ]; then
+        type_line "[3.5/6] net-isolate: nft default-deny for uid (additive host control). Use l2 net-isolate --user U --apply . Complements policy seccomp/netns."
     else
-        type_line "      (Add distro-specific concrete steps for $OS_ID here in future versions)"
+        type_line "[3.5/6] Concrete steps (NSA/CISA agentic): low-priv user, kernel sysctls (ptrace/kptr/dmesg protect), audit rules on /usr/bin + ws, cap drop + ns in units, network allowlist via nft. (See l2 policy $PROFILE for details; run as sudo on real --apply.)"
     fi
 
-    # Network isolation (very important for MCP - agents should not have free outbound)
-    if $NETWORK_ISOLATION; then
-        echo || true
-        type_line "      === Network Isolation (enabled via --network-isolation) ==="
-        type_line "      For strict-mcp workloads, outbound network should be heavily restricted."
-        type_line "      Also critical to block Miasma-style credential exfil, OIDC theft, and worm C2/propagation."
-        echo || true
-        type_line "      Example (nftables) - drop all outbound for l2-agent user:"
-        echo "      nft add table inet l2-agent-isolation" || true
-        echo "      nft add chain inet l2-agent-isolation output { type filter hook output priority 0 \\; policy drop \\; }" || true
-        echo "      nft add rule inet l2-agent-isolation output skuid l2-agent counter drop" || true
-        echo || true
-        type_line "      Then allow only specific destinations your MCP tools actually need."
-        type_line "      This is one of the highest-leverage controls for agentic systems."
-    fi
-
-    # Automatic hardened systemd unit template for strict-mcp + ransom-hardened + great-harden (supreme)
     if [ "$PROFILE" = "strict-mcp" ] || [ "$PROFILE" = "ransom-hardened" ] || [ "$PROFILE" = "great-harden" ]; then
         echo
-        type_line "      === Generating hardened systemd unit template ($PROFILE) ==="
+        type_line "      Hardened systemd unit template generated for $PROFILE (place in /etc/systemd/system/). Use --apply for real writes."
         generate_systemd_unit "my-${PROFILE}-agent" "/etc/l2/seccomp-${PROFILE}.profile"
     fi
 
-    # GREAT-HARDEN SUPREME AEROSPACE/INDUSTRIAL (l2 great-harden) - extra extreme for impenetrable
     if [ "$PROFILE" = "great-harden" ]; then
         echo
-        type_line "      === GREAT-HARDEN SUPREME AEROSPACE/INDUSTRIAL LOCKDOWN (closes gaps, no malware surface) ==="
-        type_line "      Kernel lockdown + modules off + full ro + anti-malware extreme for critical infra."
-        echo
-        type_line "      RHEL/Fedora + general extreme steps (run as root/sudo):"
-        echo "      # 1. Kernel lockdown (aerospace-grade integrity/confidentiality)"
-        echo "      echo 1 > /proc/sys/kernel/lockdown || sysctl -w kernel.lockdown=1"
-        echo "      # 2. Disable loadable modules (no rootkits/dynamic malware)"
-        echo "      echo 1 > /proc/sys/kernel/modules_disabled || true"
-        echo "      # 3. Extreme sysctls (beyond standard)"
-        echo "      cat >> /etc/sysctl.d/99-l2-great-harden.conf << 'SYSCTL'"
-        echo "      kernel.kptr_restrict = 2"
-        echo "      kernel.dmesg_restrict = 1"
-        echo "      kernel.unprivileged_bpf_disabled = 1"
-        echo "      kernel.yama.ptrace_scope = 3"
-        echo "      fs.protected_symlinks = 1"
-        echo "      fs.protected_hardlinks = 1"
-        echo "      fs.protected_fifos = 2"
-        echo "      fs.protected_regular = 2"
-        echo "      kernel.perf_event_paranoid = 3"
-        echo "      fs.suid_dumpable = 0"
-        echo "      kernel.core_pattern = /dev/null"
-        echo "      SYSCTL"
-        echo "      sysctl -p /etc/sysctl.d/99-l2-great-harden.conf"
-        echo "      # 4. Full audit for industrial (more rules)"
-        echo "      cat > /etc/audit/rules.d/l2-great-harden.rules << 'AUDIT'"
-        echo "      -w /usr/bin/ -p x -k l2-great-tools"
-        echo "      -w /etc/ -p wa -k l2-great-config"
-        echo "      -w /boot/ -p wa -k l2-great-boot"
-        echo "      -w /root/.l2/ -p wa -k l2-northstar-state   # North-Star Containment: protect substrate state/audit for malware-cancer"
-        echo "      -w /tmp/l2-ws- -p wa -k l2-northstar-ws"
-        echo "      AUDIT"
-        echo "      augenrules --load"
-        echo "      # 5. Full ro root example (bind mounts, ProtectSystem=strict in units)"
-        echo "      # See generated unit; for full: mount -o remount,ro / ; etc (careful)"
-        echo "      # 6. No USB/storage for air-gap like: "
-        echo "      echo 'blacklist usb_storage' > /etc/modprobe.d/l2-great-no-usb.conf || true"
-        echo "      echo 'blacklist firewire_core' >> /etc/modprobe.d/l2-great-no-usb.conf || true"
-        echo "      # 7. l2-specific North-Star Containment hardening (protect state/audit for malware-cancer sims)"
-        echo "      echo 'blacklist bluetooth' > /etc/modprobe.d/l2-great-no-bt.conf || true"
-        echo "      # 8. Enforce great-harden policy for critical procs via units or l2 exec --policy great-harden"
-        echo "      #    (grand demo: l2 create ... --policy great-harden; put l2_malware_cancer... ; exec ; audit --test)"
-        echo "      # 9. For AI/ML/agentic workloads (NSA Mar 2026 AI/ML Supply Chain CSI + MCP May 2026): require SBOM + AIBOM (AI Bill of Materials) from vendors/supply chain; track data/model provenance to mitigate poisoning/drift. Use tools like syft for SBOM, custom for AI datasets."
-        echo
-        type_line "      This + great-harden policy + l2 runtime sandbox = servers impenetrable to major classes of ransomware/worm/virus/substrate/AI-MCP/agentic threats (validated by malware-cancer AIO sim + North-Star Containment). Aligns to latest NSA/CISA (June 2026 sweep: CPG 2.0 GOVERN/3.H least-priv/4.A malicious-code, MCP CSI May 2026, Agentic AI Careful Adoption Apr/May 2026 [privilege/least-priv, design, behaviour, structural, accountability risks + isolation/approvals/monitoring best practices], AI supply chain, OT AI)."
-        echo "      # Validate with AIO malware-cancer sim (ransom + Miasma + direct substrate attacks on state/trace/audit/crypto/ns/bpf + git/pip/ELF/anti + MCP/agentic tool/context risks per 2026 CSIs):"
-        echo "      #   Also run l2_crypto_redteam_onslaught.c under same for full crypto redteam (KDF to l2-state) + North-Star Containment (crypto + great-harden + audit --test)"
-        echo "      #   Full weakness audit attack l2_full_weakness_audit_attack.c (post full self-audit of l2): 15+ vectors on ALL areas (runtime/Landlock/TOCTOU, seccomp NEVER bpf/key/unshare/setns/ptrace, host/sysctl/audit tamper, crypto deeper, state/trace poison, supply, mem/proc/exfil, net C2, anti-analysis/priv-esc, agentic/MCP tokens/context, fs TOCTOU/symlink/caps/rlimit, direct l2 binary tamper). Run under great + crypto --apply + put/exec + audit --test for complete North-Star Containment + bolsters verification."
-        echo "      #   export L2_DATA_DIR=\$(mktemp -d); l2 great-harden --fast --apply || true"
-        echo "      #   l2 create cancer-test --policy great-harden"
-        echo "      #   l2 put cancer-test cancer-sim.c --file docs/examples/l2_malware_cancer_resistance_demo.c"
-        echo "      #   l2 exec cancer-test 'gcc -static ... && ./cancer-sim'  # demonstrates l2 North-Star Containment"
-        echo "      #   l2 audit --test   # verifies North-Star Containment of AIO malware-cancer (incl. MCP/agentic per latest CSIs)"
+        type_line "      GREAT-HARDEN extra (SUPREME): kernel.lockdown=1, modules_disabled=1, ptrace_scope=3, bpf disabled, ro root, full audit rules on /proc/sys /dev /root/.l2, nft isolation, modprobe blacklist. (Aerospace-grade; use after standard harden + crypto --apply.)"
     fi
 fi
 
@@ -455,18 +322,15 @@ fi
 # -----------------------------------------------------------------------------
 if $APPLY; then
     echo
-    type_line "[APPLY MODE] Making hardening operational for $PROFILE..."
-    reveal_lines "We will write live artifacts (systemd units, seccomp profiles, sysctl/audit/nft configs) and attempt to apply them. Dangerous steps will use sudo (if available) or write ready-to-run apply scripts. You control everything."
-    echo
+    type_line "[APPLY] $PROFILE for $TARGET (writes units/profiles/sysctl/audit/nft; uses sudo where needed; evidence for audit --test)."
     if $FAST || $JSON; then
         REPLY="y"
-        if ! $JSON; then type_line "(non-interactive due to --fast/--json)"; fi
     else
-        type_line "About to apply real changes for profile '$PROFILE' (target $TARGET). Have you reviewed the guidance above? (y/N)"
+        type_line "Apply real changes? (y/N)"
         read -r REPLY || true
     fi
     if [[ "$REPLY" =~ ^[Yy]$ ]]; then
-        type_line "Applying... (paced for review)"
+        type_line "Applying..."
         # Ensure dirs
         mkdir -p "$L2_BASE/harden/applied" "$L2_BASE/seccomp" 2>/dev/null || true
         APPLIED_LIST=""
@@ -514,10 +378,16 @@ SYSCTL
         fi
 
         # 4. Network isolation nft (if requested) - best effort
+        # Professional/correct scoping: use policy accept + explicit skuid drop rule for the target user only.
+        # This ensures *only* the agent's (e.g. l2-agent) egress is blocked; does not affect other uids on host.
+        # (Previously the policy-drop hook would have isolated all outbound -- this fixes without lowering any builds.)
+        # net-isolate subcommand + --network-isolation in harden use this path.
+        ISOLATE_USER="${L2_ISOLATE_USER:-l2-agent}"
         if $NETWORK_ISOLATION; then
-            type_line "  - Applying network isolation (nft default-deny for agent user)..."
-            nft add table inet l2-agent-isolation 2>/dev/null || sudo nft add table inet l2-agent-isolation 2>/dev/null || true
-            nft add chain inet l2-agent-isolation output \{ type filter hook output priority 0 \\\; policy drop \\\; \} 2>/dev/null || sudo nft add chain inet l2-agent-isolation output \{ type filter hook output priority 0 \\\; policy drop \\\; \} 2>/dev/null || true
+            type_line "  - Applying network isolation (nft default-deny egress for uid ${ISOLATE_USER})..."
+            nft add table inet l2-isolation 2>/dev/null || sudo nft add table inet l2-isolation 2>/dev/null || true
+            nft add chain inet l2-isolation output \{ type filter hook output priority 0 \\\; policy accept \\\; \} 2>/dev/null || sudo nft add chain inet l2-isolation output \{ type filter hook output priority 0 \\\; policy accept \\\; \} 2>/dev/null || true
+            nft add rule inet l2-isolation output skuid ${ISOLATE_USER} counter drop 2>/dev/null || sudo nft add rule inet l2-isolation output skuid ${ISOLATE_USER} counter drop 2>/dev/null || true
             APPLIED_LIST="$APPLIED_LIST,network-isolation-nft-prepared"
         fi
 
@@ -526,26 +396,87 @@ SYSCTL
             type_line "  - Extra ransomware containment (SMB 445/139 blocks, persistence vectors)..."
             # write a note/script
             cat > "$L2_BASE/harden/applied/ransom-blocks.nft" << 'NFT' || true
-# l2 ransom-hardened extra: block worm propagation vectors
-nft add rule inet l2-agent-isolation output tcp dport {139,445} drop
-nft add rule inet l2-agent-isolation output udp dport {139,445} drop
+# l2 ransom-hardened extra: block worm propagation vectors (scoped to isolate user)
+nft add rule inet l2-isolation output tcp dport {139,445} skuid ${ISOLATE_USER} drop
+nft add rule inet l2-isolation output udp dport {139,445} skuid ${ISOLATE_USER} drop
 NFT
             APPLIED_LIST="$APPLIED_LIST,ransomware-specific-blocks"
         fi
 
+        # 6. Great-harden specific: write modprobe blacklists and extreme audit rules (best effort)
+        if [ "$PROFILE" = "great-harden" ]; then
+            type_line "  - Applying great-harden modprobe blacklists (usb, firewire, bluetooth)..."
+            echo 'blacklist usb_storage' > /etc/modprobe.d/l2-great-no-usb.conf 2>/dev/null || sudo tee /etc/modprobe.d/l2-great-no-usb.conf > /dev/null <<'BL' || true
+blacklist usb_storage
+blacklist firewire_core
+blacklist bluetooth
+BL
+            echo 'blacklist bluetooth' > /etc/modprobe.d/l2-great-no-bt.conf 2>/dev/null || sudo tee /etc/modprobe.d/l2-great-no-bt.conf > /dev/null <<'BL2' || true
+blacklist bluetooth
+BL2
+            APPLIED_LIST="$APPLIED_LIST,modprobe-blacklists"
+
+            type_line "  - Applying great-harden audit rules (l2 state, ws)..."
+            cat > /tmp/l2-great-audit.rules << 'AUD' || true
+-w /root/.l2/ -p wa -k l2-northstar-state
+-w /tmp/l2-ws- -p wa -k l2-northstar-ws
+AUD
+            if cp /tmp/l2-great-audit.rules /etc/audit/rules.d/l2-great-harden.rules 2>/dev/null || sudo cp /tmp/l2-great-audit.rules /etc/audit/rules.d/l2-great-harden.rules 2>/dev/null; then
+                augenrules --load 2>/dev/null || sudo augenrules --load 2>/dev/null || true
+                APPLIED_LIST="$APPLIED_LIST,audit-rules-applied"
+            else
+                cp /tmp/l2-great-audit.rules "$L2_BASE/harden/applied/" || true
+                APPLIED_LIST="$APPLIED_LIST,audit-rules-prepared"
+            fi
+        fi
+
         type_line "Apply steps complete where possible. Artifacts live in $L2_BASE/harden/ and standard paths."
-        type_line "Run 'systemctl daemon-reload' / 'sudo sysctl --system' / 'sudo nft -f ...' as needed for full effect."
+        type_line "Run 'systemctl daemon-reload' / 'sudo sysctl --system' / 'sudo nft -f ...' / 'sudo augenrules --load' as needed for full effect."
+
+        # Real operational enforcement (safe, best-effort; only when APPLY authorized).
+        # This makes --apply --json produce directly consumable state like crypto --apply.
+        type_line "  - Enforcing applied config (sysctl + audit + nft where active)..."
+        sysctl -p "$SYSCTL_CONF" 2>/dev/null || sudo sysctl -p "$SYSCTL_CONF" 2>/dev/null || true
+        augenrules --load 2>/dev/null || sudo augenrules --load 2>/dev/null || true
+        if $NETWORK_ISOLATION; then
+            # Re-apply isolation rules (our adds are idempotent; scoped to ISOLATE_USER)
+            nft add table inet l2-isolation 2>/dev/null || sudo nft add table inet l2-isolation 2>/dev/null || true
+            nft add chain inet l2-isolation output \{ type filter hook output priority 0 \\\; policy accept \\\; \} 2>/dev/null || sudo nft add chain inet l2-isolation output \{ type filter hook output priority 0 \\\; policy accept \\\; \} 2>/dev/null || true
+            nft add rule inet l2-isolation output skuid ${ISOLATE_USER} counter drop 2>/dev/null || sudo nft add rule inet l2-isolation output skuid ${ISOLATE_USER} counter drop 2>/dev/null || true
+        fi
+        # Write a ready-to-run apply helper under L2 for direct consumption/automation/CI
+        cat > "$L2_BASE/harden/applied/apply-${PROFILE}.sh" << 'APPLYSH' 2>/dev/null || true
+#!/bin/sh
+# Generated by l2 harden --profile ${PROFILE} --apply
+# Re-apply the operational artifacts (run as root or via sudo).
+set -eu
+sysctl --system || true
+augenrules --load || true
+systemctl daemon-reload || true
+echo "l2 ${PROFILE} applied artifacts re-loaded."
+APPLYSH
+        chmod +x "$L2_BASE/harden/applied/apply-${PROFILE}.sh" 2>/dev/null || true
+        APPLY_SUCCESS=true
     else
         type_line "Apply cancelled by user (guidance still generated)."
     fi
 fi
 
-echo || true
-echo "[4/6] Generating hardening report..." || true
+# Ensure APPLY_SUCCESS is defined for json
+APPLY_SUCCESS=${APPLY_SUCCESS:-false}
 
-REPORT_DIR="$L2_BASE/harden-reports"
-mkdir -p "$REPORT_DIR"
-REPORT_FILE="$REPORT_DIR/$(date +%Y%m%d-%H%M%S)-${PROFILE}-${TARGET}.md"
+echo || true
+if [ "$PROFILE" != "net-isolate" ]; then
+    echo "[4/6] Generating hardening report..." || true
+
+    REPORT_DIR="$L2_BASE/harden-reports"
+    mkdir -p "$REPORT_DIR"
+    REPORT_FILE="$REPORT_DIR/$(date +%Y%m%d-%H%M%S)-${PROFILE}-${TARGET}.md"
+else
+    # For net-isolate, minimal report note (full evidence is the json + nft state)
+    echo "[4/6] net-isolate evidence: json at $L2_BASE/harden/net-isolate-latest.json (nft rules in kernel)"
+    REPORT_FILE="/dev/null"
+fi
 
 cat > "$REPORT_FILE" << 'ENDOFREPORT'
 # l2 Harden Report
@@ -673,9 +604,12 @@ l2 audit --test
 This report is a living artifact. Re-run `l2 harden` after major system or workload changes.
 ENDOFREPORT
 
-echo "      Rich report written to: $REPORT_FILE" || true
-
-echo "      Report written to: $REPORT_FILE" || true
+if [ "$PROFILE" != "net-isolate" ]; then
+    echo "      Rich report written to: $REPORT_FILE" || true
+    echo "      Report written to: $REPORT_FILE" || true
+else
+    echo "      (net-isolate evidence primarily in $L2_BASE/harden/net-isolate-latest.json and live nft rules)"
+fi
 
 # -----------------------------------------------------------------------------
 # Machine-readable harden report artifact (for `l2 audit --test` integration)
@@ -695,9 +629,11 @@ cat > "$LATEST_JSON" << EOF
   "timestamp": "$(date -Iseconds)",
   "dry_run": ${DRY_RUN},
   "apply": ${APPLY},
+  "applied": ${APPLY_SUCCESS},
+  "apply_success": ${APPLY_SUCCESS},
   "network_isolation": ${NETWORK_ISOLATION},
   "generate_seccomp": "${GENERATE_SECCOMP}",
-  "applied": [
+  "applied_list": [
     "${PROFILE} profile guidance and pairing",
     "seccomp Phase 1 + trace-derived profiles",
     "Landlock / ProtectSystem / capability bounding recommendations",
@@ -709,7 +645,7 @@ cat > "$LATEST_JSON" << EOF
     "AIO malware-cancer substrate defense (state/trace/audit/crypto tamper, ns/bpf/setns/unshare escapes, fork/priv-esc on l2, git/pip/ELF/anti)",
     "North-Star Containment of AIO malware-cancer (grand demo: put+exec+audit under great-harden)",
     "Full weakness audit onslaught (l2_full_weakness_audit_attack.c 15+ vectors covering runtime/host/crypto/state/supply/mem/net/anti/agentic/fs/direct-l2 + all prior; bolsters applied via extended NEVER, harden rules, audit check)",
-    "APPLY: live artifacts written (units, profiles, confs) + attempted enforcement"
+    "APPLY: live artifacts written (units, profiles, confs) + attempted enforcement (operational=${APPLY_SUCCESS})"
   ],
   "great_harden_note": "${PROFILE} is l2 great-harden supreme mode for aerospace/industrial - closes logic gaps (incl. AIO malware-cancer substrate attacks + agentic/MCP risks per 2026 CSIs), achieves l2 North-Star Containment of ransomware+ worms+viruses+direct l2 attacks, makes impenetrable.",
   "standards": [
@@ -739,25 +675,22 @@ if [ -s "$LATEST_JSON" ]; then
 fi
 
 echo
-echo "[5/6] Next steps"
-echo "      1. Review the generated report"
-echo "      2. Use \`l2 trace --policy ${PROFILE}\` to collect data for your specific workloads"
-echo "      3. Run agents with \`l2 exec --policy ${PROFILE}\`"
-echo "      4. (Beautiful part) Re-run with --apply to make it operational:  l2 harden --profile ${PROFILE} --apply"
-echo "      5. Run \`l2 audit --test\` to automatically verify standards compliance (harden reports + chain + ${PROFILE} usage etc.)"
-echo "      6. For supply-chain (Miasma) testing: l2 put ... l2_miasma_resistance_demo.c ; exec under ${PROFILE}"
-echo "      7. For supreme aerospace/industrial + AI/MCP/agentic/OT (great-harden per June 2026 NSA/CISA sweep incl. MCP CSI May 2026, Agentic AI CSI Apr/May 2026, CPG 2.0): l2 great-harden --apply ; use --policy great-harden + l2_malware_cancer... + l2_crypto_redteam_onslaught.c (crypto redteam for NSA-level KDF/side/exfil/misuse/RNG/hybrid/tamper/supply/l2-state/passphrase + quantum harvest attacks, PQC liboqs ML-KEM, 10+ vectors, North-Star Contained); l2 audit --test (covers CPG 2.0 GOVERN/least-priv/mal-code, MCP sec design auth/integrity/isolation, Agentic 5 risks mitigation via explicit ws containment + audit + crypto evidence)"
-echo "      8. prepare prepare prepare: always pair crypto --profile hybrid-pqc-mlkem-chacha --fast --apply (open-source quantum encryption / PQC ML-KEM via liboqs for quantum defense) with great-harden for data-at-rest + key prot; run demos (incl redteam quantum vector) + audit for full grand North-Star show (see HOWTOs and README)"
-
-echo
-echo "[6/6] l2 harden complete for profile '$PROFILE'."
+if [ "$PROFILE" != "net-isolate" ]; then
+    echo "[5/6] Next steps"
+    echo "      Review report; l2 trace/exec --policy ${PROFILE}; l2 audit --test; --apply for ops. (prepare + North-Star demos in docs.)"
+    echo
+    echo "[6/6] l2 harden ${PROFILE} done."
+else
+    echo "[5/6] net-isolate steps: l2 net-isolate --apply ; use with exec under policy ; l2 audit --test"
+    echo "[6/6] l2 net-isolate done."
+fi
 
 if $APPLY; then
     echo || true
     type_line "APPLY SUCCESS: Your host now has live ${PROFILE} controls (units/profiles/confs applied or prepared)."
     type_line "The json at $LATEST_JSON now reflects real 'applied' state for audit --test."
     type_line "Protect future work: l2 exec --policy ${PROFILE} ..."
-elif ! $DRY_RUN; then
+elif ! $DRY_RUN && [ "$PROFILE" != "net-isolate" ]; then
     echo || true
     echo "Remember: This is a living protocol. The threat landscape for agentic systems" || true
     echo "evolves quickly. Keep your allowlists, policies, and host hardening up to date." || true

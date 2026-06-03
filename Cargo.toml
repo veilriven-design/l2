@@ -1,8 +1,9 @@
 [package]
 name = "l2"
-version = "0.4.9"
+version = "0.5.5"
 edition = "2021"
 license = "MIT OR Apache-2.0"
+description = "High-assurance terminal substrate for agentic/MCP/AI systems with PQC crypto, explicit isolation, North-Star Containment, and l2 spirit --audit ( --os for full-OS malicious code/bad logic; --file for safe/dangerous code logic analysis on any source/file)"
 repository = "https://github.com/veilriven-design/l2"
 
 [lib]

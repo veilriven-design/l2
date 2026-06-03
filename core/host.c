@@ -14,25 +14,20 @@
  * - See docs/PROTOCOL.md, host/core.rs, and src/lib.rs (L2Core trait).
  *
  * seL4 path (see docs/SEL4_INTEGRATION.md, src/core/core.c):
- * - This same interface will be implemented inside a Microkit protection domain
- *   using seL4 capabilities for isolation instead of Linux namespaces.
+ * - This *exact same* narrow l2_sys_* interface + L2P surface is implemented inside
+ *   a Microkit PD (v0.5.0 E2E progress: skeleton + safe FFI exercised; Linux Host
+ *   in Rust l2::Host + host/core.rs L2P handler now mature).
+ * - seL4 caps + PDs + shared-mem replace unshare/Landlock/seccomp while producing
+ *   identical results for create/put/exec/policy/great-harden + l2 audit --test
+ *   North-Star Containment (external iface + demos unchanged).
  *
- * Recent improvements (C integration polish):
- * - Real in-memory object storage (put/get functional for prototype).
- * - Uses l2_memcpy_safe() from common/safe.c for all copies.
- * - Strict bounds, explicit zeroing on destroy, better errors.
- * - Policy string (including "ransom-hardened" full-safety for ransomware testing and Miasma supply-chain worm resistance)
- *   is stored and passed through for future seL4/Microkit dispatch. In a capability
- *   system this would translate to granting only the narrow rights needed for a
- *   contained malicious workload (ws cap + no net cap etc.).
+ * Recent (v0.5): C impl + Rust Host/L2Core are dual sides of the same contract.
+ * - Uses l2_memcpy_safe() from common/safe.c for *all* copies (bounds + zero on destroy).
+ * - Policy (great-harden, ransom-hardened, strict-mcp) stored and used for
+ *   future cap derivation (ws-only + no ambient per 2026 MCP/Agentic CSI).
  *
- * Build/test: gcc -c -I. -Icore -Isrc/common core/host.c works for validation.
- * Full linking would be done in a seL4 build or via cbindgen/FFI from Rust.
- *
- * Still a prototype: full persistence, real isolation primitives (namespaces
- * here, caps on seL4), and complete L2P-speaking C binary remain future work.
- * User-ns / mount ns exploration is happening in the Rust host prototype
- * (see docs/PROTOTYPE_HARDENING_AND_SEL4_PLAN.md for user-ns + nix sched future).
+ * Build/test: gcc -c -I. -Icore -Isrc/common core/host.c validates.
+ * seL4 build wires this into the PD; Rust FFI (cbindgen) or L2P IPC for mixed.
  */
 
 #include "sys.h"
