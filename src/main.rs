@@ -1569,7 +1569,7 @@ fn run_security_audit_tests(
     // 9. Crypto profile usage (verified encryption active for data at rest + keys protected by l2 substrate per NSA AI Data Sec, CPG encryption goals, MCP key protection)
     //    Integrated: crypto --profile hybrid... --fast --apply writes L2_DATA_DIR/crypto/crypto-latest.json (or ~/.l2) with profile/applied/standards.
     //    The crypto redteam onslaught demo (docs/examples/l2_crypto_redteam_onslaught.c, 10+ NSA-level vectors: KDF/side/exfil/misuse/RNG/hybrid/tamper/supply/l2-state/passphrase/impl)
-    //    + great-harden + put/exec under policy exercises it; audit --test consumes for PASS + North-Star Containment evidence. v0.4.7+ full polish + redteam.
+    //    + great-harden + put/exec under policy exercises it; audit --test consumes for PASS + North-Star Containment evidence. v0.4.7+ full polish + redteam (v0.4.8 release).
     let data_dir = std::env::var("L2_DATA_DIR").unwrap_or_default();
     let home = std::env::var("HOME").unwrap_or_default();
     let crypto_json = if !data_dir.is_empty() {
@@ -1866,7 +1866,7 @@ fn great_harden(
 /// Cryptography profile selection and system-wide application via the l2 substrate.
 /// Uses verified open-source algorithms for true encryption (LUKS/gocryptfs etc.).
 /// Integrates with strict policies for key protection. Supports hybrid profiles.
-/// v0.4.7+ : --json, L2_DATA_DIR/crypto/ evidence (crypto-latest.json), --fast, audit --test integration.
+/// v0.4.7+ : --json, L2_DATA_DIR/crypto/ evidence (crypto-latest.json), --fast, audit --test integration. (v0.4.8: even further redteam polish + North-Star grand demo)
 /// Pair with docs/examples/l2_crypto_redteam_onslaught.c (10+ NSA-level vectors) + great-harden + put/exec + audit for full North-Star Containment crypto verification (prepare prepare prepare).
 fn crypto(
     profile: String,
@@ -3410,7 +3410,7 @@ mod tests {
             r#"{"profile":"great-harden","apply":true,"standards":["CPG 2.0","NSA MCP 2026","AI supply chain 2026","AIO malware-cancer"],"great_harden_note":"North-Star + latest NSA/CISA 2026"}"#,
         );
 
-        // Seed crypto evidence for new crypto check (v0.4.7+)
+        // Seed crypto evidence for new crypto check (v0.4.7+; v0.4.8 release)
         let c_dir = temp.join("crypto");
         let _ = std::fs::create_dir_all(&c_dir);
         let _ = std::fs::write(
@@ -3438,7 +3438,7 @@ mod tests {
         assert!(results
             .iter()
             .any(|(n, _, _)| n.contains("malware-cancer") || n.contains("AIO malware-cancer")));
-        // Crypto check (v0.4.7+ polished data-at-rest + substrate protection + redteam onslaught evidence)
+        // Crypto check (v0.4.7+ polished data-at-rest + substrate protection + redteam onslaught evidence; v0.4.8)
         assert!(results
             .iter()
             .any(|(n, _, _)| n.contains("Crypto profiles for data-at-rest")));

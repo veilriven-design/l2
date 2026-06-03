@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.8] - 2026-06-06
+
+### Update the program and polish it even further (crypto red-team + North-Star Containment phase 2)
+- Version bump to 0.4.8 after the "update the program and polish it even further" work (following "prepare prepare prepare" and the crypto redteam onslaught + integration).
+- All changes from the phase-2 polish committed: see details in the prior 0.4.7 subsection (now rolled into this release).
+- `git push && git tag v0.4.8` executed to ship the even-further polished north-star substrate (10-vector crypto redteam, full evidence loop, deeper NSA 2026 mappings, grand demo readiness).
+
 ## [0.4.7] - 2026-06-06
 
 ### Cryptography Red-Team + Program Polish (update the program and polish it even further)
