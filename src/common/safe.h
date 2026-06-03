@@ -4,6 +4,11 @@
  * Basic memory safety guards (bounds + zero) used by Linux Host (core/host.c + Rust)
  * and seL4 PD (src/core/core.c). Part of the v0.5.0 narrow L2P surface that allows
  * backend swap (namespaces -> caps) with no change to l2 CLI, policies, or demos.
+ *
+ * Draws from open-source CHERI (capability hardware: bounds-checked pointers with perms;
+ * open CheriBSD, CHERI Clang) and seL4 (verified caps + safe runtime). Software fallback
+ * for spatial safety in C subset. Combined with Landlock/seccomp for full OpenBSD-pledge/unveil
+ * + Capsicum/Genode cap model on host.
  */
 
 #pragma once

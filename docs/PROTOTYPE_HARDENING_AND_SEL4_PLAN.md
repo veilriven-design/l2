@@ -30,7 +30,14 @@ See SEL4_INTEGRATION.md for architecture details.
 
 See [ROADMAP.md](../ROADMAP.md) for the current overall priorities. The sections below are historical context + detailed hardening notes.
 
-**Status (as of v0.5.0):** Phase 0+1 complete + L2P/core mature. Real working observer/enforcing seccomp (strict-mcp/ransom/great), Landlock, L2P v1 E2E exercised (l2::Host + L2Core trait + l2-core out-of-proc for create/put/exec-intent), operational `l2 harden --apply` (real units/profiles/sysctl/audit/nft + "applied":true evidence for audit --test), PQC + quantum redteam + full-weakness AIO + North-Star Containment grand demos. 
+**Status (as of v0.5.6):** Phase 0+1 complete + L2P/core mature + capability model enhanced (grants as seL4/Capsicum/CHERI/Genode-style caps with explicit rights; early CLI Landlock=unveil in main; OpenBSD pledge/unveil mappings throughout). Real working observer/enforcing seccomp (strict-mcp/ransom/great), Landlock, L2P v1 E2E exercised (l2::Host + L2Core trait + l2-core out-of-proc for create/put/exec-intent), operational `l2 harden --apply` (real units/profiles/sysctl/audit/nft + "applied":true evidence for audit --test), PQC + quantum redteam + full-weakness AIO + North-Star Containment grand demos. 
+
+Learned/implemented from open-source:
+- seL4: cap delegation/revoke on create/destroy, narrow surface, verified isolation.
+- Capsicum (FreeBSD): rights on resources (l2 grants: fs:*, net:*, exec).
+- CHERI: bounds+perms (safe.h + Landlock).
+- Genode: recursive least-priv (systems as cap-isolated).
+- OpenBSD: pledge (seccomp+NEVER), unveil (Landlock), secure by default (applied early in CLI + host).
 
 seL4/Microkit E2E traction: C PD skeleton (src/core/core.c) + safe FFI (common/safe) + narrow l2_sys_* (core/host.c) + L2P surface defined and dual-implemented (Rust Host today, PD tomorrow). External CLI, policies (great-harden supreme for aerospace), L2_DATA_DIR, demos, and `l2 audit --test` (10+ checks + North-Star phrasing) unchanged — the architectural qualifier for 0.5.0 (mature Linux prototype ready for seL4 swap). Full NSA/CISA 2026 (incl. June sweeps) + quantum prep preserved.
 

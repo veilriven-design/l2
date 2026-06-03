@@ -54,8 +54,9 @@ Request:
 
 Success:
 ```json
-{"v":1, "id":"c1", "ok":true, "sys":"sys-9f3a2b", "grants":[]}
+{"v":1, "id":"c1", "ok":true, "sys":"sys-9f3a2b", "grants": [{"id":"g-fs-...", "rights":["fs:read-ws","fs:write-ws"]}, ...]}
 ```
+grants are capability tokens (seL4/Capsicum/CHERI/Genode style: unforgeable, revocable, least-priv rights).
 
 ### destroy
 
@@ -124,8 +125,9 @@ In the initial host prototype, the core trusts that the client speaking to it on
 
 Future versions will add:
 - Signed requests
-- Capability tokens returned by the core
+- Richer capability tokens (full rights, delegation, expiration) returned by the core (seL4-style)
 - Explicit session binding
+- Transport over seL4 IPC (caps transferred directly)
 
 ## Versioning & Compatibility
 

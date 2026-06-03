@@ -8,6 +8,11 @@
 # and supply-chain (Miasma npm preinstall + credential exfil + "Miasma: The Spreading Blight" propagation).
 # great-harden: supreme aerospace/industrial (l2 great-harden) - higher assurance, closes gaps, impenetrable servers.
 #
+# OpenBSD logic integrated: pledge(2) equivalents via seccomp + SystemCallFilter + NEVER,
+# unveil(2) via Landlock + Protect* + scoped nft, securelevel via kernel.lockdown + modules_disabled,
+# privilege separation via user= l2-agent + NoNewPrivileges + caps drop, W^X via MemoryDenyWriteExecute.
+# "Secure by default", least privilege, reduce surface immediately. See also src/sandbox.rs.
+
 # This is a major priority for the l2 system-substrate.
 
 set -euo pipefail
@@ -214,6 +219,12 @@ User=l2-agent
 Group=l2-agent
 
 # === Core Hardening (strict-mcp) ===
+# OpenBSD-inspired (pledge/unveil/chroot/securelevel logic ported to Linux systemd):
+# - NoNewPrivileges + CapabilityBoundingSet + AmbientCapabilities= : like no setuid, drop privs early (pledge drops).
+# - Protect* + Private* + Restrict* : emulate chroot + unveil (restrict fs, devices, net, kernel).
+# - MemoryDenyWriteExecute + LockPersonality : W^X + no personality abuse (OpenBSD W^X default).
+# - SystemCallFilter : pledge(2) style syscall promises (only @system-service + our profile; deny dangerous).
+# - RestrictNamespaces : prevent escape (like OpenBSD no new ns without pledge).
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
@@ -223,14 +234,22 @@ PrivateNetwork=${NETWORK_ISOLATION:-false}
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
+ProtectKernelLogs=true
+ProtectHostname=true
+ProtectClock=true
 RestrictNamespaces=~user:pid:net:uts:ipc:cgroup
 SystemCallArchitectures=native
+MemoryDenyWriteExecute=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictAddressFamilies=AF_UNIX
 
 # Capability dropping (maximally paranoid for agents)
 CapabilityBoundingSet=
 AmbientCapabilities=
 
 # Seccomp - load generated minimal profile if available
+# This + NEVER in l2 sandbox = pledge("stdio rpath wpath cpath exec proc ...") equivalent.
 SystemCallFilter=@system-service
 # If you generated a profile with: l2 harden --generate-seccomp <trace>
 # SystemCallFilter=... (paste the list from the generated profile here, or use our custom loader)
@@ -308,7 +327,7 @@ if [ "$TARGET" = "host" ]; then
 
     if [ "$PROFILE" = "great-harden" ]; then
         echo
-        type_line "      GREAT-HARDEN extra (SUPREME): kernel.lockdown=1, modules_disabled=1, ptrace_scope=3, bpf disabled, ro root, full audit rules on /proc/sys /dev /root/.l2, nft isolation, modprobe blacklist. (Aerospace-grade; use after standard harden + crypto --apply.)"
+        type_line "      GREAT-HARDEN extra (SUPREME): kernel.lockdown=1 (like OpenBSD kern.securelevel), modules_disabled=1, ptrace_scope=3, bpf disabled, ro root, full audit rules on /proc/sys /dev /root/.l2, nft isolation, modprobe blacklist. (Aerospace-grade OpenBSD+NSA logic; use after standard harden + crypto --apply.)"
     fi
 fi
 
@@ -367,6 +386,16 @@ fs.protected_symlinks = 1
 fs.protected_hardlinks = 1
 fs.protected_fifos = 2
 fs.protected_regular = 2
+# OpenBSD-style additional (securelevel-like lockdown, no unpriv bpf, perf paranoid, VA randomize, no suid dump)
+kernel.unprivileged_bpf_disabled = 1
+net.core.bpf_jit_harden = 2
+kernel.perf_event_paranoid = 3
+vm.mmap_rnd_bits = 32
+vm.mmap_rnd_compat_bits = 16
+kernel.randomize_va_space = 2
+fs.suid_dumpable = 0
+kernel.core_pattern = /dev/null
+kernel.sysrq = 0
 SYSCTL
         if cp "/tmp/l2-${PROFILE}-sysctl.conf" "$SYSCTL_CONF" 2>/dev/null || sudo cp "/tmp/l2-${PROFILE}-sysctl.conf" "$SYSCTL_CONF" 2>/dev/null; then
             sysctl -p "$SYSCTL_CONF" 2>/dev/null || sudo sysctl -p "$SYSCTL_CONF" 2>/dev/null || true

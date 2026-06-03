@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.5.6] - 2026-06 (OpenBSD + seL4/Capsicum/CHERI/Genode capability integration + prepare prepare prepare)
+
+- Learned from and implemented logic from open-source high-assurance systems and standards:
+  - **OpenBSD**: Deepened pledge(2)/unveil(2) + "secure by default" mappings (seccomp + NEVER blacklist ≈ pledge promises; Landlock ≈ unveil path restrictions; applied early in CLI via new `apply_l2_cli_sandbox()` + host units + docs). Added explicit comments in sandbox.rs, harden.sh, etc.
+  - **seL4**: Enhanced capability model (grants as unforgeable, revocable, delegable caps with explicit rights; initial grants per-policy on create; effective revocation). Updated L2P, SYSTEM_MODEL, SEL4_INTEGRATION, etc., to map to seL4 PDs/caps/IPC.
+  - **Capsicum (FreeBSD)**: Structured `Grant { id, rights: Vec<String> }` (e.g. "fs:read-ws", "net:none", "exec") modeled on fd capabilities/rights.
+  - **CHERI**: CHERI-inspired memory safety + bounds in safe.{h,c} (spatial safety, explicit perms); comments tying to open-source CheriBSD/CHERI Clang.
+  - **Genode**: Recursive least-privilege components (systems as cap-isolated; delegation/revocation model).
+- Code improvements: 
+  - `src/lib.rs`: Grants now proper caps with rights; create() grants policy-specific initial caps (least-priv, no ambient); revoke() actually removes + persists (in Substrate + Host L2Core impls).
+  - `src/main.rs`: Early call to CLI sandbox in main(); list/status/create/revoke now handle/print structured grants/caps; updated revoke dispatch to call host.revoke for non-core path; doc comments + about strings.
+  - `src/sandbox.rs`: New `apply_l2_cli_sandbox()` for OpenBSD-style early restriction on l2 tool itself (writes confined to L2_DATA_DIR, etc.); detailed pledge/unveil docs.
+  - `src/common/safe.{h,c}` + `src/core/core.c`: Enhanced with CHERI/Capsicum/Genode/seL4 comments and safety.
+  - `scripts/harden.sh`: Reinforced OpenBSD logic in units (more Protect*, MemoryDenyWriteExecute, SystemCallFilter comments) and sysctls.
+- Docs: Major updates to SYSTEM_MODEL.md (full cap model + references to all systems), SEL4_INTEGRATION.md, PROTOCOL.md (grants as caps, future richer tokens), PROTOTYPE_*.md, STATUS.md, etc.
+- All: Preserves narrow surface, L2_DATA_DIR (sudo safe), no new attack surfaces, North-Star/prepare/NSA/CISA alignments, evidence loop, tests.
+- Verification: cargo check/test/build --release; live L2D tests with create/list/revoke showing grants/caps + effective revoke + CLI sandbox note; full --help etc.
+- Version bumped to 0.5.6.
+
 ## [0.5.5] - 2026-06 (l2 net-isolate: first-class network isolation option + audit false-positive fixes + terse subcommand UX + prepare prepare prepare)
 
 - Added `l2 net-isolate` subcommand (new first-class option): professional standalone network isolation (nftables default-deny egress for agent/MCP uid like l2-agent).

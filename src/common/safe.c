@@ -2,6 +2,9 @@
  * safe.c
  *
  * implementations of the memory safety guards.
+ * CHERI-inspired (hardware caps for bounds/permissions in open-source CheriBSD etc.):
+ * software emulation of spatial safety + explicit perms via bounds_check + safe ops.
+ * Used by both Linux Host and seL4 PD for portable narrow surface.
  */
 
 #include "safe.h"

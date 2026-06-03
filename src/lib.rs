@@ -13,6 +13,9 @@
 //! and all evidence loops are *identical* regardless of backend. This is the key
 //! architectural qualifier for 0.5.0 (mature Linux Host backend via L2Core + seL4 traction).
 //!
+//! OpenBSD pledge(2)/unveil(2) logic is embedded in the sandbox used by Host paths
+//! (Landlock for unveil-style FS, seccomp+NEVER for pledge-style syscalls). See sandbox.rs.
+//!
 //! See docs/PROTOCOL.md, STATUS.md, ROADMAP.md, and src/main.rs for usage.
 
 use anyhow::Result;
@@ -52,7 +55,7 @@ pub trait L2Core {
     ///   Returns a note or output summary.
     fn exec(&mut self, sys_name: &str, cmd: &str, policy: &str) -> Result<String>;
 
-    /// Revoke is narrow (grants advisory for MCP/agentic explicit approval model).
+    /// Revoke a specific capability grant (id) from system. Effective revocation (no ambient retention, per seL4/Capsicum/Genode).
     fn revoke(&mut self, sys_name: &str, grant: &str) -> Result<()>;
 }
 
@@ -84,8 +87,10 @@ impl L2Core for Substrate {
         ))
     }
     fn revoke(&mut self, sys_name: &str, grant: &str) -> Result<()> {
-        let _ = self.resolve_name(sys_name)?;
-        let _ = grant;
+        let id = self.resolve_name(sys_name)?;
+        if let Some(sys) = self.systems.get_mut(&id) {
+            sys.grants.retain(|g| g.id != grant);
+        }
         Ok(())
     }
 }
@@ -105,7 +110,17 @@ pub struct System {
     pub policy: String,
     pub created_at: String,
     pub objects: HashMap<String, Object>,
-    pub grants: Vec<String>,
+    /// Grants are capabilities (inspired by seL4 caps, Capsicum fd-rights, CHERI permissions, Genode delegation).
+    /// Each grant has an id and explicit rights (e.g. "fs:read-ws,write-ws", "net:none", "exec").
+    /// No ambient authority; all via explicit grants from core. Revocation is effective.
+    pub grants: Vec<Grant>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct Grant {
+    pub id: String,
+    pub rights: Vec<String>, // e.g. ["fs:read", "fs:write-ws", "exec", "audit:log"]
+    pub created_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -302,13 +317,36 @@ impl Substrate {
         let id = format!("sys-{:x}", self.next_id);
         self.next_id += 1;
 
+        let now = chrono::Utc::now().to_rfc3339();
+
+        // Initial grants as explicit capabilities (inspired by seL4 cap delegation on PD create,
+        // Capsicum rights on fds, CHERI permissions, Genode recursive caps). No ambient.
+        // Policies grant least-priv subset. Revoke removes specific grant id.
+        let initial_grants = match policy {
+            "strict-mcp" => vec![
+                Grant { id: format!("g-fs-{}", id), rights: vec!["fs:read-ws".into(), "fs:write-ws".into()], created_at: now.clone() },
+                Grant { id: format!("g-exec-{}", id), rights: vec!["exec".into()], created_at: now.clone() },
+                Grant { id: format!("g-audit-{}", id), rights: vec!["audit:log".into()], created_at: now.clone() },
+            ],
+            "ransom-hardened" => vec![
+                Grant { id: format!("g-fs-{}", id), rights: vec!["fs:read-ws-only".into()], created_at: now.clone() },
+                Grant { id: format!("g-exec-{}", id), rights: vec!["exec".into()], created_at: now.clone() },
+            ],
+            "great-harden" => vec![
+                Grant { id: format!("g-fs-{}", id), rights: vec!["fs:read-ws-tiny".into()], created_at: now.clone() },
+                Grant { id: format!("g-exec-{}", id), rights: vec!["exec".into()], created_at: now.clone() },
+                Grant { id: format!("g-net-{}", id), rights: vec!["net:none".into()], created_at: now.clone() },
+            ],
+            _ => vec![],
+        };
+
         let sys = System {
             id: id.clone(),
             name: name.to_string(),
             policy: policy.to_string(),
-            created_at: chrono::Utc::now().to_rfc3339(),
+            created_at: now,
             objects: HashMap::new(),
-            grants: vec![],
+            grants: initial_grants,
         };
         self.systems.insert(id.clone(), sys);
         Ok(id)
@@ -448,8 +486,11 @@ impl L2Core for Host {
         ))
     }
     fn revoke(&mut self, sys_name: &str, grant: &str) -> Result<()> {
-        let _ = self.sub.resolve_name(sys_name)?;
-        let _ = grant;
+        let id = self.sub.resolve_name(sys_name)?;
+        if let Some(sys) = self.sub.systems.get_mut(&id) {
+            sys.grants.retain(|g| g.id != grant);
+            // Capability revocation is effective (seL4/Capsicum/Genode style: remove from list, no forge possible).
+        }
         let _ = save_state(&self.sub);
         Ok(())
     }

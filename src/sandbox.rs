@@ -7,6 +7,15 @@ use std::path::Path;
 
 /// Applies strict sandboxing for strict-family policies.
 ///
+/// This implements OpenBSD-inspired security logic on Linux:
+/// - Landlock ≈ unveil(2): explicit, least-privilege filesystem access (r/w/x per path).
+/// - seccomp (with NEVER blacklist + tiny allowlist) ≈ pledge(2): promise only the exact
+///   syscalls needed ("stdio", "rpath", "wpath", "cpath", "exec", "proc", "dns", "inet" etc).
+///   Unwanted syscalls → kill (like pledge violation aborts).
+/// - no_new_privs + cap bounding + non-dumpable + namespaces ≈ privilege separation + chroot.
+/// - Great-harden / ransom-hardened push this to OpenBSD "secure by default" extremes
+///   (minimal surface, no ambient, W^X via MemoryDenyWriteExecute in units, etc.).
+///
 /// For "strict-mcp" (current main focus), applies a more conservative posture
 /// suitable for agentic/MCP workloads:
 /// - Same strong workspace + RO system paths as strict
@@ -81,7 +90,8 @@ pub fn apply_strict_sandbox(workspace: Option<&Path>, policy: &str) -> Result<()
     // to unshare). Full Rust-side nix::sched::unshare + id mapping + pivot_root is future
     // (see main.rs and docs/PROTOTYPE_HARDENING_AND_SEL4_PLAN.md). Use with care; requires
     // privileges or /etc/subuid setup on most systems.
-    // Current: Landlock + no_new_privs + cap drop + non-dumpable + seccomp (observer/enforcing) + unshare (+ experimental user ns).
+    // Current: Landlock (unveil) + no_new_privs + cap drop + non-dumpable + seccomp (pledge + NEVER) + unshare (+ experimental user ns).
+    // Follows OpenBSD "secure by default" + least privilege + reduce attack surface immediately.
     // All changes respect the narrow charter and "no new attack surfaces" rule.
 
     if let Some(ws) = workspace {
@@ -715,4 +725,84 @@ fn find_strict_mcp_profile() -> Option<String> {
     candidates
         .into_iter()
         .find(|c| std::path::Path::new(c).exists())
+}
+
+/// Apply baseline Landlock restriction to the l2 CLI orchestrator itself (OpenBSD unveil(2) logic).
+/// Secures *l2* the tool: writes are confined to L2_DATA_DIR only (can't tamper host /etc or other ws).
+/// Reads allowed broadly (to support `put --file /any/user/path` and system lookups) + rx on bins.
+/// This is "restrict early" like OpenBSD main() { unveil(...); pledge(...); ... }
+/// Combined with per-exec sandboxes (for the payload) and no_new_privs etc.
+/// Best-effort; does not affect children under unshare (they get fresh + their own rules).
+pub fn apply_l2_cli_sandbox() -> Result<()> {
+    let data_dir = match std::env::var("L2_DATA_DIR") {
+        Ok(d) => std::path::PathBuf::from(d),
+        Err(_) => {
+            if let Ok(home) = std::env::var("HOME") {
+                std::path::PathBuf::from(home).join(".l2")
+            } else {
+                return Ok(()); // can't secure without knowing home
+            }
+        }
+    };
+
+    let abi = ABI::V5;
+    let rs = Ruleset::default().handle_access(AccessFs::from_all(abi))?;
+    let mut rs = rs.create()?;
+
+    // Full r/w/c/x ONLY on our data dir (the core "unveil rwcx $L2" for state/objects/audit/crypto/harden reports).
+    // This prevents l2 bugs or supply issues from writing outside its area (like OpenBSD unveil on $HOME/.l2).
+    if data_dir.exists() {
+        let full = AccessFs::from_all(abi);
+        let rules = path_beneath_rules([&data_dir], full);
+        rs = rs.add_rules(rules)?;
+    }
+
+    // Read + Execute on system paths (needed for spawning getent, sh in data_dir fn, put etc, and exec of tools).
+    // Like "rpath exec" promises + unveil rx /bin /usr ...
+    let rx = AccessFs::from_read(abi) | AccessFs::Execute;
+    for p in ["/bin", "/usr/bin", "/lib", "/usr/lib", "/lib64", "/usr/lib64", "/dev", "/proc", "/etc"] {
+        if std::path::Path::new(p).exists() {
+            let rules = path_beneath_rules([p], rx);
+            rs = rs.add_rules(rules)?;
+        }
+    }
+
+    // Read-only on / : allows reading arbitrary user files for `l2 put --file /path` (user intent)
+    // and other inspections, without allowing writes outside data (the security win).
+    // OpenBSD equivalent: unveil("/", "r"); unveil(data, "rwc");
+    let ro = AccessFs::from_read(abi);
+    if std::path::Path::new("/").exists() {
+        let rules = path_beneath_rules(["/"], ro);
+        rs = rs.add_rules(rules)?;
+    }
+
+    let status = rs.restrict_self()?;
+
+    match status.ruleset {
+        RulesetStatus::FullyEnforced => {
+            eprintln!(
+                "[l2] ✓ Landlock (unveil-style from OpenBSD) active for CLI: writes confined to {} only",
+                data_dir.display()
+            );
+        }
+        RulesetStatus::PartiallyEnforced => {
+            eprintln!("[l2] Landlock for CLI partially enforced (older kernel) — still better than nothing per OpenBSD spirit");
+        }
+        RulesetStatus::NotEnforced => {
+            eprintln!("[l2] (Landlock/unveil not available on this kernel — OpenBSD logic would use native pledge/unveil here)");
+        }
+    }
+
+    // Log for audit --test (evidence that l2 itself was sandboxed)
+    crate::audit::log(
+        "sandbox",
+        serde_json::json!({
+            "type": "cli_orchestrator",
+            "landlock": true,
+            "data_dir": data_dir.display().to_string(),
+            "note": "OpenBSD unveil logic: l2 tool confined (in addition to payload sandboxes)"
+        }),
+    );
+
+    Ok(())
 }

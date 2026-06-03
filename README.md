@@ -1,4 +1,4 @@
-# l2 — High-Assurance Terminal Substrate (v0.5.5)
+# l2 — High-Assurance Terminal Substrate (v0.5.6)
 
 Terminal-first CLI for explicit, strongly-isolated execution contexts with post-quantum (PQC) crypto and North-Star Containment. Built for agentic/MCP/AI and critical infrastructure (seL4 as root of trust).
 
@@ -15,7 +15,7 @@ See the dedicated **[Crypto & Hardening](#crypto--hardening-v040)** section (col
 ```bash
 git clone https://github.com/veilriven-design/l2.git
 cd l2
-git checkout v0.5.5
+git checkout v0.5.6
 cargo install --path . --force
 l2 --help
 ```
@@ -24,7 +24,7 @@ l2 --help
 ```bash
 git clone https://github.com/veilriven-design/l2.git
 cd l2
-git checkout v0.5.5
+git checkout v0.5.6
 cargo build --release
 ./target/release/l2 --help
 # (or add target/release to PATH, or use the install command above)

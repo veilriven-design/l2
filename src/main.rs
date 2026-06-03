@@ -3,14 +3,18 @@
 //! Explicit, auditable isolation with PQC crypto, great-harden (aerospace/industrial impenetrable),
 //! North-Star Containment (grand repeatable demos vs ransomware/Miasma/viruses/substrate/crypto/weakness
 //! attacks), `l2 spirit --audit` (--os for full-OS malicious code & bad logic; --file <PATH> for safe vs
-//! dangerous code logic analysis on any source/file using NEVER + demo patterns) v0.5.5, and full NSA/CISA 2026
+//! dangerous code logic analysis on any source/file using NEVER + demo patterns) v0.5.6, and full NSA/CISA 2026
 //! alignment (CPG 2.0, MCP CSI, Agentic, supply, OT, quantum prep).
 //!
 //! State in L2_DATA_DIR (defaults ~/.l2; preserved across sudo). External CLI iface stable.
 //!
-//! v0.5.5: `l2 net-isolate` (first-class network isolation option) + `l2 spirit --audit` for the guiding spirit of safe auditing (OS scan + per-file logic review).
+//! v0.5.6: `l2 net-isolate` (first-class network isolation option) + `l2 spirit --audit` for the guiding spirit of safe auditing (OS scan + per-file logic review).
 //! Builds on v0.5.0 mature L2P/Host E2E + operational harden + seL4. All prior North-Star / prepare /
 //! evidence / L2_DATA_DIR / sudo preserved.
+//!
+//! OpenBSD pledge(2)/unveil(2) + "secure by default" logic applied throughout: seccomp+NEVER = pledge, Landlock = unveil,
+//! early apply_l2_cli_sandbox() in main for the tool itself, hardened units with MemoryDenyWriteExecute etc in scripts.
+//! See sandbox.rs and harden.sh for explicit mappings. Least privilege, reduce surface immediately, no ambient.
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -26,7 +30,7 @@ mod sandbox;
     name = "l2",
     version,
     about = "High-assurance terminal substrate for agentic systems (PQC crypto, explicit isolation, North-Star Containment, l2 spirit auditing)",
-    long_about = "Terminal substrate for isolated execution with PQC crypto, host hardening, `l2 net-isolate`, and `l2 spirit --audit` (OS scan or per-file logic review). North-Star Containment for agentic/MCP/AI/critical workloads (v0.5.5)."
+    long_about = "Terminal substrate for isolated execution with PQC crypto, host hardening, `l2 net-isolate`, and `l2 spirit --audit` (OS scan or per-file logic review). North-Star Containment for agentic/MCP/AI/critical workloads (v0.5.6)."
 )]
 struct Cli {
     #[arg(long, global = true)]
@@ -2470,6 +2474,13 @@ fn main() -> Result<()> {
     // and can be swapped). L2_USE_CORE still routes via l2p to out-of-proc l2-core.
     let mut host = Host::new();
 
+    // Secure *l2 itself* (the orchestrator) using OpenBSD logic as early as possible.
+    // Landlock = unveil(2): confine writes to L2_DATA_DIR, allow needed reads/execs.
+    // This is "pledge + unveil early in main" before handling any user data/commands.
+    // Combined with per-payload apply_strict_sandbox (for exec under policy) and host harden.
+    // Does not affect the restricted children (unshare gets its own + stricter rules).
+    let _ = sandbox::apply_l2_cli_sandbox();
+
     match cli.command {
         Commands::Create { name, policy } => {
             if policy.len() > 63 {
@@ -2511,8 +2522,12 @@ fn main() -> Result<()> {
             audit::log("create", create_details);
 
             if cli.json {
+                // Include initial grants (caps) in response.
+                let grants = if let Ok(sys) = host.sub.get_system(&name) {
+                    &sys.grants
+                } else { &vec![] };
                 print_json(
-                    &serde_json::json!({"ok":true,"sys":id,"name":name,"policy":policy,"via_core":should_use_core()}),
+                    &serde_json::json!({"ok":true,"sys":id,"name":name,"policy":policy,"via_core":should_use_core(), "grants": grants}),
                 );
             } else {
                 println!(
@@ -2527,6 +2542,7 @@ fn main() -> Result<()> {
                 }
                 let sp = state_path()?;
                 println!("   state:  {}", sp.display());
+                println!("   (initial grants as capabilities per seL4/Capsicum/CHERI/Genode/OpenBSD model; see `l2 list <name>`)");
             }
         }
         Commands::Destroy { name } => {
@@ -2549,6 +2565,14 @@ fn main() -> Result<()> {
                         } else {
                             println!("System: {} ({})", sys.name.bold(), sys.id);
                             println!("  policy:   {}", sys.policy);
+                            println!("  grants (capabilities, seL4/Capsicum/CHERI/Genode style):");
+                            if sys.grants.is_empty() {
+                                println!("    (none - least priv)");
+                            } else {
+                                for g in &sys.grants {
+                                    println!("    {} [{}]", g.id, g.rights.join(","));
+                                }
+                            }
                             println!("  objects:");
                             if sys.objects.is_empty() {
                                 println!("    (none)");
@@ -3075,10 +3099,14 @@ fn main() -> Result<()> {
             if should_use_core() {
                 let _ =
                     l2p_request_to_core("revoke", serde_json::json!({"sys": sys, "grant": grant}))?;
+            } else {
+                if let Err(e) = host.revoke(&sys, &grant) {
+                    error(&e.to_string(), cli.json);
+                }
             }
             audit::log("revoke", serde_json::json!({ "sys": sys, "grant": grant }));
             success(
-                &format!("revoked '{}' from '{}' (prototype)", grant, sys),
+                &format!("revoked grant '{}' (capability) from '{}' (effective; seL4/Capsicum style)", grant, sys),
                 cli.json,
             )
         }
@@ -3090,6 +3118,7 @@ fn main() -> Result<()> {
                             print_json(sys);
                         } else {
                             println!("System {} policy={}", sys.name, sys.policy);
+                            println!("  grants (caps): {:?}", sys.grants);
                         }
                     }
                     Err(e) => error(&e.to_string(), cli.json),
@@ -3215,8 +3244,8 @@ fn main() -> Result<()> {
                         println!("======================================================");
                         println!();
                         println!("current main focus (NSA MCP CSI May 2026 + CISA Agentic AI).");
-                        println!("Strong isolation + enforcing seccomp for tool/MCP/agent workloads.");
-                        println!("No ambient creds; least-priv explicit ws; full audit.");
+                        println!("Strong isolation + enforcing seccomp (OpenBSD pledge(2) model via Landlock+seccomp+no_new_privs).");
+                        println!("No ambient creds; least-priv explicit ws; full audit. (unveil(2) via Landlock)");
                         println!();
                         println!("Usage: l2 exec --policy strict-mcp ... ; l2 trace --policy strict-mcp ...");
                         println!("Companion: l2 harden --profile strict-mcp  (then l2 audit --test)");
@@ -3233,9 +3262,9 @@ fn main() -> Result<()> {
                         println!("strict");
                         println!("------");
                         println!(
-                            "Strong isolation policy using Landlock, no_new_privs, and seccomp."
+                            "Strong isolation policy using Landlock (unveil), no_new_privs, and seccomp (pledge)."
                         );
-                        println!("This is the foundation that strict-mcp builds upon.");
+                        println!("This is the foundation that strict-mcp builds upon (OpenBSD secure-by-default model).");
                         println!("Use `l2 policy show strict-mcp` for the currently recommended protocol.");
                     }
                 }
@@ -3696,8 +3725,8 @@ mod tests {
 
     #[test]
     fn strict_sandbox_applies_without_error() {
-        // Exercises the v0.2 Landlock + no_new_privs path + the Phase 0 seccomp observer scaffolding
-        // (when L2_STRICT_SECCOMP_OBSERVE=1). Must succeed in all envs.
+        // Exercises Landlock (unveil) + no_new_privs + Phase 0/1 seccomp (pledge) + the new cli sandbox
+        // (OpenBSD logic). Must succeed in all envs.
         let tmp = std::env::temp_dir().join(format!("l2-smoke-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&tmp);
         // Enable observer for the test (purely additive, non-enforcing)
@@ -3718,6 +3747,9 @@ mod tests {
             "great-harden sandbox apply failed: {:?}",
             res3.err()
         );
+        // Exercise the l2 CLI orchestrator sandbox (unveil-style from OpenBSD, called early in main).
+        let res4 = sandbox::apply_l2_cli_sandbox();
+        assert!(res4.is_ok(), "l2 cli sandbox (OpenBSD logic) failed: {:?}", res4.err());
         let _ = std::fs::remove_dir_all(&tmp);
     }
 
@@ -3937,7 +3969,7 @@ mod tests {
 
     #[test]
     fn os_malware_audit_runs_without_panic_or_error() {
-        // Exercises the v0.5.5 OS-wide malicious code / bad logic scanner (and net-isolate).
+        // Exercises the v0.5.6 OS-wide malicious code / bad logic scanner (and net-isolate).
         // Must not panic even on limited FS; json mode for no output spam.
         // Real scans produce useful PASS/REVIEW for suid, ww files, temp droppers, cron etc.
         let res = run_os_malware_audit(true);
@@ -3946,7 +3978,7 @@ mod tests {
 
     #[test]
     fn spirit_file_audit_runs_on_demo_source() {
-        // v0.5.5 spirit --audit --file + net-isolate : analyzes source for safe/dangerous logic, network isolation option.
+        // v0.5.6 spirit --audit --file + net-isolate : analyzes source for safe/dangerous logic, network isolation option.
         // The full-weakness attack demo should trigger DANGEROUS/REVIEW (many NEVER + escape patterns).
         // Must not panic, produce output (we use json to keep test clean).
         let res = run_spirit_file_audit("docs/examples/l2_full_weakness_audit_attack.c", true);

@@ -14,8 +14,10 @@
  *
  * Ties:
  * - Implements l2_sys_* (core/sys.h) using seL4 caps/PDs/IPC/shared-mem instead of ns.
+ *   (Learned from seL4: caps are unforgeable, delegable, revocable; PDs as isolated components like Genode.)
  * - Speaks (or will speak) L2P subset over Microkit channels (shim to host/core.rs protocol).
  * - Uses src/common/safe.h (l2_memcpy_safe, zero) for all cross-PD copies (bounds + no leaks).
+ *   (CHERI-inspired spatial safety + Capsicum-style explicit rights.)
  *
  * See docs/SEL4_INTEGRATION.md, docs/PROTOCOL.md, core/host.c, src/core/core.h, and the
  * Rust l2::Host for the contract that must be preserved.
