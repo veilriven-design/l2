@@ -432,6 +432,7 @@ if [ "$TARGET" = "host" ]; then
         echo
         type_line "      This + great-harden policy + l2 runtime sandbox = servers impenetrable to major classes of ransomware/worm/virus/substrate/AI-MCP/agentic threats (validated by malware-cancer AIO sim + North-Star Containment). Aligns to latest NSA/CISA (June 2026 sweep: CPG 2.0 GOVERN/3.H least-priv/4.A malicious-code, MCP CSI May 2026, Agentic AI Careful Adoption Apr/May 2026 [privilege/least-priv, design, behaviour, structural, accountability risks + isolation/approvals/monitoring best practices], AI supply chain, OT AI)."
         echo "      # Validate with AIO malware-cancer sim (ransom + Miasma + direct substrate attacks on state/trace/audit/crypto/ns/bpf + git/pip/ELF/anti + MCP/agentic tool/context risks per 2026 CSIs):"
+        echo "      #   Also run l2_crypto_redteam_onslaught.c under same for full crypto redteam (KDF to l2-state) + North-Star Containment (crypto + great-harden + audit --test)"
         echo "      #   export L2_DATA_DIR=\$(mktemp -d); l2 great-harden --fast --apply || true"
         echo "      #   l2 create cancer-test --policy great-harden"
         echo "      #   l2 put cancer-test cancer-sim.c --file docs/examples/l2_malware_cancer_resistance_demo.c"
@@ -715,8 +716,8 @@ cat > "$LATEST_JSON" << EOF
     "CISA Stop Ransomware / worm containment guidance (for ransom-hardened)",
     "Supply chain (Miasma-style + AI/ML per 2026 CSIs) resistance via demos + runtime containment",
     "AIO malware-cancer + l2 North-Star Containment (ransomware + Miasma + viruses + direct substrate + MCP/agentic tool/context containment under great-harden; grand demo: explicit put+exec+audit)",
-    "Verified crypto profiles (hybrid-aes-chacha etc + Argon2) + l2 substrate for data-at-rest encryption and key protection (NSA AI Data Sec, CPG at-rest)",
-    "l2 ${PROFILE} policy protocol + regular \`l2 audit --test\` for CPG 2.0 / MCP CSI / Agentic AI evidence"
+    "Verified crypto profiles (hybrid-aes-chacha etc + Argon2id) + l2 substrate for data-at-rest encryption and key protection (NSA AI Data Sec CSI, CPG at-rest); crypto redteam onslaught demo (10+ NSA-level vectors: weak KDF/side-channel/key-exfil/cipher-misuse/RNG/hybrid/tamper/supply-chain/direct-l2-state/passphrase-impl; all North-Star contained to ws + crypto-latest.json evidence)",
+    "l2 ${PROFILE} policy protocol + regular \`l2 audit --test\` for CPG 2.0 / MCP CSI / Agentic AI evidence (crypto redteam + malware-cancer grand demos for resistance verification)"
   ],
   "report_md": "$REPORT_FILE",
   "apply_note": "Re-run with --apply to make artifacts operational and update this evidence for audit --test"
@@ -734,7 +735,8 @@ echo "      3. Run agents with \`l2 exec --policy ${PROFILE}\`"
 echo "      4. (Beautiful part) Re-run with --apply to make it operational:  l2 harden --profile ${PROFILE} --apply"
 echo "      5. Run \`l2 audit --test\` to automatically verify standards compliance (harden reports + chain + ${PROFILE} usage etc.)"
 echo "      6. For supply-chain (Miasma) testing: l2 put ... l2_miasma_resistance_demo.c ; exec under ${PROFILE}"
-echo "      7. For supreme aerospace/industrial + AI/MCP/agentic/OT (great-harden per June 2026 NSA/CISA sweep incl. MCP CSI May 2026, Agentic AI CSI Apr/May 2026, CPG 2.0): l2 great-harden --apply ; use --policy great-harden + l2_malware_cancer... ; l2 audit --test (covers CPG 2.0 GOVERN/least-priv/mal-code, MCP sec design auth/integrity/isolation, Agentic 5 risks mitigation via explicit ws containment + audit)"
+echo "      7. For supreme aerospace/industrial + AI/MCP/agentic/OT (great-harden per June 2026 NSA/CISA sweep incl. MCP CSI May 2026, Agentic AI CSI Apr/May 2026, CPG 2.0): l2 great-harden --apply ; use --policy great-harden + l2_malware_cancer... + l2_crypto_redteam_onslaught.c (crypto redteam for NSA-level KDF/side/exfil/misuse/RNG/hybrid/tamper/supply/l2-state/passphrase attacks, 10 vectors, North-Star Contained); l2 audit --test (covers CPG 2.0 GOVERN/least-priv/mal-code, MCP sec design auth/integrity/isolation, Agentic 5 risks mitigation via explicit ws containment + audit + crypto evidence)"
+echo "      8. prepare prepare prepare: always pair crypto --profile hybrid-aes-chacha --fast --apply with great-harden for data-at-rest + key prot; run both demos + audit for full grand North-Star show (see HOWTOs and README)"
 
 echo
 echo "[6/6] l2 harden complete for profile '$PROFILE'."

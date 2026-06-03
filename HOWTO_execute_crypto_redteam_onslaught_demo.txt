@@ -1,0 +1,78 @@
+HOW TO EXECUTE THE l2_crypto_redteam_onslaught DEMO EXACTLY
+==========================================================
+
+This demo (docs/examples/l2_crypto_redteam_onslaught.c) is the crypto equivalent of the malware-cancer AIO resistance demo (v0.4.7+ even further polish). It runs a comprehensive "onslaught" of NSA-level crypto red-team attacks (10+ vectors: weak KDF/brute sim, side-channel timing, key exfil via /proc/memory/env/paths, cipher misuse/padding oracles/ECB/predictable IV, RNG bias/prediction, hybrid layer breaks, LUKS/gocryptfs + l2 crypto-latest.json header/config tamper, supply-chain on gocryptfs/cryptsetup bins, direct l2 crypto state/json/profiles/keys exfil/tamper, passphrase harvest + impl flaw probes) and proves they are contained to your explicit l2 workspace when using a verified crypto profile (hybrid-aes-chacha recommended) + great-harden (or strict-mcp) policy + --apply evidence.
+
+The only thing that "succeeds" (in simulation) is work inside the authorized workspace created by `l2 put`. Everything else is BLOCKED by the l2 substrate + crypto protection (Landlock, env_clear, seccomp NEVER list, great-harden host lockdown, hybrid Argon2id profiles). At the end it prints a full "l2 NORTH-STAR CONTAINMENT SUMMARY (Grand Demo for Crypto)" with per-class bullets + "prepare prepare prepare" framing. Cross-refs cancer demo + full audit loop.
+
+"prepare prepare prepare" — run this (and the cancer grand demo) when you and the operator are confident.
+
+PREREQUISITES
+- l2 built (v0.4.7+ recommended, with crypto redteam polish)
+- gcc (for -static compile inside the ws; -static keeps RO bin surface tiny under great-harden Landlock)
+- A real interactive terminal (the agent shell here is non-tty and sudo will fail for namespace isolation/unshare)
+- (Recommended for full --apply effect) gocryptfs: sudo apt install gocryptfs (or dnf/yum/pacman equivalent); without it, --apply still emits LUKS cmds + always writes crypto-latest.json evidence
+- sudo access (for namespace isolation in strict/great policies; escalate_to_root_for_exec prefixes L2_DATA_DIR etc. and prints manual sudo hint)
+
+RECOMMENDED EXACT SEQUENCE (copy-paste into a real interactive terminal; use L2_DATA_DIR for hermetic test)
+
+```bash
+# 1. Fresh isolated data dir (highly recommended for clean testing + L2_DATA_DIR respect across sudo)
+export L2_DATA_DIR=$(mktemp -d)
+echo "L2_DATA_DIR=$L2_DATA_DIR"
+
+# 2. Prepare the crypto profile (hybrid is the strongest for defense-in-depth: AES bulk + XChaCha keys/meta, Argon2id both)
+#    --fast skips slow typewriter output and makes --apply non-interactive (also sets L2_FAST)
+l2 crypto --profile hybrid-aes-chacha --fast --apply || true
+
+# 3. Prepare the supreme host + runtime posture (kernel lockdown=confidentiality, extreme isolation, audit rules on ~/.l2, etc.)
+l2 great-harden --fast --apply || true
+
+# 4. Create an isolated workspace under the great-harden policy (tiniest Landlock + full seccomp enforce)
+l2 create crypto-redteam --policy great-harden
+
+# 5. Put the demo source into the workspace (this is the ONLY place the attacks are "allowed" to succeed in sim; explicit put authority)
+l2 put crypto-redteam crypto-redteam.c --file docs/examples/l2_crypto_redteam_onslaught.c
+
+# 6. Compile + run the demo INSIDE the workspace (this is the "grand demonstration" of l2 North-Star Containment for crypto)
+#    gcc -static -Wall -Wextra is used so the binary only needs the tiny set of RO paths allowed by Landlock under great-harden.
+l2 exec crypto-redteam 'gcc -static -Wall -Wextra -o crypto-redteam crypto-redteam.c && ./crypto-redteam'
+
+# 7. Verify the evidence (crypto check + North-Star + cancer + full 2026 standards; len >=9)
+l2 audit --test
+
+# 8. Clean up
+l2 destroy crypto-redteam
+
+# (optional) clean the temp dir when done
+# rm -rf "$L2_DATA_DIR"
+```
+
+WHAT YOU SHOULD SEE
+- Lots of "BLOCKED (l2 North-Star Containment ...)" or "BLOCKED (strong Argon2id + l2 key isolation...)" for every red-team vector (1-10) when they try to touch host paths or exfil outside ws.
+- Inside the safe contained section: "CONTAINED SUCCESS ... North-Star Containment achieved (l2 crypto + great-harden + strict-mcp)" for the ws victims (simulating that the crypto profile + substrate are active and correctly protecting *only* authorized workspaces; rich victims touched with markers).
+- At the end: the big "l2 NORTH-STAR CONTAINMENT SUMMARY (Grand Demo for Crypto)" listing all 10 attack classes + evidence bullets + "prepare prepare prepare" + v0.4.7+ note + full NSA/Agentic/CPG mappings.
+- `l2 audit --test` should show (among others, and PASS overall):
+    ✅ PASS  Crypto profiles for data-at-rest (verified algos + l2 substrate key protection)
+    ✅ PASS  AIO malware-cancer containment (great-harden full-safety) — l2 North-Star Containment
+    (plus tamper-evident, policy, harden, ransom, miasma, great-harden, sandbox/creds etc.; standards string covers June 2026 sweep + CPG 2.0 + MCP CSI + Agentic 5 risks + crypto for AI Data Sec)
+
+TROUBLESHOOTING (from README + prior L2_DATA_DIR/sudo fixes)
+- If sudo prompts for password and you're in a script/non-tty: configure passwordless sudo for your user for testing (e.g. `visudo` line for %sudo NOPASSWD), or run the whole thing as root (not recommended for real use). l2 escalate prefixes "sudo L2_DATA_DIR=..." and prints hints.
+- The demo is safe — all "attacks", "cracks", and "encryption" are simulated with simple markers/reversible appends/xor. No real data is harmed; no destructive host writes.
+- If you don't have gocryptfs, the crypto --apply will still print the exact LUKS2 + argon2id commands for your profile and *always* create the crypto/crypto-latest.json evidence (audit --test will still PASS the crypto check).
+- The is_in_l2_workspace() logic (polished v0.4.7+) looks for L2_DATA_DIR paths + /l2-ws- + crypto-latest.json + .l2/crypto + L2_WS env + state.json markers + HOME under l2 data. The sequence above guarantees detection inside the ws; outside always BLOCKED.
+- If audit --test shows "no crypto profile" on fresh: ensure step 2 ran and wrote the json under $L2_DATA_DIR/crypto/ (cat it to inspect); L2_DATA_DIR overrides are respected even under sudo via prefixing.
+- gcc warnings: the C is -Wall -Wextra clean (casts for write/close returns, (void) unused).
+- For combined grand show: run the cancer demo (l2_malware_cancer...) in same or separate ws first/after; both feed the same audit --test North-Star checks.
+
+This is the repeatable, auditable "prepare prepare prepare" grand demonstration that l2's cryptography + substrate meets NSA-level standards for agentic/MCP/critical/OT systems (data-at-rest + key prot + isolation + evidence + resistance verification).
+
+After running, inspect the generated evidence (L2_DATA_DIR respected):
+  cat $L2_DATA_DIR/crypto/crypto-latest.json
+  cat $L2_DATA_DIR/harden/great-harden-latest.json
+  # (standards arrays + applied + profile details)
+
+See also: README North-Star/Crypto sections, SECURITY.md, src/main.rs:run_security_audit_tests (9th check), scripts/crypto.sh, the cancer demo for AIO symmetry.
+
+Enjoy the (contained) show! l2 North-Star Containment: the grand demonstration of what l2 does for cryptography at the NSA level.

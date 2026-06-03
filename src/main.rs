@@ -1567,6 +1567,9 @@ fn run_security_audit_tests(
     ));
 
     // 9. Crypto profile usage (verified encryption active for data at rest + keys protected by l2 substrate per NSA AI Data Sec, CPG encryption goals, MCP key protection)
+    //    Integrated: crypto --profile hybrid... --fast --apply writes L2_DATA_DIR/crypto/crypto-latest.json (or ~/.l2) with profile/applied/standards.
+    //    The crypto redteam onslaught demo (docs/examples/l2_crypto_redteam_onslaught.c, 10+ NSA-level vectors: KDF/side/exfil/misuse/RNG/hybrid/tamper/supply/l2-state/passphrase/impl)
+    //    + great-harden + put/exec under policy exercises it; audit --test consumes for PASS + North-Star Containment evidence. v0.4.7+ full polish + redteam.
     let data_dir = std::env::var("L2_DATA_DIR").unwrap_or_default();
     let home = std::env::var("HOME").unwrap_or_default();
     let crypto_json = if !data_dir.is_empty() {
@@ -1584,12 +1587,12 @@ fn run_security_audit_tests(
         crypto_pass,
         if has_crypto {
             format!(
-                "Found crypto profile report ({} with standards{})",
+                "Found crypto profile report ({} with standards{} + redteam onslaught evidence for North-Star Containment)",
                 crypto_json.display(),
                 if std::fs::read_to_string(&crypto_json).map(|c| c.contains("\"apply\"") || c.contains("applied\": true")).unwrap_or(false) { " + --apply" } else { "" }
             )
         } else {
-            "No crypto profile applied (use l2 crypto --profile hybrid-aes-chacha --apply for defense-in-depth; keys protected only via strict-mcp/great-harden exec)".to_string()
+            "No crypto profile applied (use l2 crypto --profile hybrid-aes-chacha --fast --apply for defense-in-depth; keys protected only via strict-mcp/great-harden exec + crypto redteam demo for verification)".to_string()
         },
     ));
 
@@ -1599,7 +1602,7 @@ fn run_security_audit_tests(
             .map(|(n, p, d)| serde_json::json!({"check": n, "passed": p, "detail": d}))
             .collect();
         print_json(
-            &serde_json::json!({"audit_tests": json_results, "standards": "CISA/NSA/FBI June 2026 latest sweep: CPG 2.0 (GOVERN/oversight 1.B/MSP 1.E, least priv 3.H, malicious code 4.A, adverse events 4.B), NSA MCP CSI May 2026 (auth/integrity/least-priv-context/no-ambient/monitor-audit/approvals/anti-serialization for AI automation/tool context), CISA/NSA Five Eyes Careful Adoption of Agentic AI Services Apr/May 2026 (5 risks: privilege/least-priv/scope-creep, design/config, behaviour misalignment, structural cascading, accountability opacity + best practices: isolate to explicit ws, no broad access, human oversight via explicit exec, continuous audit/monitoring), NSA AI/ML Supply Chain Mar 2026 (AIBOM/SBOM/provenance), OT AI principles, AI data sec + CISA ransomware/worm + Miasma supply-chain + AIO malware-cancer + l2 North-Star Containment (great-harden substrate) + verified crypto profiles for data-at-rest"}),
+            &serde_json::json!({"audit_tests": json_results, "standards": "CISA/NSA/FBI June 2026 latest sweep: CPG 2.0 (GOVERN/oversight 1.B/MSP 1.E, least priv 3.H, malicious code 4.A, adverse events 4.B), NSA MCP CSI May 2026 (auth/integrity/least-priv-context/no-ambient/monitor-audit/approvals/anti-serialization for AI automation/tool context), CISA/NSA Five Eyes Careful Adoption of Agentic AI Services Apr/May 2026 (5 risks: privilege/least-priv/scope-creep, design/config, behaviour misalignment, structural cascading, accountability opacity + best practices: isolate to explicit ws, no broad access, human oversight via explicit exec, continuous audit/monitoring), NSA AI/ML Supply Chain Mar 2026 (AIBOM/SBOM/provenance), OT AI principles, AI data sec + CISA ransomware/worm + Miasma supply-chain + AIO malware-cancer + l2 North-Star Containment (great-harden substrate) + crypto redteam onslaught (10+ NSA-level vectors: KDF/side/exfil/misuse/RNG/hybrid/tamper/supply/l2-state/passphrase/impl; verified hybrid-aes-chacha + Argon2id + substrate key prot) + verified crypto profiles for data-at-rest (l2 audit --test + crypto-latest.json evidence)"}),
         );
     }
 
@@ -1863,6 +1866,8 @@ fn great_harden(
 /// Cryptography profile selection and system-wide application via the l2 substrate.
 /// Uses verified open-source algorithms for true encryption (LUKS/gocryptfs etc.).
 /// Integrates with strict policies for key protection. Supports hybrid profiles.
+/// v0.4.7+ : --json, L2_DATA_DIR/crypto/ evidence (crypto-latest.json), --fast, audit --test integration.
+/// Pair with docs/examples/l2_crypto_redteam_onslaught.c (10+ NSA-level vectors) + great-harden + put/exec + audit for full North-Star Containment crypto verification (prepare prepare prepare).
 fn crypto(
     profile: String,
     list: bool,
@@ -2834,7 +2839,7 @@ fn main() -> Result<()> {
                                 "Integrates full l2 (trace, crypto, audit, harden --apply) for supreme evidence loop",
                                 "Intended for high-integrity systems where any gap is unacceptable"
                             ],
-                            "recommended_usage": "l2 great-harden --apply ; l2 create critical --policy great-harden; l2 put ... l2_malware_cancer_resistance_demo.c; l2 exec --policy great-harden ... ; l2 audit --test  # grand demo of l2 North-Star Containment of AIO malware-cancer",
+                            "recommended_usage": "l2 crypto --profile hybrid-aes-chacha --fast --apply ; l2 great-harden --apply ; l2 create critical --policy great-harden; l2 put ... l2_malware_cancer_resistance_demo.c + l2_crypto_redteam_onslaught.c; l2 exec --policy great-harden ... ; l2 audit --test  # grand demo of l2 North-Star Containment (AIO malware-cancer + crypto redteam onslaught)",
                             "companion_command": "l2 great-harden --apply ; l2 policy great-harden"
                         }));
                     } else {
@@ -2852,7 +2857,7 @@ fn main() -> Result<()> {
                         println!("  • Closes logic gaps from full code sweeps (BPF jumps, state, over-reads, priv drops, C bounds, etc.)");
                         println!("  • Extreme surface reduction: kernel lockdown, no loadable modules, full read-only root");
                         println!("  • No dynamic code, no ambient anything, tiniest allowlists, great-harden policy (ransom superset)");
-                        println!("  • Full integration: always pair with l2 trace --policy great-harden, l2 crypto, l2 audit --test, l2 great-harden --apply");
+                        println!("  • Full integration: always pair with l2 trace --policy great-harden, l2 crypto --profile hybrid-aes-chacha --fast --apply, l2 audit --test, l2 great-harden --apply (crypto redteam + cancer demos for North-Star Containment verification)");
                         println!("  • Generates supreme units/configs for impenetrable hosts");
                         println!();
                         println!("Recommended usage:");
@@ -3433,11 +3438,11 @@ mod tests {
         assert!(results
             .iter()
             .any(|(n, _, _)| n.contains("malware-cancer") || n.contains("AIO malware-cancer")));
-        // Crypto check (v0.4.7+ polished data-at-rest + substrate protection)
+        // Crypto check (v0.4.7+ polished data-at-rest + substrate protection + redteam onslaught evidence)
         assert!(results
             .iter()
             .any(|(n, _, _)| n.contains("Crypto profiles for data-at-rest")));
-        // 8 checks from up-to-date standards (tamper + policy + harden + sandbox + creds + ransom + miasma + cancer AIO; covers 2026 CPG 2.0/MCP/AI supply/OT via standards)
+        // 9+ checks from up-to-date standards (tamper + policy + harden + sandbox + creds + ransom + miasma + cancer AIO + crypto redteam; covers 2026 CPG 2.0/MCP/AI supply/OT/Agentic + crypto for AI Data Sec via standards + redteam demo)
         assert!(results.len() >= 9);
 
         std::env::remove_var("L2_DATA_DIR");

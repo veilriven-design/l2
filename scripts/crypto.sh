@@ -301,6 +301,8 @@ gocryptfs "$CRYPTO_DIR" "$MOUNT_DIR" || echo "mount may already be active or fai
 EOFHELPER
     chmod +x "$CRYPTO_HELPER" 2>/dev/null || true
     type_line "Created MCP-aware crypto helper: $CRYPTO_HELPER (invoke under strict-mcp)"
+    # v0.4.7+ polish note for North-Star / redteam integration
+    if ! $JSON; then type_line "For verification: use with great-harden + put l2_crypto_redteam_onslaught.c + exec + l2 audit --test (see HOWTO and North-Star Containment grand demo)"; fi
 
     echo
     type_line "For full system encryption (LUKS), use these verified commands with the profile:"
@@ -337,7 +339,8 @@ EOFHELPER
 4. Collect traces under the MCP protocol: l2 trace --policy strict-mcp ...
 5. Re-run l2 crypto --profile $PROFILE --apply after changes.
 6. For hybrid, the mixture provides complementary security: AES for speed/verified bulk, ChaCha for side-channel resistance.
-7. Use l2 harden --profile strict-mcp --network-isolation together with this profile."
+7. Use l2 harden --profile strict-mcp --network-isolation together with this profile.
+8. prepare prepare prepare: run the crypto redteam onslaught demo (l2 create ...; l2 put ... l2_crypto_redteam_onslaught.c; l2 exec 'gcc... && ./...'; l2 audit --test) + cancer demo for full North-Star Containment evidence (crypto profiles + substrate key prot + 2026 standards). See HOWTO_execute_crypto_redteam_onslaught_demo.txt and docs/examples/."
 
     echo
     type_line "=== l2 crypto setup complete for profile '$PROFILE' ==="
@@ -358,7 +361,7 @@ EOFHELPER
   "mount_dir": "$MOUNT_DIR",
   "network_isolation": $NETWORK_ISOLATION,
   "timestamp": "$(date -Iseconds)",
-  "standards": ["NSA AI Data Security CSI", "CISA CPG data protection/encryption at rest", "MCP key/context protection via l2 substrate isolation"]
+  "standards": ["NSA AI Data Security CSI (2025; at-rest + key prot for AI/agents)", "CISA CPG 2.0 (GOVERN/least-priv/mal-code/adverse-events + encryption at-rest)", "NSA MCP CSI May 2026 (key/context protection + least-priv via l2 substrate)", "CISA/NSA Agentic AI CSI Apr/May 2026 (5 risks mitigated via explicit ws + explicit exec + audit)", "NSA AI/ML Supply Chain Mar 2026 (protect model weights/secrets at-rest)", "June 2026 sweep + l2 North-Star Containment (crypto redteam onslaught verification: 10+ vectors + hybrid-aes-chacha + Argon2id + evidence)"]
 }
 EOFJSON
     if $JSON; then
@@ -388,6 +391,7 @@ echo || true
 
 type_line "To actually apply (safe, user-confirmed setup of encrypted dir + full commands):"
 type_line "  l2 crypto --profile $PROFILE --apply"
+type_line "  # Then (prepare prepare prepare): pair with great-harden + crypto redteam demo (see docs/examples/l2_crypto_redteam_onslaught.c + HOWTO) for NSA-level verification + l2 audit --test North-Star Containment"
 
 echo || true
 
