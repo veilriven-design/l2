@@ -1,6 +1,6 @@
 # Status
 
-**v0.5.6** — `l2 net-isolate` (first-class network isolation) + spirit audit fixes + terse UX + capability model from seL4/Capsicum/CHERI/Genode/OpenBSD (grants as caps, early CLI unveil via Landlock, pledge via seccomp, docs updates). Builds on v0.5.4 spirit + prior. "prepare prepare prepare".
+**v0.5.7** — Full codebase exploit/RAT evaluation + RAT defense mechanism (`l2 spirit --audit --rat` for C2/revshell/persist/exfil IOCs; integrated with net-isolate C2 cut + NEVER + effective revoke + least-priv grants; evidence in `l2 audit --test`). From exhaustive static/dynamic audit of all paths (put/exec/state/L2P/sudo/sandbox/C layer/persist). Additive, terse UX, L2D, North-Star preserved. Builds on v0.5.6 (OpenBSD + caps). "prepare prepare prepare".
   - `--audit --os` : full OS scan for malicious code and bad logic anywhere (suid, droppers, cron, escapes, priv, etc; 7+ checks, PASS/REVIEW, CISA 4.A + l2 demos).
   - `--audit --file <PATH>` : audit any source or file for safe vs dangerous code logic (NEVER blacklist syscalls, dropper patterns, l2 substrate attacks, TOCTOU, priv esc from full-weakness/cancer/redteam/ransom demos). Outputs verdict (SAFE/DANGEROUS/REVIEW) + findings + containment recs.
   Builds on prior L2P/Host, operational harden, North-Star. Old `audit --os-scan` still delegates.
@@ -70,6 +70,7 @@ l2 is the minimal high-assurance Latticra substrate:
 4. Correctness gaps: Deeper work — non-panicking JSON output paths, load_state now warns on corrupt JSON, many silent cleanups now use warn_on_cleanup_err, 17 tests (strong coverage on data_dir, state roundtrips, error paths, isolation helpers). See recent changes in src/main.rs.
 
 5. L2P / core split **mature for v0.5.0**: l2::Host (Linux) + L2Core trait + l2-core (host/core.rs) now provide real E2E exercised narrow boundary for create/put/exec-intent (L2_USE_CORE=1 path). Heavy host primitives stay in CLI wrapper for exact compat (L2_DATA_DIR/sudo/escalate/sb). seL4 PD (src/core/core.c) + C host impl (core/host.c) + safe layer implement the *same* surface. External iface + North-Star grand demos + audit evidence identical. "l2 host prototype (persistent)" language softened.
+6. **RAT defense (v0.5.7)**: After full eval, added --rat mode + patterns in spirit (file + dedicated OS RAT scan), updated --os regexes, new check in audit --test, harden note. Mechanism: detect (spirit), contain (net-isolate + great + NEVER), revoke, evidence. No new surfaces.
 
 6. seL4/Microkit backend (parallel track, v0.5.0 traction): `l2 sel4-setup` on-ramp + C PD skeleton (src/core/core.c) + shared safe FFI + narrow l2_sys_* (core/host.c) + L2P surface now dual-implemented with the mature Rust l2::Host. The narrow contract means a future PD can replace the Linux Host with zero change to CLI, policies (great-harden), North-Star demos, or audit evidence. L2P v1 exercised E2E on Linux today is the prerequisite.
 

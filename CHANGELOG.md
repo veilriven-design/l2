@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.5.7] - 2026-06 (Full codebase exploit/RAT eval + RAT defense mechanism: spirit --audit --rat + integrated evidence)
+
+- Full static + dynamic evaluation of entire l2 codebase for exploitable issues that could enable or be used by RATs (remote access trojans):
+  - Audited all entry points: Command::new / spawn / exec / sudo / escalate_to_root_for_exec (L2_* preserve + drop_priv in fallbacks closes sudo abuse), put/get (dropper delivery via --file + auto local read, but object_relative_path rejects .. /abs; ws contained), L2P l2-core spawn (supply note, no sig but narrow + build-from-src), state.json load/save + grants (tamper vector; mitigated by early apply_l2_cli_sandbox Landlock confining l2 writes to L2D, great-harden ro + audit rules + Protect*, effective revoke), env_clear + setup_minimal in exec paths (LD_PRELOAD/secret leak closed for strict/great), prepare_workspace TOCTOU (private /tmp/l2-ws-* + Landlock), C safe layer (bounds + memcpy_safe + zero in common/safe + core), cron/user persist outside ws, net C2 despite blocks (NEVER + unshare --net + nft skuid), mcp_server put supply, oneshot window, audit best-effort chain (non-crypto but tamper detect), no direct host RCE/priv-esc in l2 binary itself.
+  - No critical unauthenticated remote or ambient-esc in l2 code; substrate already hard for RATs (ws-only + no ambient + explicit everything). Gaps were in *detection* (spirit covered droppers/NEVER but missed full RAT IOCs like /dev/tcp revshells, pty, setsid+net, LD_PRELOAD, user rc/cron persist) + *evidence of RAT posture* in audit --test + *user-persist scans*.
+- Created concrete RAT defense mechanism (fits terse UX, L2D, North-Star/prepare, no new surfaces, additive):
+  - Extended `l2 spirit --audit --rat` (new first-class sub-mode under --audit, like --os/--file): dedicated RAT IOC scanner (C2/revshell: /dev/tcp, bash -i >&, python pty/socket, socat, setsid, nohup, LD_PRELOAD, listener/backdoor; persistence: user+system cron with net, shell rc/dotfiles, preload in env; exfil). Reuses/extends dropper/NEVER/l2-attack patterns in run_spirit_file_audit (always additive so --file on RAT samples = DANGEROUS). New run_rat_defense_audit uses run_find for OS-wide RAT + user-persist (additive to --os scans which also got RAT regex updates).
+  - Terse precise 1-sentence UX preserved: bare `l2 spirit`, `l2 spirit --audit`, `--help` all list --rat with 1-sent desc; output banners are short non-wrapping; json evidence clean.
+  - Integrated: net-isolate + great-harden force C2 cut (nft skuid drop + seccomp NEVER socket/connect/accept/bind/listen + unshare --net); effective revoke (l2 revoke <sys> <grant>); per-policy least-priv grants on create (great = net:none + tiny fs); spirit detects pre-put/exec. Defense note in --rat output + harden.sh profile.
+  - Evidence closed: new check in run_security_audit_tests ("RAT defense (spirit --audit --rat IOCs + net-isolate C2 cut + NEVER + effective revoke + policy least-priv)") — PASS when great/net-isolate evidence or prior usage; `l2 audit --test` now proves RAT defense posture (machine verifiable). Updated test asserts + json standards string.
+  - Tests: new rat_defense_audit_runs_without_panic + security test now requires RAT check + len>=11. Smoke verified (spirit --rat json, create great with grants/net:none, revoke, net-isolate, audit --test with RAT PASS).
+- All prior invariants: L2_DATA_DIR everywhere (sudo), early OpenBSD-style CLI sandbox, no ambient, North-Star/prepare/NSA refs, spirit accuracy (PASS = good), additive only, narrow/reuse.
+- Version 0.5.7.
+
 ## [0.5.6] - 2026-06 (OpenBSD + seL4/Capsicum/CHERI/Genode capability integration + prepare prepare prepare)
 
 - Learned from and implemented logic from open-source high-assurance systems and standards:

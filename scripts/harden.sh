@@ -301,6 +301,7 @@ case "$PROFILE" in
     net-isolate)
         echo "      → net-isolate: dedicated network isolation (nft default-deny output for target user uid)"
         echo "      → Additive to per-process seccomp/netns (NEVER socket/connect in hardened policies). Does not weaken core builds."
+        echo "      → RAT C2 defense: blocks exfil/revshell for uid; combine with spirit --audit --rat + great-harden + revoke."
         echo "      → Use standalone or with harden/crypto for MCP/agent egress control. Always-on for great-harden."
         ;;
     strict)

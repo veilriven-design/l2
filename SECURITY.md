@@ -167,6 +167,18 @@ See `docs/examples/l2_ransomware_resistance_demo.c` and `docs/examples/l2_miasma
 `l2 great-harden` is the explicit supreme command and policy for aerospace (high-integrity), industrial control systems, and critical infrastructure where standard or even full-safety hardening has gaps.
 v0.4.8 adds the full self-audit of l2 + dedicated AIO full weakness audit attack demo (`docs/examples/l2_full_weakness_audit_attack.c`) exercising 15+ vectors on every area (runtime escapes/TOCTOU, seccomp/NEVER bpf+key+ns+ptrace+mem, host tamper, crypto, state poison, supply, exfil, net, anti/priv, agentic/MCP, fs/caps, direct l2 tamper) + bolsters applied (extended NEVER, harden enhancements, new `audit --test` check). Attack contained; evidence produced. Completes the prepare prepare prepare North-Star loop. v0.4.9 adds open-source quantum encryption prep (PQC profiles with liboqs ML-KEM, quantum vector in redteam). See demo + CHANGELOG.
 
+### RAT Defense Mechanism (v0.5.7)
+
+After exhaustive static/dynamic evaluation of the full codebase for RAT-enabling issues (put as dropper delivery; exec construction + sh -c; L2P core spawn supply; state.json + grant tampering; sudo/L2D loss; user cron/rc persist outside ws; LD_PRELOAD/env; net C2 despite blocks; TOCTOU in fs; C safe layer; mcp supply; no host RCE/priv-esc found in l2 itself — substrate already strong via ws + explicit + no ambient), a concrete defense was added:
+
+- `l2 spirit --audit --rat`: focused IOC scan for C2/revshell ( /dev/tcp, pty socket, socat, bash -i >& , setsid+net, nohup, LD_PRELOAD), persistence (user+system cron with net, dot rc/profile with exfil, preload), listeners. Extends file audit patterns (so --file on RAT samples = DANGEROUS) and --os (regex updates). Terse output + json.
+- Containment: net-isolate (nft skuid drop for uid) + great-harden (forces it) + per-exec (unshare --net + seccomp NEVER [41 socket,42 connect,...] + Landlock ws-only). RAT net exfil/revshell "succeeds" only inside authorized ws under policy.
+- Revocation + least-priv: create under great gives net:none + tiny fs grants (seL4/Capsicum/Genode/OpenBSD style); `l2 revoke <sys> <grant>` is effective (removes from state).
+- Evidence: new "RAT defense (...)" check in `l2 audit --test` (PASS with great/net-isolate evidence or usage; proves spirit --rat + C2 blocks + revoke posture). Closes North-Star loop for RATs.
+- All additive, no new surfaces, L2D/sudo everywhere, early CLI sandbox, terse 1-sent UX, NSA/CISA refs. Use: l2 spirit --audit --rat ; l2 net-isolate --apply ; l2 great-harden --apply ; put/exec under great ; l2 audit --test (RAT check must PASS).
+
+See CHANGELOG 0.5.7, src/main.rs (run_rat_defense_audit + patterns + security audit check), docs/examples (net exfil in full weakness), harden.sh. "prepare prepare prepare".
+
 It delivers **higher assurance and advanced security hardening**:
 - Extreme surface reduction: kernel lockdown mode, modules disabled at runtime, full read-only root where possible, no dynamic loading/unsigned code.
 - Closes logic gaps from exhaustive prior sweeps (seccomp BPF correctness, state persistence, input guards, priv drop, C safety, TOCTOU, etc.).

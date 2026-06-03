@@ -4,7 +4,7 @@ An l2 system is a dynamic, isolated execution context created and destroyed on d
 
 ## Lifecycle (all explicit)
 
-1. `l2 create --policy <name>` — The core allocates the context and grants initial capabilities according to the chosen protocol (e.g. `strict-mcp` for agentic, `ransom-hardened` for full-safety malicious testing). Grants are unforgeable capability tokens (modeled on seL4 caps, Capsicum fd-rights from FreeBSD, CHERI hardware permissions, Genode delegation).
+1. `l2 create --policy <name>` — The core allocates the context and grants initial capabilities according to the chosen protocol (e.g. `strict-mcp` for agentic, `ransom-hardened` for full-safety malicious testing, great-harden for supreme with net:none + tiny fs). Grants are unforgeable capability tokens (modeled on seL4 caps, Capsicum fd-rights from FreeBSD, CHERI hardware permissions, Genode delegation). v0.5.7: full RAT defense (spirit --rat IOC detection for C2/revshell/persist + net-isolate/NEVER C2 cut + effective revoke) after codebase exploit eval; RATs contained to explicit ws only.
 2. `l2 put` — Operator places code, data, or credentials into the system (mediated, logged). May extend grants.
 3. `l2 exec` — Run work inside the system using only the capabilities it currently holds (enforced by sandbox: Landlock=unveil, seccomp=pledge, no ambient).
 4. `l2 get` — Retrieve results or artifacts (again, explicit and mediated).
