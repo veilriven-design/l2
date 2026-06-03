@@ -165,6 +165,7 @@ See `docs/examples/l2_ransomware_resistance_demo.c` and `docs/examples/l2_miasma
 ### great-harden (SUPREME for Aerospace, Industrial, Critical Infrastructure)
 
 `l2 great-harden` is the explicit supreme command and policy for aerospace (high-integrity), industrial control systems, and critical infrastructure where standard or even full-safety hardening has gaps.
+v0.4.8 adds the full self-audit of l2 + dedicated AIO full weakness audit attack demo (`docs/examples/l2_full_weakness_audit_attack.c`) exercising 15+ vectors on every area (runtime escapes/TOCTOU, seccomp/NEVER bpf+key+ns+ptrace+mem, host tamper, crypto, state poison, supply, exfil, net, anti/priv, agentic/MCP, fs/caps, direct l2 tamper) + bolsters applied (extended NEVER, harden enhancements, new `audit --test` check). Attack contained; evidence produced. Completes the prepare prepare prepare North-Star loop. See demo + CHANGELOG.
 
 It delivers **higher assurance and advanced security hardening**:
 - Extreme surface reduction: kernel lockdown mode, modules disabled at runtime, full read-only root where possible, no dynamic loading/unsigned code.

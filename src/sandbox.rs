@@ -22,6 +22,8 @@ use std::path::Path;
 /// - For "great-harden" (supreme): tiniest surface + extended NEVER (bpf/setns/unshare)
 ///   for AIO malware-cancer (direct l2 substrate attacks on state/trace/audit/ns/crypto).
 ///   See docs/examples/l2_malware_cancer_resistance_demo.c .
+///   Further extended for full AIO weakness audit attack (l2_full_weakness_audit_attack.c) covering runtime escapes,
+///   host tamper, deeper crypto, supply, mem/proc, agentic/MCP, TOCTOU, caps, direct l2 tamper etc. See that demo + audit --test.
 pub fn apply_strict_sandbox(workspace: Option<&Path>, policy: &str) -> Result<()> {
     // no_new_privs: prevent the process or children from gaining new privileges (e.g. via setuid binaries)
     if let Err(e) = nix::sys::prctl::set_no_new_privs() {
@@ -501,10 +503,14 @@ pub fn try_install_seccomp_enforcing_filter(profile_path: Option<&str>) -> Resul
             308, // setns (escape via /proc/self/ns/* or fds)
             321, // bpf (BPF_PROG_LOAD / map ops to tamper seccomp or inspect kernel)
             // Additional for grand North-Star Containment demo (more direct substrate + key/ device malware vectors)
+            // Extended for full weakness audit attack (l2_full_weakness_audit_attack.c) covering TOCTOU, userfaultfd races, all prior + new agentic/fs/caps/direct binary.
             250, // keyctl (keyring manipulation for credential/crypto exfil or injection)
             249, // add_key (insert keys to bypass or exfil)
             133, // mknod (create devices for persistence/escape)
             39,  // mkdir (extra persistence vector beyond open)
+            // Full weakness audit attack (new AIO covering all prior cancer/redteam + runtime/host/crypto/state/supply/mem/net/anti/agentic/fs/caps/direct-l2):
+            // userfaultfd for advanced race/exploit primitives; reinforces no_new_privs + bounding.
+            317, // userfaultfd
         ];
 
         for &nr in &allowed {

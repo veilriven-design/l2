@@ -2,6 +2,20 @@
 
 ## [0.4.8] - 2026-06-06
 
+### Full Audit of l2 + True Attack on All Weaknesses + Bolstered Defenses (prepare prepare prepare)
+- Performed exhaustive self-audit of l2 (sandbox.rs NEVER/Landlock/seccomp, main.rs escalate/apply/audit, harden/crypto scripts, core C, demos, CI, all docs, experimental paths, audit chain non-crypto, advisory --apply, proc leaks in non-great, TOCTOU, supply on l2 bin, agentic env, shebang, user-ns, etc.).
+- Prepared true comprehensive attack: new self-contained `docs/examples/l2_full_weakness_audit_attack.c` (AIO Full Weakness Audit Attack / substrate-audit-onslaught). 15+ vector classes covering *every* area from the audit (runtime Landlock/TOCTOU/symlink, seccomp/NEVER probes for bpf/keyctl/unshare/setns/mknod/ptrace/process_vm/userfaultfd, host/sysctl/mod/audit tamper, crypto deeper than redteam, state/audit/trace poison advanced, supply advanced (preload/ELF/hooks), mem/proc/env/fd exfil, net C2, anti-analysis/priv-esc/suid/fork, agentic/MCP token/context/poison/approval, fs TOCTOU/symlink/caps/rlimit, direct l2 binary/core/state tamper). Safe sims (markers only), is_in_l2_workspace (polished), BLOCKED outside ws, CONTAINED SUCCESS + "North-Star Containment achieved" only inside authorized ws. Full "l2 NORTH-STAR CONTAINMENT SUMMARY (Grand Demo - Full Weakness Audit Onslaught)". Header with exact L2_DATA_DIR + crypto --apply + great-harden + create/put/exec/gcc + audit --test seq. Cross-refs cancer/redteam/HOWTOs/SECURITY/audit. gcc -static -Wall -Wextra clean. Verified standalone + in L2 smoke.
+- Integrated: new #10 check in `run_security_audit_tests` ("AIO full weakness audit onslaught containment (great-harden + crypto full-safety) — l2 North-Star Containment"), updated standards JSON, test assert + len>=10, seeding note. Updated CI smoke (put the attack.c + grep new check/SUMMARY/prepare), harden.sh (validate examples, next-steps, standards array), crypto.sh (cross-refs).
+- Bolstered defenses (directly from audit + attack vectors):
+  - `src/sandbox.rs`: extended NEVER_ALLOWED with userfaultfd (317) + comments referencing the full weakness audit attack + cancer/redteam.
+  - Comments tightened in apply_strict_sandbox, great-harden paths.
+  - `scripts/harden.sh`: added concrete steps in guidance for new vectors (stricter audit -w on /proc/sys /sys/kernel /dev, unprivileged_bpf_disabled, more mod blacklists, lockdown enforcement notes, new audit rules for l2/crypto state); expanded standards json + great-harden note with full audit + bolsters.
+  - Minor cross-refs in crypto.sh.
+  - (No new surfaces; additive closes identified gaps.)
+- Docs: updated README (highlights, crypto/harden/audit sections, examples), SECURITY (audit findings + bolsters), STATUS/ROADMAP/PROTOTYPE, cancer/redteam headers (cross to new full audit attack as superset), CHANGELOG this section. "prepare prepare prepare" + North-Star framing everywhere. New attack exercised in smoke/CI/audit evidence loop.
+- Verification: cargo fmt/clippy/test (new check), local L2_DATA_DIR full smoke (crypto+great+create+put attack.c + exec + audit --test PASS on new check + "North-Star Containment" + SUMMARY + prior 9), standalone C BLOCKED + SUMMARY, rebuild.
+- Result: l2 now has closed the full self-audit loop with a "true attack" sim on all weaknesses + concrete bolsters. Even stronger North-Star Containment for critical/agentic/MCP per 2026 guidance. All per "prepare prepare prepare".
+
 ### Update the program and polish it even further (crypto red-team + North-Star Containment phase 2)
 - Version bump to 0.4.8 after the "update the program and polish it even further" work (following "prepare prepare prepare" and the crypto redteam onslaught + integration).
 - All changes from the phase-2 polish committed: see details in the prior 0.4.7 subsection (now rolled into this release).

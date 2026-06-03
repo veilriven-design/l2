@@ -433,6 +433,7 @@ if [ "$TARGET" = "host" ]; then
         type_line "      This + great-harden policy + l2 runtime sandbox = servers impenetrable to major classes of ransomware/worm/virus/substrate/AI-MCP/agentic threats (validated by malware-cancer AIO sim + North-Star Containment). Aligns to latest NSA/CISA (June 2026 sweep: CPG 2.0 GOVERN/3.H least-priv/4.A malicious-code, MCP CSI May 2026, Agentic AI Careful Adoption Apr/May 2026 [privilege/least-priv, design, behaviour, structural, accountability risks + isolation/approvals/monitoring best practices], AI supply chain, OT AI)."
         echo "      # Validate with AIO malware-cancer sim (ransom + Miasma + direct substrate attacks on state/trace/audit/crypto/ns/bpf + git/pip/ELF/anti + MCP/agentic tool/context risks per 2026 CSIs):"
         echo "      #   Also run l2_crypto_redteam_onslaught.c under same for full crypto redteam (KDF to l2-state) + North-Star Containment (crypto + great-harden + audit --test)"
+        echo "      #   Full weakness audit attack l2_full_weakness_audit_attack.c (post full self-audit of l2): 15+ vectors on ALL areas (runtime/Landlock/TOCTOU, seccomp NEVER bpf/key/unshare/setns/ptrace, host/sysctl/audit tamper, crypto deeper, state/trace poison, supply, mem/proc/exfil, net C2, anti-analysis/priv-esc, agentic/MCP tokens/context, fs TOCTOU/symlink/caps/rlimit, direct l2 binary tamper). Run under great + crypto --apply + put/exec + audit --test for complete North-Star Containment + bolsters verification."
         echo "      #   export L2_DATA_DIR=\$(mktemp -d); l2 great-harden --fast --apply || true"
         echo "      #   l2 create cancer-test --policy great-harden"
         echo "      #   l2 put cancer-test cancer-sim.c --file docs/examples/l2_malware_cancer_resistance_demo.c"
@@ -699,6 +700,7 @@ cat > "$LATEST_JSON" << EOF
     "supply-chain (Miasma npm worm + credential exfil + repack) resistance",
     "AIO malware-cancer substrate defense (state/trace/audit/crypto tamper, ns/bpf/setns/unshare escapes, fork/priv-esc on l2, git/pip/ELF/anti)",
     "North-Star Containment of AIO malware-cancer (grand demo: put+exec+audit under great-harden)",
+    "Full weakness audit onslaught (l2_full_weakness_audit_attack.c 15+ vectors covering runtime/host/crypto/state/supply/mem/net/anti/agentic/fs/direct-l2 + all prior; bolsters applied via extended NEVER, harden rules, audit check)",
     "APPLY: live artifacts written (units, profiles, confs) + attempted enforcement"
   ],
   "great_harden_note": "${PROFILE} is l2 great-harden supreme mode for aerospace/industrial - closes logic gaps (incl. AIO malware-cancer substrate attacks + agentic/MCP risks per 2026 CSIs), achieves l2 North-Star Containment of ransomware+ worms+viruses+direct l2 attacks, makes impenetrable.",
@@ -717,6 +719,7 @@ cat > "$LATEST_JSON" << EOF
     "Supply chain (Miasma-style + AI/ML per 2026 CSIs) resistance via demos + runtime containment",
     "AIO malware-cancer + l2 North-Star Containment (ransomware + Miasma + viruses + direct substrate + MCP/agentic tool/context containment under great-harden; grand demo: explicit put+exec+audit)",
     "Verified crypto profiles (hybrid-aes-chacha etc + Argon2id) + l2 substrate for data-at-rest encryption and key protection (NSA AI Data Sec CSI, CPG at-rest); crypto redteam onslaught demo (10+ NSA-level vectors: weak KDF/side-channel/key-exfil/cipher-misuse/RNG/hybrid/tamper/supply-chain/direct-l2-state/passphrase-impl; all North-Star contained to ws + crypto-latest.json evidence)",
+    "Full weakness audit attack + bolsters (l2_full_weakness_audit_attack.c: exhaustive AIO on all substrate areas post self-audit: runtime escapes/TOCTOU/Landlock, seccomp NEVER extensions (bpf/key/unshare/setns/ptrace/process_vm/userfaultfd), host lockdown/sysctl/audit tamper, crypto deeper, state/audit poison, supply advanced, mem/proc/env exfil, net C2, anti-analysis/priv-esc, agentic/MCP context, fs TOCTOU/symlink/caps/rlimit, direct l2 tamper; new audit check + harden rules + extended NEVER close gaps; grand demo put+exec+audit under great+ crypto)",
     "l2 ${PROFILE} policy protocol + regular \`l2 audit --test\` for CPG 2.0 / MCP CSI / Agentic AI evidence (crypto redteam + malware-cancer grand demos for resistance verification)"
   ],
   "report_md": "$REPORT_FILE",

@@ -302,7 +302,7 @@ EOFHELPER
     chmod +x "$CRYPTO_HELPER" 2>/dev/null || true
     type_line "Created MCP-aware crypto helper: $CRYPTO_HELPER (invoke under strict-mcp)"
     # v0.4.7+ polish note for North-Star / redteam integration
-    if ! $JSON; then type_line "For verification: use with great-harden + put l2_crypto_redteam_onslaught.c + exec + l2 audit --test (see HOWTO and North-Star Containment grand demo)"; fi
+    if ! $JSON; then type_line "For verification: use with great-harden + put l2_crypto_redteam_onslaught.c + l2_full_weakness_audit_attack.c + exec + l2 audit --test (see HOWTOs and North-Star Containment grand demo after full audit)"; fi
 
     echo
     type_line "For full system encryption (LUKS), use these verified commands with the profile:"
