@@ -111,8 +111,10 @@ pub struct System {
     pub created_at: String,
     pub objects: HashMap<String, Object>,
     /// Grants are capabilities (inspired by seL4 caps, Capsicum fd-rights, CHERI permissions, Genode delegation).
-    /// Each grant has an id and explicit rights (e.g. "fs:read-ws,write-ws", "net:none", "exec").
+    /// Each grant has an id and explicit rights (e.g. "fs:read-ws,write-ws", "net:none", "net:raw", "net:router", "exec").
     /// No ambient authority; all via explicit grants from core. Revocation is effective.
+    /// "na" / "network-audit" gets net:raw/packet/audit for pentest (wireshark+aircrack modeled).
+    /// "tomato" gets net:router/raw/config for router firmware features (firewall/QoS/monitor) that complement na on the shared masked surface.
     pub grants: Vec<Grant>,
 }
 
@@ -336,6 +338,18 @@ impl Substrate {
                 Grant { id: format!("g-fs-{}", id), rights: vec!["fs:read-ws-tiny".into()], created_at: now.clone() },
                 Grant { id: format!("g-exec-{}", id), rights: vec!["exec".into()], created_at: now.clone() },
                 Grant { id: format!("g-net-{}", id), rights: vec!["net:none".into()], created_at: now.clone() },
+            ],
+            "na" | "network-audit" => vec![
+                Grant { id: format!("g-fs-{}", id), rights: vec!["fs:read-ws".into(), "fs:write-ws".into()], created_at: now.clone() },
+                Grant { id: format!("g-exec-{}", id), rights: vec!["exec".into()], created_at: now.clone() },
+                Grant { id: format!("g-net-{}", id), rights: vec!["net:raw".into(), "net:audit".into(), "net:packet".into()], created_at: now.clone() },
+                Grant { id: format!("g-audit-{}", id), rights: vec!["audit:log".into()], created_at: now.clone() },
+            ],
+            "tomato" => vec![
+                Grant { id: format!("g-fs-{}", id), rights: vec!["fs:read-ws".into(), "fs:write-ws".into()], created_at: now.clone() },
+                Grant { id: format!("g-exec-{}", id), rights: vec!["exec".into()], created_at: now.clone() },
+                Grant { id: format!("g-net-{}", id), rights: vec!["net:router".into(), "net:raw".into(), "net:config".into()], created_at: now.clone() },
+                Grant { id: format!("g-audit-{}", id), rights: vec!["audit:log".into()], created_at: now.clone() },
             ],
             _ => vec![],
         };

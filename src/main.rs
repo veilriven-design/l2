@@ -550,6 +550,26 @@ fn setup_minimal_l2_env(cmd: &mut Command, workspace: Option<&PathBuf>) {
     );
 }
 
+/// Best-effort cleanup of the masked substrate network surface (for --policy na or tomato).
+/// Called on destroy and oneshot end so the veth(s) + netns are disposed (no leaks).
+/// Handles both na (na0) and tomato (wan0 + lan0) naming.
+fn cleanup_na_surface(sys_name: &str) {
+    // na
+    let na_netns = format!("l2-na-{}", sys_name.replace(|c: char| !(c.is_alphanumeric() || c == '-'), "-"));
+    let short = sys_name.chars().take(8).collect::<String>().replace(|c: char| !c.is_alphanumeric(), "");
+    let na_veth = format!("veth{}-h", short);
+    let _ = std::process::Command::new("ip").args(["link", "del", &na_veth, "2>/dev/null"]).status();
+    let _ = std::process::Command::new("ip").args(["netns", "del", &na_netns]).status();
+
+    // tomato (may overlap short name but different prefix)
+    let tom_netns = format!("l2-tomato-{}", sys_name.replace(|c: char| !(c.is_alphanumeric() || c == '-'), "-"));
+    let tom_veth = format!("veth{}-h", short);
+    let tom_lan_veth = format!("veth{}-lan-h", short);
+    let _ = std::process::Command::new("ip").args(["link", "del", &tom_veth, "2>/dev/null"]).status();
+    let _ = std::process::Command::new("ip").args(["link", "del", &tom_lan_veth, "2>/dev/null"]).status();
+    let _ = std::process::Command::new("ip").args(["netns", "del", &tom_netns]).status();
+}
+
 /// Heuristic validation: if the exec command appears to reference a file that
 /// was `put` into the system (e.g. `./task`, `sh task.rs`, `cat ./foo.txt`),
 /// verify it actually exists in the stored objects. This gives a clear,
@@ -964,6 +984,28 @@ fn normalize_policy(policy: &str) -> (String, bool, bool) {
             // Implies strict family + auto enforcing + supreme posture.
             (policy.to_string(), true, true)
         }
+        "na" | "network-audit" => {
+            // "na": network-audit / pentest policy. Strict family (Landlock/seccomp/no_new_privs) but
+            // with explicit net:raw/net:packet/net:audit grants + special substrate-masked network surface
+            // (veth pair providing "na0" iface inside the ws netns, disposed on destroy). Allows the 'na'
+            // tool (wireshark+aircrack-ng modeled but new contained implementation) to capture, inject,
+            // scan, audit security of networks from a fully disposable, host-masked substrate surface.
+            // Use: l2 create na-test --policy na; l2 put na-test na /path/to/na-binary or build-in; l2 exec --policy na na-test 'na capture na0 -c 10'; l2 destroy na-test
+            // All activity contained + auditable; no ambient host net surface.
+            (policy.to_string(), true, false)
+        }
+        "tomato" => {
+            // "tomato": router network tool (Tomato firmware concepts) integrated with l2 substrate.
+            // Strict family + net:router/raw/config grants. Sets up richer masked surface (wan0 + lan0,
+            // IP forward, NAT, basic firewall/QoS ready). The 'tomato' binary provides CLI for
+            // firewall, qos, bandwidth monitor, routes, wan/lan config (like real Tomato).
+            // Perfect complement to 'na': configure protected router with tomato, then audit/pen-test
+            // it with na (capture on wan0/lan0, scans, injection) all inside disposable, host-masked
+            // netns surface. Use for complex network policy testing, red-team, MCP net scenarios.
+            // Example: l2 create rt --policy tomato; put tomato; exec 'tomato firewall enable; tomato qos wan 50mbit';
+            // then na capture lan0 etc. Destroy cleans surface.
+            (policy.to_string(), true, false)
+        }
         "strict" => (policy.to_string(), true, false),
         "default" => (policy.to_string(), false, false),
         _ => (policy.to_string(), false, false),
@@ -1036,11 +1078,73 @@ fn exec_isolated(
     workspace: Option<PathBuf>,
     policy: &str,
 ) -> Result<String> {
+    let is_na_policy = policy == "na" || policy == "network-audit";
+    let is_tomato_policy = policy == "tomato";
+    let is_network_surface_policy = is_na_policy || is_tomato_policy;
+
+    if is_network_surface_policy {
+        // Setup (or ensure) the masked substrate network surface *before* entering the ws.
+        // na: simple "na0" for audit/pentest (wireshark+aircrack style).
+        // tomato: richer router surface (wan0 + lan0, forwarding, NAT, ready for firewall/QoS)
+        //   that the 'tomato' tool configures (complements na: config with tomato, audit with na).
+        // veth pair(s) + dedicated netns. The surface + netns are disposed on `destroy` (or oneshot end).
+        // All masked from host primary stack.
+        let prefix = if is_tomato_policy { "l2-tomato" } else { "l2-na" };
+        let netns_name = format!("{}-{}", prefix, sys_name.replace(|c: char| !(c.is_alphanumeric() || c == '-'), "-"));
+        let short = sys_name.chars().take(8).collect::<String>().replace(|c: char| !c.is_alphanumeric(), "");
+        let veth_host = format!("veth{}-h", short);
+        let veth_sub = format!("veth{}-s", short);
+        // idempotent best-effort (parent is root via sudo for exec)
+        let _ = std::process::Command::new("ip").args(["netns", "add", &netns_name]).status();
+        let _ = std::process::Command::new("ip").args(["link", "add", &veth_host, "type", "veth", "peer", "name", &veth_sub]).status();
+        let _ = std::process::Command::new("ip").args(["link", "set", &veth_sub, "netns", &netns_name]).status();
+
+        if is_tomato_policy {
+            // Tomato richer surface: wan0 (egress/masked) + lan0 (internal LAN)
+            let _ = std::process::Command::new("ip").args(["-n", &netns_name, "link", "set", &veth_sub, "name", "wan0"]).status();
+            // create a second veth for lan (lan side can be used by na or virtual clients)
+            let lan_veth_host = format!("veth{}-lan-h", short);
+            let lan_veth_sub = format!("veth{}-lan-s", short);
+            let _ = std::process::Command::new("ip").args(["link", "add", &lan_veth_host, "type", "veth", "peer", "name", &lan_veth_sub]).status();
+            let _ = std::process::Command::new("ip").args(["link", "set", &lan_veth_sub, "netns", &netns_name]).status();
+            let _ = std::process::Command::new("ip").args(["-n", &netns_name, "link", "set", &lan_veth_sub, "name", "lan0"]).status();
+
+            // host side for wan (NAT)
+            let _ = std::process::Command::new("ip").args(["addr", "add", "10.200.0.1/24", "dev", &veth_host]).status();
+            let _ = std::process::Command::new("ip").args(["link", "set", &veth_host, "up"]).status();
+            // lan side on host can be left or bridged for multi-system tests
+            let _ = std::process::Command::new("ip").args(["link", "set", &lan_veth_host, "up"]).status();
+
+            // basic tomato router setup in the netns (forward + NAT)
+            let _ = std::process::Command::new("sh").arg("-c").arg(format!(
+                "ip netns exec {} ip link set wan0 up 2>/dev/null || true; ip netns exec {} ip link set lan0 up 2>/dev/null || true; ip netns exec {} ip addr add 10.200.0.2/24 dev wan0 2>/dev/null || true; ip netns exec {} ip addr add 192.168.1.1/24 dev lan0 2>/dev/null || true; ip netns exec {} sysctl -w net.ipv4.ip_forward=1 2>/dev/null || true; nft add table ip tomato 2>/dev/null || true; nft add chain ip tomato postrouting {{ type nat hook postrouting priority 100 \\; }} 2>/dev/null || true; nft add rule ip tomato postrouting ip saddr 192.168.1.0/24 masquerade 2>/dev/null || true; ip netns exec {} ip link set lo up 2>/dev/null || true",
+                netns_name, netns_name, netns_name, netns_name, netns_name, netns_name
+            )).status();
+            eprintln!("[tomato] richer router surface active for {} (netns={}, wan0@10.200.0.2 <-> host, lan0@192.168.1.1 ; complements na)", sys_name, netns_name);
+        } else {
+            // original na surface
+            let _ = std::process::Command::new("ip").args(["-n", &netns_name, "link", "set", &veth_sub, "name", "na0"]).status();
+            let _ = std::process::Command::new("ip").args(["addr", "add", "10.200.0.1/24", "dev", &veth_host]).status();
+            let _ = std::process::Command::new("ip").args(["link", "set", &veth_host, "up"]).status();
+            let _ = std::process::Command::new("sh").arg("-c").arg(format!(
+                "nft add table ip l2-na 2>/dev/null || true; nft add chain ip l2-na postrouting {{ type nat hook postrouting priority 100 \\; }} 2>/dev/null || true; nft add rule ip l2-na postrouting ip saddr 10.200.0.0/24 masquerade 2>/dev/null || true; ip netns exec {} ip link set lo up 2>/dev/null || true",
+                netns_name
+            )).status();
+            eprintln!("[na] substrate-masked network surface active for {} (netns={}, iface=na0@10.200.0.2)", sys_name, netns_name);
+        }
+    }
+
     let mut cmd = Command::new("unshare");
     // Additional hardening isolation: separate UTS (hostname/domain), IPC namespaces
     // in addition to pid, mount, net. This reduces cross-workload info leaks and
     // is cheap.
-    let mut unshare_args = vec!["--fork", "--pid", "--mount-proc", "--net", "--uts", "--ipc"];
+    let mut unshare_args: Vec<String> = if is_network_surface_policy {
+        let prefix = if is_tomato_policy { "l2-tomato" } else { "l2-na" };
+        let netns_name = format!("{}-{}", prefix, sys_name.replace(|c: char| !(c.is_alphanumeric() || c == '-'), "-"));
+        vec!["--net=/var/run/netns/".to_string() + &netns_name, "--fork".to_string(), "--pid".to_string(), "--mount-proc".to_string(), "--uts".to_string(), "--ipc".to_string()]
+    } else {
+        vec!["--fork".to_string(), "--pid".to_string(), "--mount-proc".to_string(), "--net".to_string(), "--uts".to_string(), "--ipc".to_string()]
+    };
 
     // User-ns exploration (nix sched feature enabled in Cargo.toml for this roadmap item).
     // Opt-in experimental via env (L2_EXPERIMENTAL_USER_NS=1). Requires privileges
@@ -1049,7 +1153,7 @@ fn exec_isolated(
     // is future work. Can break on some kernels/distros. Use only for testing strict-mcp.
     // See docs/PROTOTYPE_HARDENING_AND_SEL4_PLAN.md for user-ns future work.
     if std::env::var_os("L2_EXPERIMENTAL_USER_NS").is_some() {
-        unshare_args.push("--user");
+        unshare_args.push("--user".to_string());
         eprintln!(
             "[hardening] EXPERIMENTAL: --user namespace requested via L2_EXPERIMENTAL_USER_NS\n\
              This requires root or uid/gid map setup. May fail or require sudo.\n\
@@ -1062,15 +1166,32 @@ fn exec_isolated(
     // For ransom-hardened (full safety), wrap with conservative ulimits to contain
     // encrypt damage, fork-bomb spread, and fd exhaustion even if other controls
     // have gaps. Applied to the inner sh so children inherit.
-    let inner_what = if policy == "ransom-hardened" {
+    let mut user_cmd = what.to_string();
+    if policy == "ransom-hardened" {
         // Basic single-quote escape for the user command (sufficient for our demo + dispatch cases).
         let escaped = what.replace('\'', "'\\''");
-        format!(
+        user_cmd = format!(
             "ulimit -u 8 -n 64 -f 1048576 -l 0 -s 8192 2>/dev/null || true; sh -c '{}'",
             escaped
-        )
+        );
+    }
+    let inner_what = if is_network_surface_policy {
+        if is_tomato_policy {
+            // Tomato: bring up wan0/lan0 (set by parent), ensure forward (already in setup), basic routes.
+            // The 'tomato' binary will do further nft/tc config.
+            format!(
+                "ip link set wan0 up 2>/dev/null || true; ip link set lan0 up 2>/dev/null || true; ip addr add 10.200.0.2/24 dev wan0 2>/dev/null || true; ip addr add 192.168.1.1/24 dev lan0 2>/dev/null || true; ip route add default via 10.200.0.1 dev wan0 2>/dev/null || true; {}",
+                user_cmd
+            )
+        } else {
+            // na original
+            format!(
+                "ip link set na0 up 2>/dev/null || true; ip addr add 10.200.0.2/24 dev na0 2>/dev/null || true; ip route add default via 10.200.0.1 2>/dev/null || true; {}",
+                user_cmd
+            )
+        }
     } else {
-        what.to_string()
+        user_cmd
     };
     cmd.args(["sh", "-c", &inner_what]);
 
@@ -2838,6 +2959,8 @@ fn main() -> Result<()> {
                     error(&e.to_string(), cli.json);
                 }
             }
+            // Dispose any na network surface (best effort, no error if not present)
+            cleanup_na_surface(&name);
             audit::log("destroy", serde_json::json!({ "name": name }));
             success(&format!("destroyed '{}'", name), cli.json);
         }
@@ -3099,6 +3222,7 @@ fn main() -> Result<()> {
                             host.destroy(&oneshot_id),
                             "failed to destroy oneshot system after prep failure",
                         );
+                        cleanup_na_surface(&oneshot_id);
                         error(
                             &format!("failed to prepare oneshot system: {}", e),
                             cli.json,
@@ -3141,6 +3265,15 @@ fn main() -> Result<()> {
                     // Supreme great-harden: always force enforcing for aerospace/industrial impenetrable mode.
                     std::env::set_var("L2_STRICT_SECCOMP_ENFORCE", "1");
                 }
+                if effective_policy == "na" || effective_policy == "network-audit" {
+                    // na: force enforcing but with na_mode (net syscalls allowed for audit surface, other NEVERs stay).
+                    std::env::set_var("L2_STRICT_SECCOMP_ENFORCE", "1");
+                    std::env::set_var("L2_NA_MODE", "1");
+                }
+                if effective_policy == "tomato" {
+                    std::env::set_var("L2_STRICT_SECCOMP_ENFORCE", "1");
+                    std::env::set_var("L2_TOMATO_MODE", "1");
+                }
                 if is_strict_family {
                     warn_on_cleanup_err(
                         sandbox::apply_strict_sandbox(workspace.as_deref(), &system.policy),
@@ -3176,6 +3309,7 @@ fn main() -> Result<()> {
                             host.destroy(&oneshot_id),
                             "failed to destroy oneshot system on exec error",
                         );
+                        cleanup_na_surface(&oneshot_id);
 
                         let err_str = e.to_string();
 
@@ -3221,6 +3355,7 @@ fn main() -> Result<()> {
                     host.destroy(&oneshot_id),
                     "failed to destroy oneshot system",
                 );
+                cleanup_na_surface(&oneshot_id);
                 // Best-effort workspace cleanup
                 warn_on_cleanup_err(
                     std::fs::remove_dir_all(
@@ -3323,6 +3458,14 @@ fn main() -> Result<()> {
             if effective_policy == "great-harden" {
                 // Supreme: always enforce for impenetrable.
                 std::env::set_var("L2_STRICT_SECCOMP_ENFORCE", "1");
+            }
+            if effective_policy == "na" || effective_policy == "network-audit" {
+                std::env::set_var("L2_STRICT_SECCOMP_ENFORCE", "1");
+                std::env::set_var("L2_NA_MODE", "1");
+            }
+            if effective_policy == "tomato" {
+                std::env::set_var("L2_STRICT_SECCOMP_ENFORCE", "1");
+                std::env::set_var("L2_TOMATO_MODE", "1");
             }
             if is_strict_family {
                 warn_on_cleanup_err(
@@ -3491,8 +3634,10 @@ fn main() -> Result<()> {
             println!("  strict-mcp      - High-assurance for agentic/AI/MCP (NSA MCP CSI, least-priv, explicit audit)");
             println!("  ransom-hardened - Full safety for ransomware/malicious code testing (WannaCry-class, auto-enforce)");
             println!("  great-harden    - Supreme aerospace/industrial: kernel lockdown, read-only, minimal surface");
+            println!("  na              - Network audit / pentest (wireshark+aircrack modeled, masked substrate 'na0' surface via veth, disposable)");
+            println!("  tomato          - Router network tool (Tomato firmware: firewall, QoS, monitor, wan/lan) on masked surface; complements na");
             println!(
-                "\nUse `l2 policy <name>` for details (e.g. `l2 policy strict-mcp`)."
+                "\nUse `l2 policy <name>` for details (e.g. `l2 policy tomato`)."
             );
         }
 
@@ -3608,12 +3753,87 @@ fn main() -> Result<()> {
                         println!("Pair with: l2 crypto --profile hybrid-pqc-mlkem-chacha --fast --apply ; l2 trace --policy great-harden");
                     }
                 }
+                "na" | "network-audit" => {
+                    if json {
+                        print_json(&serde_json::json!({
+                            "name": "na",
+                            "description": "Network-audit / pentesting policy. Provides a masked, disposable 'substrate network surface' (na0 veth iface in dedicated netns) for running network security audits and tests modeled on Wireshark (capture + dissect) + Aircrack-ng (wifi/802.11 audit, injection) but implemented as a fresh contained tool.",
+                            "base": "strict (sandbox) + special net surface + relaxed net syscalls for audit only",
+                            "key_differences": [
+                                "net:raw, net:packet, net:audit grants (explicit for pcap/inject/scan)",
+                                "Substrate-masked net surface: parent sets up veth pair + netns 'l2-na-*'; inside ws the iface is 'na0'",
+                                "Fully disposable: create temp system, use, destroy (netns/veth auto cleaned best-effort)",
+                                "All activity isolated in unshare netns + Landlock + seccomp (net allowed, escapes NEVERed)",
+                                "The 'na' tool runs inside; host never sees direct tool surface"
+                            ],
+                            "recommended_usage": "l2 create na-audit --policy na; l2 put na-audit na-bin; l2 exec --policy na na-audit 'na list; na capture na0 -c 5'; l2 destroy na-audit; l2 audit --test",
+                            "companion_command": "l2 policy na ; (na binary provides the audit surface inside the ws)"
+                        }));
+                    } else {
+                        println!("na — Network Audit / Pentest Policy (Wireshark + Aircrack-ng modeled, new contained impl)");
+                        println!("==========================================================================================");
+                        println!();
+                        println!("For running network security tests and audits *from within* a substrate system.");
+                        println!("Uses a dedicated masked 'substrate network surface' (private veth 'na0' in isolated netns).");
+                        println!("The surface and all state is disposed when you `l2 destroy` the system.");
+                        println!("Strict sandbox still applies (Landlock, no_new_privs, seccomp with net raw allowed but no escapes).");
+                        println!();
+                        println!("Usage example:");
+                        println!("  l2 create na-test --policy na");
+                        println!("  l2 put na-test na /usr/local/bin/na   # or the built 'na' binary");
+                        println!("  l2 exec --policy na na-test 'na --help'");
+                        println!("  l2 exec --policy na na-test 'na list'");
+                        println!("  l2 exec --policy na na-test 'na capture na0 -c 20'");
+                        println!("  l2 destroy na-test   # netns + veth surface cleaned up");
+                        println!();
+                        println!("See `na` tool for capture, inject, scan, audit, wifi-sim tests etc.");
+                        println!("Companion: build the 'na' binary (cargo build --release --bin na) and put it in.");
+                    }
+                }
+                "tomato" => {
+                    if json {
+                        print_json(&serde_json::json!({
+                            "name": "tomato",
+                            "description": "Router network tool integrated with l2 (Tomato firmware concepts: advanced routing/firewall/QoS/monitoring). Complements na for contained router config + audit/pentest on the shared masked substrate surface.",
+                            "base": "strict + net:router surface",
+                            "key_differences": [
+                                "wan0 (masked egress/NAT to host) + lan0 (protected LAN) with forwarding",
+                                "tomato CLI: firewall (nft), qos (tc), bandwidth monitor, wan/lan config, routes",
+                                "Text 'nvram' + apply for reproducible setups",
+                                "Use tomato to lock down router, na to audit it (capture/inject/scan on the interfaces)",
+                                "Fully disposable net surface + ws on destroy"
+                            ],
+                            "recommended_usage": "l2 create rt --policy tomato; l2 put rt tomato; l2 exec --policy tomato rt 'tomato status; tomato firewall enable; tomato qos wan 100mbit'; l2 exec --policy tomato rt 'na capture lan0 -c 10'  # na complements; l2 destroy rt",
+                            "companion_command": "l2 policy tomato ; na (the audit side)"
+                        }));
+                    } else {
+                        println!("tomato — Router Network Tool (Tomato firmware for l2 substrate)");
+                        println!("==================================================================");
+                        println!();
+                        println!("Brings router-grade networking (firewall, QoS, monitoring, wan/lan like Tomato) into the l2 substrate.");
+                        println!("Sets up/configures the masked network surface (wan0 + lan0) for complex scenarios.");
+                        println!("Complements `na` perfectly: tomato configures/protects the 'router', na audits/tests it (all contained + disposable).");
+                        println!();
+                        println!("Usage:");
+                        println!("  l2 create router --policy tomato");
+                        println!("  l2 put router tomato   # the built binary");
+                        println!("  l2 exec --policy tomato router 'tomato status'");
+                        println!("  l2 exec --policy tomato router 'tomato firewall enable'");
+                        println!("  l2 exec --policy tomato router 'tomato qos wan 50mbit'");
+                        println!("  l2 exec --policy tomato router 'tomato monitor --watch 5'");
+                        println!("  # Now audit the tomato router:");
+                        println!("  l2 exec --policy tomato router 'na list; na capture wan0 -c 5; na scan 192.168.1.1'");
+                        println!("  l2 destroy router   # surface + netns + veths fully disposed");
+                        println!();
+                        println!("See `tomato --help` and `l2 policy na` for the audit companion.");
+                    }
+                }
                 other => {
                     if json {
                         print_json(&serde_json::json!({"name": other, "known": false}));
                     } else {
                         println!("Unknown policy protocol: {}", other);
-                        println!("Known protocols: default, strict, strict-mcp, ransom-hardened, great-harden");
+                        println!("Known protocols: default, strict, strict-mcp, ransom-hardened, great-harden, na, tomato");
                         println!("Run `l2 policies` to list them.");
                     }
                 }
@@ -3758,13 +3978,16 @@ fn main() -> Result<()> {
             // Always enable observer when tracing (for Phase 1 data collection)
             std::env::set_var("L2_STRICT_SECCOMP_OBSERVE", "1");
 
-            // strict-mcp (main focus) + ransom-hardened (full safety) + great-harden (supreme) + any strict family
-            // gets strong defaults. We bias toward enabling the enforcing filter for these.
+            // strict-mcp (main focus) + ransom-hardened (full safety) + great-harden (supreme) + na (network audit) + tomato (router)
+            // + any strict family gets strong defaults. We bias toward enabling the enforcing filter for these.
             let should_enforce = enforce
                 || is_mcp
                 || canonical_policy.starts_with("strict")
                 || canonical_policy == "ransom-hardened"
-                || canonical_policy == "great-harden";
+                || canonical_policy == "great-harden"
+                || canonical_policy == "na"
+                || canonical_policy == "network-audit"
+                || canonical_policy == "tomato";
 
             if should_enforce {
                 std::env::set_var("L2_STRICT_SECCOMP_ENFORCE", "1");

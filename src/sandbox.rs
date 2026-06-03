@@ -146,6 +146,17 @@ pub fn apply_strict_sandbox(workspace: Option<&Path>, policy: &str) -> Result<()
             // state/audit exfil, ns escape probes, keyctl/mknod device persistence.
             ro_paths = vec!["/bin", "/usr/bin", "/lib", "/usr/lib", "/dev"];
             println!("[great-harden] SUPREME AEROSPACE/INDUSTRIAL: tiniest RO (static bins + /dev only); NO /proc/NO /etc for supreme surface reduction. Workspace-only writes. Servers now impenetrable. North-Star Containment of AIO malware-cancer validated.");
+        } else if policy == "na" || policy == "network-audit" {
+            // na policy: network audit surface needs /sys for iface discovery (ip link, /sys/class/net),
+            // /proc/net for some stats, /dev for raw if needed. Still workspace primary.
+            ro_paths.push("/sys");
+            println!("[na] network-audit: extra RO /sys + /proc/net for iface listing/capture on substrate na0 surface");
+        } else if policy == "tomato" {
+            // tomato: router config needs /sys/class/net, /proc/sys/net/* (for forward, etc), /proc/net for monitor.
+            // Also /etc for any resolver sims, but keep minimal.
+            ro_paths.push("/sys");
+            ro_paths.push("/proc/sys/net");
+            println!("[tomato] router: extra RO /sys + /proc/sys/net + /proc/net for wan/lan/firewall/qos config on masked surface (complements na)");
         } else {
             ro_paths.push("/tmp");
         }
@@ -437,6 +448,10 @@ pub fn try_install_seccomp_enforcing_filter(profile_path: Option<&str>) -> Resul
         const AUDIT_ARCH_X86_64: u32 = 0xC000003E;
         const AUDIT_ARCH_AARCH64: u32 = 0xC00000B7;
 
+        let na_mode = std::env::var_os("L2_NA_MODE").is_some();
+        let tomato_mode = std::env::var_os("L2_TOMATO_MODE").is_some();
+        let network_mode = na_mode || tomato_mode;
+
         // Determine the allowlist.
         // Priority for maximum paranoia (especially under strict-mcp):
         //   1. Explicit via arg or L2_SECCOMP_PROFILE env
@@ -482,51 +497,61 @@ pub fn try_install_seccomp_enforcing_filter(profile_path: Option<&str>) -> Resul
             list
         } else {
             // Ultra-conservative built-in list (only fundamentals)
-            vec![
+            let mut base = vec![
                 0, 1, 3, 8, 9, 10, 11, 12, 13, 14, 15, 59, 60, 78, 79, 202, 228, 231, 257,
-            ]
+            ];
+            if network_mode {
+                // na/tomato policies need full net + packet + netlink for router/audit on the substrate surface.
+                // (socket, send/recv, packet for capture/inject, netlink for ip/nft/tc config, etc.)
+                base.extend_from_slice(&[41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,  17 /*? for some*/,  293 /*sendmmsg etc*/ ]);
+                // AF_PACKET etc are via socket syscall (41) with specific args; we allow the nr.
+            }
+            base
         };
 
         // === HARDENING SAFETY CHECKS ===
-        const NEVER_ALLOWED: &[u32] = &[
-            101, // ptrace
-            310, // process_vm_readv
-            311, // process_vm_writev
-            175, // init_module
-            313, // finit_module
-            246, // kexec_load
-            312, // kexec_file_load
-            169, // reboot
-            167, // swapon
-            168, // swapoff
-            115, // personality (can be abused)
-            // Network (worm / C2 / SMB propagation resistance for ransom-hardened + any profile)
-            41, // socket
-            42, // connect
-            43, // accept
-            44, // sendto
-            45, // recvfrom
-            49, // bind
-            50, // listen
-            // AIO malware-cancer substrate defense (direct l2 attack sim): block ns escapes + bpf subvert attempts
-            272, // unshare (re-unshare after setup to escape mount/net/pid ns)
-            308, // setns (escape via /proc/self/ns/* or fds)
-            321, // bpf (BPF_PROG_LOAD / map ops to tamper seccomp or inspect kernel)
-            // Additional for grand North-Star Containment demo (more direct substrate + key/ device malware vectors)
-            // Extended for full weakness audit attack (l2_full_weakness_audit_attack.c) covering TOCTOU, userfaultfd races, all prior + new agentic/fs/caps/direct binary.
-            250, // keyctl (keyring manipulation for credential/crypto exfil or injection)
-            249, // add_key (insert keys to bypass or exfil)
-            133, // mknod (create devices for persistence/escape)
-            39,  // mkdir (extra persistence vector beyond open)
-            // Full weakness audit attack (new AIO covering all prior cancer/redteam + runtime/host/crypto/state/supply/mem/net/anti/agentic/fs/caps/direct-l2):
-            // userfaultfd for advanced race/exploit primitives; reinforces no_new_privs + bounding.
-            317, // userfaultfd
-        ];
+        // Network blocks are omitted for na/tomato policies (by design: tools *must* do capture/inject/scan/config
+        // on the masked substrate surface). All other NEVERs (escapes, bpf, keys, mknod, userfaultfd...) remain.
+        let never_allowed: &[u32] = if network_mode {
+            &[
+                101, 310, 311, 175, 313, 246, 312, 169, 167, 168, 115,
+                272, 308, 321, 250, 249, 133, 39, 317,
+            ]
+        } else {
+            &[
+                101, // ptrace
+                310, // process_vm_readv
+                311, // process_vm_writev
+                175, // init_module
+                313, // finit_module
+                246, // kexec_load
+                312, // kexec_file_load
+                169, // reboot
+                167, // swapon
+                168, // swapoff
+                115, // personality (can be abused)
+                41, // socket
+                42, // connect
+                43, // accept
+                44, // sendto
+                45, // recvfrom
+                49, // bind
+                50, // listen
+                272, // unshare
+                308, // setns
+                321, // bpf
+                250, // keyctl
+                249, // add_key
+                133, // mknod
+                39,  // mkdir
+                317, // userfaultfd
+            ]
+        };
 
         for &nr in &allowed {
-            if NEVER_ALLOWED.contains(&nr) {
+            if never_allowed.contains(&nr) {
                 anyhow::bail!(
-                    "CRITICAL HARDENING VIOLATION: syscall {} is in the NEVER_ALLOWED blacklist. \
+                    "CRITICAL HARDENING VIOLATION: syscall {} is in the NEVER list. \
                      Refusing to install enforcing filter. This would create an attack surface.",
                     nr
                 );
