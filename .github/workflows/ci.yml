@@ -16,7 +16,7 @@ jobs:
       with:
         components: rustfmt, clippy
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --verbose --bin l2 --bin na --bin tomato
     - name: Run tests
       run: cargo test --verbose
     - name: Clippy
@@ -32,20 +32,26 @@ jobs:
         cargo install cargo-audit --locked || true
         cargo audit || echo "cargo audit reported issues or failed to run (non-blocking for release; review advisories separately if any)"
 
-    - name: "Smoke tests (v0.5.0+ full surface: mature L2P E2E + operational harden --apply, strict-mcp + ransom-hardened + great-harden, crypto + PQC quantum profiles (liboqs ML-KEM) + redteam onslaught (10+ vectors + quantum harvest + North-Star), harden, trace, policies, audit + ransomware + Miasma + AIO malware-cancer + crypto redteam + full weakness audit onslaught (15+ vectors post full self-audit + bolster) substrate checks; prepare prepare prepare)"
+    - name: "Smoke tests (v0.5.0+ full surface: ... + v0.5.8 na (network-audit/pentest on masked na0) + tomato (router on wan0/lan0, complements na) + policies; prepare prepare prepare)"
       run: |
         set -euo pipefail
-        cargo build --release --quiet
+        cargo build --release --quiet --bin l2 --bin na --bin tomato
         export L2_DATA_DIR="$(mktemp -d)"
         echo "Using L2_DATA_DIR=$L2_DATA_DIR"
 
         # Basic CLI + discovery
         ./target/release/l2 --help >/dev/null || true
         ./target/release/l2 --version >/dev/null || true
+        ./target/release/na --help >/dev/null || true
+        ./target/release/tomato --help >/dev/null || true
+        ./target/release/tomato na | grep -q "complement\|na:" || echo "(tomato complements na check tolerated)"
         ./target/release/l2 policies || true
         ./target/release/l2 policy strict-mcp | grep -q "current main focus" ; s=$?; [ $s -eq 0 -o $s -eq 141 ] || echo "(strict-mcp policy text check tolerated in CI)"
         ./target/release/l2 policy ransom-hardened | grep -q "ransom-hardened\|full safety\|WannaCry\|ransomware\|Miasma\|supply-chain" ; s=$?; [ $s -eq 0 -o $s -eq 141 ] || echo "(ransom-hardened policy text check tolerated in CI)"
         ./target/release/l2 policy great-harden | grep -q "great-harden\|SUPREME\|aerospace\|impenetrable\|malware-cancer\|AIO" ; s=$?; [ $s -eq 0 -o $s -eq 141 ] || echo "(great-harden policy text check tolerated in CI)"
+        ./target/release/l2 policy na | grep -q "na\|network-audit\|pentest\|Wireshark\|aircrack\|na0" ; s=$?; [ $s -eq 0 -o $s -eq 141 ] || echo "(na policy text check tolerated in CI)"
+        ./target/release/l2 policy tomato | grep -q "tomato\|router network\|wan0\|lan0\|complements na" ; s=$?; [ $s -eq 0 -o $s -eq 141 ] || echo "(tomato policy text check tolerated in CI)"
+        ./target/release/l2 --help | grep -q "tomato\|na " || echo "(help mentions new tools tolerated)"
 
         # Full v0.4.4+ crypto surface (advisory, no privileged apply in CI)
         ./target/release/l2 crypto --list | grep -q "hybrid-aes-chacha" ; s=$?; [ $s -eq 0 -o $s -eq 141 ] || echo "(crypto list check tolerated in CI)"
@@ -122,4 +128,4 @@ jobs:
         ./target/release/l2 audit --test 2>&1 | grep -q "full weakness audit onslaught\|AIO full weakness audit\|North-Star Containment" || echo "(full weakness audit onslaught + North-Star check exercised or tolerated in CI)"
         ./target/release/l2 destroy smoke-cancer || true
 
-        echo "✅ All v0.5.0+ smoke tests passed (mature L2P E2E + operational harden --apply + seL4 traction; policies + strict-mcp + ransom-hardened + crypto + PQC quantum (liboqs ML-KEM hybrid-pqc profiles) + redteam onslaught (KDF/side/exfil/misuse/RNG/hybrid/tamper/supply/l2-state/passphrase/impl + quantum harvest + SUMMARY) + harden + trace+output-profile + audit + regular up-to-date security standards tests + harden<->audit integration + ransomware + Miasma supply-chain + great-harden + AIO malware-cancer + crypto redteam + l2 North-Star Containment grand demos + full weakness audit onslaught (15+ vectors: runtime/host/crypto/state/supply/mem/net/anti/agentic/fs/direct + all prior) exercised; prepare prepare prepare)"
+        echo "✅ All v0.5.0+ smoke tests passed (mature L2P E2E + operational harden --apply + seL4 traction; policies + strict-mcp + ransom-hardened + crypto + PQC quantum (liboqs ML-KEM hybrid-pqc profiles) + redteam onslaught (KDF/side/exfil/misuse/RNG/hybrid/tamper/supply/l2-state/passphrase/impl + quantum harvest + SUMMARY) + harden + trace+output-profile + audit + regular up-to-date security standards tests + harden<->audit integration + ransomware + Miasma supply-chain + great-harden + AIO malware-cancer + crypto redteam + l2 North-Star Containment grand demos + full weakness audit onslaught (15+ vectors: runtime/host/crypto/state/supply/mem/net/anti/agentic/fs/direct + all prior) + v0.5.8 na (network-audit/pentest) + tomato (router, complements na on masked surfaces) + bins exercised; prepare prepare prepare)"

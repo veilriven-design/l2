@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.5.8] - 2026-06 (Integrate `tomato` router network tool + `na` network-audit/pentest; masked substrate surfaces for contained network security testing)
+
+- Integrated `tomato` (router network tool, modeled on Tomato firmware) with l2 substrate as first-class complement to `na` (network-audit/pentest tool).
+  - New `--policy tomato` (and `network-audit` alias for na): strict-family with `net:router`/`net:raw`/`net:config` grants. Richer masked "substrate network surface" (dedicated netns + veth pair(s): wan0 for masked egress/NAT to host, lan0 for protected internal LAN with forwarding).
+  - New `tomato` binary (`cargo build --release --bin tomato`): CLI for Tomato-like router ops inside l2 ws:
+    - `tomato status`, `wan` (dhcp/static), `lan`, `firewall` (nft-based enable/add/reset like Tomato), `qos` (tc limits), `monitor` (bandwidth from /proc, Tomato-style), `route`, `reset`, `apply --config`, `na` (help on complementing na).
+  - Generalized surface setup/cleanup in `exec_isolated`/`cleanup` (parent does privileged veth/netns creation; inside ns configures; disposed on destroy/oneshot; best-effort NAT for usability).
+  - `na` + `tomato` workflow: use `tomato` to configure/protect the virtual router on surface (firewall/QoS), `na` to audit/pentest it (capture on wan0/lan0, scans, inject, wifi sim via hwsim if avail) — all from within disposable l2 system, fully masked from host primary net (only veth peers visible on host). Perfect for complex net policy tests, red-team, MCP/agentic network scenarios.
+  - Sandbox updates: extra RO paths (/sys, /proc/sys/net etc for config), seccomp relax via L2_TOMATO_MODE/L2_NA_MODE (net syscalls allowed for tools; NEVER escapes remain).
+  - Docs: policies help, STATUS, README examples, table updates for v0.5.8 features. Version to 0.5.8.
+  - `l2 policies` / `l2 policy tomato` / `l2 policy na` fully document.
+  - Builds: `l2`, `na`, `tomato` binaries. All under North-Star Containment, L2D, prepare prepare prepare, no ambient, explicit.
+- Verification: clean cargo build --release --bin {l2,na,tomato}, tests, policy smoke, surface logic (idempotent best-effort).
+- Preserves all prior: narrow/reuse, L2_DATA_DIR everywhere (sudo), evidence, OpenBSD/seL4/caps logic, terse UX, etc.
+- Version bumped to 0.5.8.
+
 ## [0.5.7] - 2026-06 (Full codebase exploit/RAT eval + RAT defense mechanism: spirit --audit --rat + integrated evidence)
 
 - Full static + dynamic evaluation of entire l2 codebase for exploitable issues that could enable or be used by RATs (remote access trojans):

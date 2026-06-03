@@ -1,4 +1,4 @@
-# l2 — High-Assurance Terminal Substrate (v0.5.7)
+# l2 — High-Assurance Terminal Substrate (v0.5.8)
 
 Terminal-first CLI for explicit, strongly-isolated execution contexts with post-quantum (PQC) crypto and North-Star Containment. Built for agentic/MCP/AI and critical infrastructure (seL4 as root of trust).
 
@@ -15,7 +15,7 @@ See the dedicated **[Crypto & Hardening](#crypto--hardening-v040)** section (col
 ```bash
 git clone https://github.com/veilriven-design/l2.git
 cd l2
-git checkout v0.5.7
+git checkout v0.5.8
 cargo install --path . --force
 l2 --help
 ```
@@ -24,7 +24,7 @@ l2 --help
 ```bash
 git clone https://github.com/veilriven-design/l2.git
 cd l2
-git checkout v0.5.7
+git checkout v0.5.8
 cargo build --release
 ./target/release/l2 --help
 # (or add target/release to PATH, or use the install command above)
@@ -167,9 +167,9 @@ git checkout v0.1.0
 | `l2 harden --profile <name> [--apply] ...` | NSA/CISA/FBI-aligned host/container hardening for agentic era (with `--network-isolation`, seccomp gen, systemd units). `--apply` (non-int w/ --fast/--json) makes operational (writes live artifacts + evidence json for `audit --test`). `--json` for automation. Paced output. | 
 | `l2 great-harden [--apply] ...` | Supreme aerospace/industrial 'great-harden' mode: extreme higher-assurance lockdown to make servers impenetrable to malware/worms/viruses. Closes logic gaps, aerospace-grade (kernel lockdown etc). Forces great policy. `--apply` + `--json`/`--fast` for non-int operational + evidence. Paced. | 
 | `l2 crypto --profile <name> [--apply] ...` | Choose/apply verified crypto profile (AES-256-XTS-Argon2id, XChaCha20-Poly1305-Argon2id, hybrid, or quantum/PQC: hybrid-pqc-mlkem-chacha / pqc-mlkem-argon2id using open-source liboqs ML-KEM NIST FIPS 203 for key wrap + strong sym) for system encryption via LUKS/gocryptfs + l2 isolation. Paced output. (v0.4.7+ polished + even further: L2_DATA_DIR/crypto/, json evidence + audit check, --json/--fast, crypto-latest.json; 10-vector redteam onslaught + quantum for NSA verification). Dedicated `docs/examples/l2_crypto_redteam_onslaught.c` + HOWTO for NSA-level red team crypto onslaught verification (KDF/side/exfil/misuse/RNG/hybrid/tamper/supply/l2-state/passphrase/impl + quantum harvest - all North-Star Contained to ws, GRAND SUMMARY, prepare prepare prepare, full 2026 standards + PQC + audit loop). | 
-| `l2 policies` / `l2 policy <name>` | Discover and inspect policy protocols (e.g. `strict-mcp`, `ransom-hardened`). |
+| `l2 policies` / `l2 policy <name>` | Discover and inspect policy protocols (e.g. `strict-mcp`, `ransom-hardened`, `na`, `tomato`). |
 | `l2 audit ...`                   | View/manage tamper-evident authority audit log. |
-| `l2 spirit --audit ...`          | The 'spirit' of l2 safe auditing: `--audit --os` for full-OS malicious code/bad logic scan (entire system); `--audit --file <PATH>` for any source/file (checks safe vs dangerous logic: NEVER syscalls, droppers, l2 attacks, priv esc, TOCTOU from resistance demos); `--audit --rat` for RAT defense (C2/revshell/persist/exfil IOCs + net-isolate/NEVER/revoke posture). Verdict + details, JSON. North-Star / great-harden aligned. Full codebase RAT/exploit eval + defense mechanism added v0.5.7. |
+| `l2 spirit --audit ...`          | The 'spirit' of l2 safe auditing: `--audit --os` for full-OS malicious code/bad logic scan (entire system); `--audit --file <PATH>` for any source/file (checks safe vs dangerous logic: NEVER syscalls, droppers, l2 attacks, priv esc, TOCTOU from resistance demos); `--audit --rat` for RAT defense (C2/revshell/persist/exfil IOCs + net-isolate/NEVER/revoke posture). Verdict + details, JSON. North-Star / great-harden aligned. Full codebase RAT/exploit eval + defense mechanism added v0.5.7. New in v0.5.8: `na` (network-audit/pentest tool) and `tomato` (router network tool, complements na for config+audit on masked surfaces via --policy na / --policy tomato). |
 
 Full surface includes the above + status, revoke, etc. All commands support `--json`. Use `--policy strict-mcp` (or other protocols) for explicit guarantees. JSON output via `--json`.
 
@@ -199,6 +199,8 @@ l2 audit --test  # runs regular automated checks vs. latest security standards (
 l2 spirit --audit --os   # the spirit of OS-wide malicious code & bad logic audit anywhere on the system (suid, temps, droppers, cron, ssh, passwd etc). North-Star aligned.
 l2 spirit --audit --file docs/examples/l2_full_weakness_audit_attack.c  # audit any source/file for safe vs dangerous code logic (NEVER syscalls from sandbox, escape/priv/dropper/TOCTOU patterns from the demos). Reports verdict + findings.
 l2 spirit --audit --rat  # RAT defense: scan for C2/revshell/persistence/exfil IOCs (additive patterns); integrates net-isolate C2 cut + revoke + great least-priv; evidence via audit --test. From full RAT eval.
+l2 create net-test --policy na; l2 put net-test na target/release/na; l2 exec --policy na net-test 'na --help'  # v0.5.8: na network-audit/pentest (Wireshark+aircrack modeled) on masked na0 surface
+l2 create router --policy tomato; l2 put router tomato target/release/tomato; l2 exec --policy tomato router 'tomato --help; tomato na'  # v0.5.8: tomato router tool (Tomato firmware modeled) complements na on wan0/lan0 masked surface; destroy to dispose
 l2 destroy smoke
 echo "Smoke OK"
 # (L2_DATA_DIR overrides are preserved across any sudo escalation in exec/harden/great-harden paths.)

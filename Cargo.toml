@@ -3,7 +3,7 @@ name = "l2"
 version = "0.5.8"
 edition = "2021"
 license = "MIT OR Apache-2.0"
-description = "High-assurance terminal substrate for agentic/MCP/AI systems with PQC crypto, explicit isolation, North-Star Containment, and l2 spirit --audit ( --os for full-OS malicious code/bad logic; --file for safe/dangerous code logic analysis on any source/file)"
+description = "High-assurance terminal substrate for agentic/MCP/AI systems with PQC crypto, explicit isolation, North-Star Containment, l2 spirit --audit ( --os / --file / --rat ), and v0.5.8 network tools: `na` (network-audit/pentest, Wireshark+aircrack modeled) + `tomato` (router network, Tomato firmware modeled; complements na) on masked disposable substrate surfaces via --policy na/tomato"
 repository = "https://github.com/veilriven-design/l2"
 
 [lib]

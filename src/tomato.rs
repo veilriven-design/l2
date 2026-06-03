@@ -38,7 +38,7 @@ use std::process::Command;
 use std::time::Duration;
 use std::thread;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
@@ -161,8 +161,6 @@ enum RouteCmd {
     Add { dest: String, via: String },
     Del { dest: String },
 }
-
-const TOMATO_STATE: &str = "/tmp/tomato-state"; // inside ws, ephemeral
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
